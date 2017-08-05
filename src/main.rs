@@ -99,16 +99,6 @@ fn init_gl(display: &glium::Display, args: &Args) -> Shape {
         }
     ";
 
-    let default_fragment_source = "
-        #version 130
-
-        out vec4 fragColor;
-
-        void main() {
-            fragColor = vec4(0.0, 1.0, 1.0, 1.0);
-        }
-    ";
-
     let text_vertex_source = "
         #version 130
 
@@ -143,7 +133,16 @@ fn init_gl(display: &glium::Display, args: &Args) -> Shape {
     let mut fragment_source = String::new();
     buf_reader.read_to_string(&mut fragment_source).expect("Could not read the fragment shader file");
 
-    let shader_program = glium::Program::from_source(display, default_vertex_source, &fragment_source, None).unwrap();
+    let mut vertex_source = String::new();
+    if !args.vertex.is_empty() {
+        let file = File::open(&args.vertex).expect("File not found");
+        let mut buf_reader = BufReader::new(file);
+        buf_reader.read_to_string(&mut vertex_source).expect("Could not read the vertex shader file");
+    } else {
+        vertex_source = default_vertex_source.to_owned();
+    }
+
+    let shader_program = glium::Program::from_source(display, &vertex_source, &fragment_source, None).unwrap();
 
     let shape = Shape {
         vertex_buffer: vertex_buffer,
