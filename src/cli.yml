@@ -43,6 +43,9 @@ args:
     - maximize:
         long: maximize
         help: Maximize window dimensions
+    - fullscreen:
+        long: fullscreen
+        help: Make window fullscreen
     - vsync:
         long: vsync
         help: Enable vertical sync
