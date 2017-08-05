@@ -1,0 +1,9 @@
+[package]
+name = "yotredash"
+version = "0.1.0"
+authors = ["Ash Levy <ashy.of.ren@gmail.com>"]
+
+[dependencies]
+glium = "0.17.0"
+clap = {version = "2.26.0", features = ["yaml"]}
+time = "0.1.38"

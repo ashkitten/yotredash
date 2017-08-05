@@ -1,0 +1,58 @@
+name: yotredash
+version: 0.1.0
+author: Ash Levy <ashlea@protonmail.com>
+about: Does awesome things
+args:
+    - vertex:
+        short: v
+        long: vertex
+        help: Specify a vertex shader
+        takes_value: true
+    - fragment:
+        short: f
+        long: fragment
+        help: Specify a fragment shader
+        takes_value: true
+        required: true
+    - channel:
+        short: c
+        long: channel
+        help: Add a channel
+        takes_value: true
+        multiple: true
+    - root:
+        long: root
+        help: Display on the root window
+    - override-redirect:
+        long: override-redirect
+        help: Display as an override-redirect window
+    - desktop:
+        long: desktop
+        help: Display as a desktop window
+    - lower-window:
+        long: lower-window
+        help: Lower to the bottom of the window stack
+    - width:
+        long: width
+        help: Set window width
+        takes_value: true
+    - height:
+        long: height
+        help: Set window height
+        takes_value: true
+    - maximize:
+        long: maximize
+        help: Maximize window dimensions
+    - vsync:
+        long: vsync
+        help: Enable vertical sync
+    - fps:
+        long: fps
+        help: Enable FPS counter
+    - font:
+        long: font
+        help: Specify font for FPS counter
+    - verbose:
+        long: verbose
+        help: Sets the level of verbosity
+        takes_value: true
