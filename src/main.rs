@@ -89,6 +89,52 @@ fn parse_args() -> Args {
     }
 }
 
+fn init_override_redirect(display: &glium::Display) {
+    // Use Unix-specific version of Window
+    use glutin::os::unix::WindowExt;
+    // For convenience
+    use glutin::os::unix::x11::ffi::{Display, XID, CWOverrideRedirect, XSetWindowAttributes};
+
+    if display.gl_window().get_xlib_xconnection().is_none() {
+        return;
+    }
+
+    // Get info about our connection, display, and window
+    let x_connection = display.gl_window().get_xlib_xconnection().unwrap();
+    let x_display = display.gl_window().get_xlib_display().unwrap() as *mut Display;
+    let x_window = display.gl_window().get_xlib_window().unwrap() as XID;
+
+    unsafe {
+        // Change the override-redirect attribute
+        (x_connection.xlib.XChangeWindowAttributes)(
+            x_display,
+            x_window,
+            CWOverrideRedirect,
+            &mut XSetWindowAttributes {
+                background_pixmap: 0,
+                background_pixel: 0,
+                border_pixmap: 0,
+                border_pixel: 0,
+                bit_gravity: 0,
+                win_gravity: 0,
+                backing_store: 0,
+                backing_planes: 0,
+                backing_pixel: 0,
+                save_under: 0,
+                event_mask: 0,
+                do_not_propagate_mask: 0,
+                override_redirect: 1,
+                colormap: 0,
+                cursor: 0,
+            }
+        );
+        // Remap the window so the override-redirect attribute can take effect
+        (x_connection.xlib.XUnmapWindow)(x_display, x_window); // Unmap window
+        (x_connection.xlib.XSync)(x_display, 0); // Sync (dunno why this is needed tbh, but it doesn't work without)
+        (x_connection.xlib.XMapWindow)(x_display, x_window); // Remap window
+    }
+}
+
 fn init_display(args: &Args) -> (glutin::EventsLoop, glium::Display) {
     let events_loop = glutin::EventsLoop::new();
     let window_builder = glutin::WindowBuilder::new()
@@ -96,6 +142,13 @@ fn init_display(args: &Args) -> (glutin::EventsLoop, glium::Display) {
 
     let context = glutin::ContextBuilder::new();
     let display = glium::Display::new(window_builder, context, &events_loop).unwrap();
+
+    if args.override_redirect {
+        init_override_redirect(&display);
+
+        // After remapping the window we need to set the size again
+        display.gl_window().set_inner_size(args.width, args.height);
+    }
 
     return (events_loop, display);
 }
