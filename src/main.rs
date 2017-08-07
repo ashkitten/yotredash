@@ -250,10 +250,10 @@ fn render(display: &glium::Display, shape: &Shape, textures: &Vec<glium::texture
     let window_size = display.gl_window().get_inner_size_pixels().unwrap();
 
     let mut uniforms = UniformsStorageVec::new();
-    uniforms.push("iResolution", (window_size.0 as f32, window_size.1 as f32));
-    uniforms.push("iTime", (((time::now() - *start_time).num_microseconds().unwrap() as f64) / 1000000.0 % 4096.0) as f32);
+    uniforms.push("resolution", (window_size.0 as f32, window_size.1 as f32));
+    uniforms.push("time", (((time::now() - *start_time).num_microseconds().unwrap() as f64) / 1000000.0 % 4096.0) as f32);
     for (i, texture) in textures.iter().enumerate() {
-        uniforms.push(format!("iChannel{}", i), texture);
+        uniforms.push(format!("texture{}", i), texture);
     }
 
     target.draw(&shape.vertex_buffer, &shape.index_buffer, &shape.shader_program, &uniforms, &Default::default()).unwrap();
