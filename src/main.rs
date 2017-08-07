@@ -67,6 +67,7 @@ impl<'name,'uniform> Uniforms for UniformsStorageVec<'name,'uniform> {
 
 fn parse_args() -> Args {
     // The YAML file is found relative to the current file, similar to how modules are found
+    // TODO: load different files based on detected features
     let yaml = load_yaml!("cli.yml");
     let matches = clap::App::from_yaml(yaml).get_matches();
 
@@ -89,15 +90,11 @@ fn parse_args() -> Args {
     }
 }
 
-fn init_override_redirect(display: &glium::Display) {
+fn override_redirect(display: &glium::Display) {
     // Use Unix-specific version of Window
     use glutin::os::unix::WindowExt;
     // For convenience
     use glutin::os::unix::x11::ffi::{Display, XID, CWOverrideRedirect, XSetWindowAttributes};
-
-    if display.gl_window().get_xlib_xconnection().is_none() {
-        return;
-    }
 
     // Get info about our connection, display, and window
     let x_connection = display.gl_window().get_xlib_xconnection().unwrap();
@@ -135,6 +132,21 @@ fn init_override_redirect(display: &glium::Display) {
     }
 }
 
+fn lower_window(display: &glium::Display) {
+    use glutin::os::unix::WindowExt;
+    // For convenience
+    use glutin::os::unix::x11::ffi::{Display, XID};
+
+    // Get info about our connection, display, and window
+    let x_connection = display.gl_window().get_xlib_xconnection().unwrap();
+    let x_display = display.gl_window().get_xlib_display().unwrap() as *mut Display;
+    let x_window = display.gl_window().get_xlib_window().unwrap() as XID;
+
+    unsafe {
+        (x_connection.xlib.XLowerWindow)(x_display, x_window);
+    }
+}
+
 fn init_display(args: &Args) -> (glutin::EventsLoop, glium::Display) {
     let events_loop = glutin::EventsLoop::new();
     let window_builder = glutin::WindowBuilder::new()
@@ -144,10 +156,14 @@ fn init_display(args: &Args) -> (glutin::EventsLoop, glium::Display) {
     let display = glium::Display::new(window_builder, context, &events_loop).unwrap();
 
     if args.override_redirect {
-        init_override_redirect(&display);
+        override_redirect(&display);
 
         // After remapping the window we need to set the size again
         display.gl_window().set_inner_size(args.width, args.height);
+    }
+
+    if args.lower_window {
+        lower_window(&display);
     }
 
     return (events_loop, display);
