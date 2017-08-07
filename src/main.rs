@@ -184,6 +184,7 @@ fn main() {
             match event {
                 glutin::Event::WindowEvent { event, .. } => match event {
                     glutin::WindowEvent::Closed => closed = true,
+                    glutin::WindowEvent::KeyboardInput { input: glutin::KeyboardInput { virtual_keycode: Some(glutin::VirtualKeyCode::Escape), .. }, .. } => closed = true,
                     _ => ()
                 },
                 _ => (),
