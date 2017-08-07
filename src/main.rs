@@ -133,6 +133,7 @@ fn override_redirect(display: &glium::Display) {
 }
 
 fn lower_window(display: &glium::Display) {
+    // Use Unix-specific version of Window
     use glutin::os::unix::WindowExt;
     // For convenience
     use glutin::os::unix::x11::ffi::{Display, XID};
@@ -144,6 +145,25 @@ fn lower_window(display: &glium::Display) {
 
     unsafe {
         (x_connection.xlib.XLowerWindow)(x_display, x_window);
+    }
+}
+
+fn desktop_window(display: &glium::Display) {
+    // Use Unix-specific version of Window
+    use glutin::os::unix::WindowExt;
+    // For convenience
+    use glutin::os::unix::x11::ffi::{Display, XID, Atom, XA_ATOM, PropModeReplace};
+    use std::ffi::CString;
+
+    // Get info about our connection, display, and window
+    let x_connection = display.gl_window().get_xlib_xconnection().unwrap();
+    let x_display = display.gl_window().get_xlib_display().unwrap() as *mut Display;
+    let x_window = display.gl_window().get_xlib_window().unwrap() as XID;
+
+    unsafe {
+        let window_type = (x_connection.xlib.XInternAtom)(x_display, CString::new("_NET_WM_WINDOW_TYPE").unwrap().as_ptr(), 0);
+        let window_type_desktop = (x_connection.xlib.XInternAtom)(x_display, CString::new("_NET_WM_WINDOW_TYPE_DESKTOP").unwrap().as_ptr(), 0);
+        (x_connection.xlib.XChangeProperty)(x_display, x_window, window_type, XA_ATOM, 32, PropModeReplace, &window_type_desktop as *const u64 as *const u8, 1);
     }
 }
 
@@ -164,6 +184,10 @@ fn init_display(args: &Args) -> (glutin::EventsLoop, glium::Display) {
 
     if args.lower_window {
         lower_window(&display);
+    }
+
+    if args.desktop {
+        desktop_window(&display);
     }
 
     return (events_loop, display);
