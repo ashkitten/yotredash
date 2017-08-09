@@ -152,7 +152,7 @@ fn desktop_window(display: &glium::Display) {
     // Use Unix-specific version of Window
     use glutin::os::unix::WindowExt;
     // For convenience
-    use glutin::os::unix::x11::ffi::{Display, XID, Atom, XA_ATOM, PropModeReplace};
+    use glutin::os::unix::x11::ffi::{Display, XID, XA_ATOM, PropModeReplace};
     use std::ffi::CString;
 
     // Get info about our connection, display, and window
@@ -210,21 +210,52 @@ fn init_gl(display: &glium::Display, args: &Args) -> (Shape, Vec<glium::texture:
     let vertex_buffer = glium::VertexBuffer::new(display, &triangles).unwrap();
     let index_buffer = glium::index::NoIndices(glium::index::PrimitiveType::TrianglesList);
 
-    let file = File::open(&args.fragment).expect("File not found");
+    let file = match File::open(&args.fragment) {
+        Ok(file) => file,
+        Err(error) => {
+            eprintln!("Could not open fragment shader file: {}", error);
+            std::process::exit(1);
+        },
+    };
     let mut buf_reader = BufReader::new(file);
     let mut fragment_source = String::new();
-    buf_reader.read_to_string(&mut fragment_source).expect("Could not read the fragment shader file");
+    match buf_reader.read_to_string(&mut fragment_source) {
+        Ok(file) => println!("Using fragment shader: {}", args.fragment),
+        Err(error) => {
+            eprintln!("Could not read fragment shader file: {}", error);
+            std::process::exit(1);
+        },
+    };
 
     let mut vertex_source = String::new();
     if !args.vertex.is_empty() {
-        let file = File::open(&args.vertex).expect("File not found");
+        let file = match File::open(&args.vertex) {
+            Ok(file) => file,
+            Err(error) => {
+                eprintln!("Could not open vertex shader file: {}", error);
+                std::process::exit(1);
+            },
+        };
         let mut buf_reader = BufReader::new(file);
-        buf_reader.read_to_string(&mut vertex_source).expect("Could not read the vertex shader file");
+        match buf_reader.read_to_string(&mut vertex_source) {
+            Ok(file) => println!("Using vertex shader: {}", args.vertex),
+            Err(error) => {
+                eprintln!("Could not read vertex shader file: {}", error);
+                std::process::exit(1);
+            },
+        };
     } else {
         vertex_source = include_str!("default.vert").to_owned();
     }
 
-    let shader_program = glium::Program::from_source(display, &vertex_source, &fragment_source, None).unwrap();
+    let shader_program = glium::Program::from_source(display, &vertex_source, &fragment_source, None);
+    let shader_program = match shader_program {
+        Ok(program) => program,
+        Err(error) => {
+            eprintln!("{}", error);
+            std::process::exit(1);
+        },
+    };
 
     let textures = args.channels.iter().map(|path: &String| {
         let image = image::open(&Path::new(&path)).unwrap();
