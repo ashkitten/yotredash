@@ -12,7 +12,9 @@ impl DisplayExt for glium::Display {
         let window_builder = glutin::WindowBuilder::new()
             .with_dimensions(args.width, args.height);
 
-        let context = glutin::ContextBuilder::new();
+        let context = glutin::ContextBuilder::new()
+            .with_vsync(args.vsync);
+
         let display = glium::Display::new(window_builder, context, &events_loop).unwrap();
 
         return display;
