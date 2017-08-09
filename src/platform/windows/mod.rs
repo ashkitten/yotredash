@@ -1,3 +1,3 @@
-#![cfg(any(target_os = "windows"))]
+#![cfg(windows)]
 
 pub mod display;

@@ -5,6 +5,6 @@ authors = ["Ash Levy <ashy.of.ren@gmail.com>"]
 
 [dependencies]
 glium = "0.17.0"
-clap = {version = "2.26.0", features = ["yaml"]}
+clap = "2.26.0"
 time = "0.1.38"
 image = "0.15.0"

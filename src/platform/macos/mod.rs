@@ -1,3 +1,3 @@
-#![cfg(any(target_os = "macos"))]
+#![cfg(macos)]
 
 pub mod display;
