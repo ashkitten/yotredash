@@ -61,26 +61,16 @@ pub fn parse_args<'a>() -> ArgMatches<'a> {
                 .long("vsync")
                 .help("Enable vertical sync"),
         )
-        .arg(
-            Arg::with_name("fps")
-                .long("fps")
-                .help("Enable FPS counter"),
-        )
+        .arg(Arg::with_name("fps").long("fps").help("Enable FPS counter"))
         .arg(
             Arg::with_name("font")
                 .long("font")
                 .help("Specify font for FPS counter")
                 .takes_value(true),
         )
-        .arg(
-            Arg::with_name("verbose")
-                .long("verbose")
-                .help("Sets the log level to verbose"),
-        )
-        .arg(
-            Arg::with_name("quiet")
-                .long("quiet")
-                .help("Sets the log level to quiet"),
+        .after_help(
+            "This program uses `env_logger` as its logging backend.\n\
+             See http://rust-lang-nursery.github.io/log/env_logger/ for more information.",
         );
 
     let app = if cfg!(windows) {

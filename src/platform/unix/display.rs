@@ -2,11 +2,12 @@ extern crate glium;
 
 // Glium
 
-use glium::{glutin, Surface};
-use glutin::{ContextBuilder, EventsLoop, WindowBuilder};
+use glium::glutin;
+use glutin::EventsLoop;
 use glutin::os::unix::WindowExt;
 use glutin::os::unix::x11::XConnection;
-use glutin::os::unix::x11::ffi::{CWOverrideRedirect, Display, PropModeReplace, XSetWindowAttributes, XA_ATOM, XID};
+use glutin::os::unix::x11::ffi::{CWOverrideRedirect, Display, PropModeReplace,
+                                 XSetWindowAttributes, XA_ATOM, XID};
 
 // Clap
 
@@ -16,12 +17,18 @@ use clap::ArgMatches;
 
 use std::sync::Arc;
 
+pub struct XContainer {
+    connection: Arc<XConnection>,
+    display: *mut Display,
+    window: XID,
+}
+
 pub trait DisplayExt {
     fn init(events_loop: &glutin::EventsLoop, args: &ArgMatches) -> Self;
-    fn override_redirect(&self, x_connection: &Arc<XConnection>, x_display: *mut Display, x_window: XID);
-    fn lower_window(&self, x_connection: &Arc<XConnection>, x_display: *mut Display, x_window: XID);
-    fn desktop_window(&self, x_connection: &Arc<XConnection>, x_display: *mut Display, x_window: XID);
-    fn remap_window(&self, x_connection: &Arc<XConnection>, x_display: *mut Display, x_window: XID);
+    fn override_redirect(&self, x: &XContainer);
+    fn lower_window(&self, x: &XContainer);
+    fn desktop_window(&self, x: &XContainer);
+    fn remap_window(&self, x: &XContainer);
 }
 
 impl DisplayExt for glium::Display {
@@ -42,37 +49,39 @@ impl DisplayExt for glium::Display {
         let display = glium::Display::new(window_builder, context, &events_loop).unwrap();
 
         // Get info about our connection, display, and window
-        let x_connection = display.gl_window().get_xlib_xconnection().unwrap();
-        let x_display = display.gl_window().get_xlib_display().unwrap() as *mut Display;
-        let x_window = display.gl_window().get_xlib_window().unwrap() as XID;
+        let x = XContainer {
+            connection: display.gl_window().get_xlib_xconnection().unwrap(),
+            display: display.gl_window().get_xlib_display().unwrap() as *mut Display,
+            window: display.gl_window().get_xlib_window().unwrap() as XID,
+        };
 
         if args.is_present("override-redirect") {
             // Set override-redirect attribute
-            display.override_redirect(&x_connection, x_display, x_window);
+            display.override_redirect(&x);
             // After we set the override-redirect attribute, we need to remap the window for it to
             // take effect
-            display.remap_window(&x_connection, x_display, x_window);
+            display.remap_window(&x);
             // After remapping the window we need to set the size again
             display.gl_window().set_inner_size(width, height);
         }
 
         if args.is_present("lower-window") {
-            display.lower_window(&x_connection, x_display, x_window);
+            display.lower_window(&x);
         }
 
         if args.is_present("desktop") {
-            display.desktop_window(&x_connection, x_display, x_window);
+            display.desktop_window(&x);
         }
 
         return display;
     }
 
-    fn override_redirect(&self, x_connection: &Arc<XConnection>, x_display: *mut Display, x_window: XID) {
+    fn override_redirect(&self, x: &XContainer) {
         unsafe {
             // Change the override-redirect attribute
-            (x_connection.xlib.XChangeWindowAttributes)(
-                x_display,
-                x_window,
+            (x.connection.xlib.XChangeWindowAttributes)(
+                x.display,
+                x.window,
                 CWOverrideRedirect,
                 &mut XSetWindowAttributes {
                     background_pixmap: 0,
@@ -95,23 +104,24 @@ impl DisplayExt for glium::Display {
         }
     }
 
-    fn lower_window(&self, x_connection: &Arc<XConnection>, x_display: *mut Display, x_window: XID) {
+    fn lower_window(&self, x: &XContainer) {
         unsafe {
-            (x_connection.xlib.XLowerWindow)(x_display, x_window);
+            (x.connection.xlib.XLowerWindow)(x.display, x.window);
         }
     }
 
-    fn desktop_window(&self, x_connection: &Arc<XConnection>, x_display: *mut Display, x_window: XID) {
+    fn desktop_window(&self, x: &XContainer) {
         let window_type_str = b"_NET_WM_WINDOW_TYPE\0".as_ptr();
         let window_type_desktop_str = b"_NET_WM_WINDOW_TYPE_DESKTOP\0".as_ptr();
 
         unsafe {
-            let window_type = (x_connection.xlib.XInternAtom)(x_display, window_type_str as *const i8, 0);
+            let window_type =
+                (x.connection.xlib.XInternAtom)(x.display, window_type_str as *const i8, 0);
             let window_type_desktop =
-                (x_connection.xlib.XInternAtom)(x_display, window_type_desktop_str as *const i8, 0);
-            (x_connection.xlib.XChangeProperty)(
-                x_display,
-                x_window,
+                (x.connection.xlib.XInternAtom)(x.display, window_type_desktop_str as *const i8, 0);
+            (x.connection.xlib.XChangeProperty)(
+                x.display,
+                x.window,
                 window_type,
                 XA_ATOM,
                 32,
@@ -122,15 +132,15 @@ impl DisplayExt for glium::Display {
         }
     }
 
-    fn remap_window(&self, x_connection: &Arc<XConnection>, x_display: *mut Display, x_window: XID) {
+    fn remap_window(&self, x: &XContainer) {
         unsafe {
             // Remap the window so the override-redirect attribute can take effect
             // Unmap window
-            (x_connection.xlib.XUnmapWindow)(x_display, x_window);
+            (x.connection.xlib.XUnmapWindow)(x.display, x.window);
             // Sync (dunno why this is needed tbh, but it doesn't work without)
-            (x_connection.xlib.XSync)(x_display, 0);
+            (x.connection.xlib.XSync)(x.display, 0);
             // Remap window
-            (x_connection.xlib.XMapWindow)(x_display, x_window);
+            (x.connection.xlib.XMapWindow)(x.display, x.window);
         }
     }
 }
