@@ -1,4 +1,4 @@
-#version 130
+#version 140
 
 out vec4 color;
 
