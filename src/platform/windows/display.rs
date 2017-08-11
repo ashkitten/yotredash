@@ -29,8 +29,8 @@ impl DisplayExt for glium::Display {
 
         let context = glutin::ContextBuilder::new().with_vsync(args.is_present("vsync"));
 
-        let display = glium::Display::new(window_builder, context, &events_loop).unwrap();
+        let display = glium::Display::new(window_builder, context, events_loop).unwrap();
 
-        return display;
+        display
     }
 }

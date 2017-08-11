@@ -103,5 +103,5 @@ pub fn parse_args<'a>() -> ArgMatches<'a> {
         app
     };
 
-    return app.get_matches();
+    app.get_matches()
 }

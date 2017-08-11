@@ -47,7 +47,7 @@ impl DisplayExt for glium::Display {
 
         let context = glutin::ContextBuilder::new().with_vsync(args.is_present("vsync"));
 
-        let display = glium::Display::new(window_builder, context, &events_loop).unwrap();
+        let display = glium::Display::new(window_builder, context, events_loop).unwrap();
 
         // Get info about our connection, display, and window
         let x = XContainer {
@@ -74,7 +74,7 @@ impl DisplayExt for glium::Display {
             display.desktop_window(&x);
         }
 
-        return display;
+        display
     }
 
     fn override_redirect(&self, x: &XContainer) {

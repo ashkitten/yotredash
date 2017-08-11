@@ -1,14 +1,15 @@
-extern crate clap;
 #[macro_use]
 extern crate glium;
 #[macro_use]
 extern crate log;
+extern crate clap;
 extern crate env_logger;
-extern crate time;
 extern crate image;
+extern crate signal;
+extern crate time;
 
-mod platform;
 mod args;
+mod platform;
 
 // Glium
 
@@ -18,6 +19,11 @@ use glium::uniforms::{AsUniformValue, UniformValue, Uniforms};
 // Clap
 
 use clap::ArgMatches;
+
+// Signal
+
+use signal::Signal;
+use signal::trap::Trap;
 
 // Std
 
@@ -131,13 +137,13 @@ fn init_gl(display: &glium::Display, args: &ArgMatches) -> (Shape, Vec<glium::te
     };
 
     let textures = args.values_of("texture")
-        .unwrap_or(clap::Values::default())
+        .unwrap_or_default()
         .map(|path: &str| {
             let image = image::open(&Path::new(&path)).unwrap();
             let image = image.as_rgba8().unwrap().clone();
             let image_dimensions = image.dimensions();
             let image = glium::texture::RawImage2d::from_raw_rgba_reversed(&image.into_raw(), image_dimensions);
-            return glium::texture::Texture2d::new(display, image).unwrap();
+            glium::texture::Texture2d::new(display, image).unwrap()
         })
         .collect();
 
@@ -147,10 +153,10 @@ fn init_gl(display: &glium::Display, args: &ArgMatches) -> (Shape, Vec<glium::te
         shader_program: shader_program,
     };
 
-    return (shape, textures);
+    (shape, textures)
 }
 
-fn render(display: &glium::Display, shape: &Shape, textures: &Vec<glium::texture::Texture2d>, start_time: &time::Tm) {
+fn render(display: &glium::Display, shape: &Shape, textures: &[glium::texture::Texture2d], start_time: &time::Tm) {
     let mut target = display.draw();
     target.clear_color(0.0, 0.0, 0.0, 1.0);
 
@@ -175,6 +181,9 @@ fn main() {
     // Let's just tuck that away so we never have to see it again
     let _ = env_logger::init();
 
+    // Register signal handler
+    let trap = Trap::trap(&[Signal::SIGUSR1, Signal::SIGUSR2]);
+
     let args = args::parse_args();
     let mut events_loop = glutin::EventsLoop::new();
     let display = DisplayExt::init(&events_loop, &args);
@@ -183,8 +192,24 @@ fn main() {
     let start_time = time::now();
 
     let mut closed = false;
+    let mut paused = false;
     while !closed {
-        render(&display, &shape, &textures, &start_time);
+        if !paused {
+            render(&display, &shape, &textures, &start_time);
+        } else {
+            // Tuck this value away too
+            let _ = display.swap_buffers();
+        }
+
+        // Catch signals between draw calls
+        let signal = trap.wait(std::time::Instant::now());
+        if signal.is_some() {
+            match signal.unwrap() {
+                Signal::SIGUSR1 => paused = true,
+                Signal::SIGUSR2 => paused = false,
+                _ => (),
+            }
+        }
 
         events_loop.poll_events(|event| match event {
             glutin::Event::WindowEvent { event, .. } => match event {
