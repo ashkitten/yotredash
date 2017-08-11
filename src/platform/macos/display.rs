@@ -14,16 +14,18 @@ pub trait DisplayExt {
 
 impl DisplayExt for glium::Display {
     fn init(events_loop: &glutin::EventsLoop, args: &Args) -> Self {
-        let window_builder = glutin::WindowBuilder::new().with_dimensions(
-            args.value_of("width")
-                .unwrap_or("640")
-                .parse::<u32>()
-                .unwrap(),
-            args.value_of("height")
-                .unwrap_or("400")
-                .parse::<u32>()
-                .unwrap(),
-        );
+        let window_builder = glutin::WindowBuilder::new()
+            .with_dimensions(
+                args.value_of("width")
+                    .unwrap_or("640")
+                    .parse::<u32>()
+                    .unwrap(),
+                args.value_of("height")
+                    .unwrap_or("400")
+                    .parse::<u32>()
+                    .unwrap(),
+            )
+            .with_title("yotredash");
 
         let context = glutin::ContextBuilder::new().with_vsync(args.is_present("vsync"));
 

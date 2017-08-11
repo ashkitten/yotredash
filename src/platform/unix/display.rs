@@ -41,7 +41,9 @@ impl DisplayExt for glium::Display {
             .parse::<u32>()
             .unwrap();
 
-        let window_builder = glutin::WindowBuilder::new().with_dimensions(width, height);
+        let window_builder = glutin::WindowBuilder::new()
+            .with_dimensions(width, height)
+            .with_title("yotredash");
 
         let context = glutin::ContextBuilder::new().with_vsync(args.is_present("vsync"));
 
