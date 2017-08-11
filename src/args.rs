@@ -25,10 +25,10 @@ pub fn parse_args<'a>() -> ArgMatches<'a> {
                 .required(true),
         )
         .arg(
-            Arg::with_name("channel")
-                .short("c")
-                .long("channel")
-                .help("Add a channel")
+            Arg::with_name("texture")
+                .short("t")
+                .long("texture")
+                .help("Add a texture")
                 .takes_value(true)
                 .multiple(true),
         )

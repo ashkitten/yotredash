@@ -130,7 +130,7 @@ fn init_gl(display: &glium::Display, args: &ArgMatches) -> (Shape, Vec<glium::te
         }
     };
 
-    let textures = args.values_of("channels")
+    let textures = args.values_of("texture")
         .unwrap_or(clap::Values::default())
         .map(|path: &str| {
             let image = image::open(&Path::new(&path)).unwrap();
