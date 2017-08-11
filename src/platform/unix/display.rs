@@ -6,8 +6,7 @@ use glium::glutin;
 use glutin::EventsLoop;
 use glutin::os::unix::WindowExt;
 use glutin::os::unix::x11::XConnection;
-use glutin::os::unix::x11::ffi::{CWOverrideRedirect, Display, PropModeReplace,
-                                 XSetWindowAttributes, XA_ATOM, XID};
+use glutin::os::unix::x11::ffi::{CWOverrideRedirect, Display, PropModeReplace, XSetWindowAttributes, XA_ATOM, XID};
 
 // Clap
 
@@ -115,8 +114,7 @@ impl DisplayExt for glium::Display {
         let window_type_desktop_str = b"_NET_WM_WINDOW_TYPE_DESKTOP\0".as_ptr();
 
         unsafe {
-            let window_type =
-                (x.connection.xlib.XInternAtom)(x.display, window_type_str as *const i8, 0);
+            let window_type = (x.connection.xlib.XInternAtom)(x.display, window_type_str as *const i8, 0);
             let window_type_desktop =
                 (x.connection.xlib.XInternAtom)(x.display, window_type_desktop_str as *const i8, 0);
             (x.connection.xlib.XChangeProperty)(

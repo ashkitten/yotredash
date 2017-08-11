@@ -42,9 +42,7 @@ struct Shape {
     shader_program: glium::Program,
 }
 
-struct UniformsStorageVec<'name, 'uniform>(
-    Vec<(Cow<'name, str>, Box<AsUniformValue + 'uniform>)>,
-);
+struct UniformsStorageVec<'name, 'uniform>(Vec<(Cow<'name, str>, Box<AsUniformValue + 'uniform>)>);
 
 impl<'name, 'uniform> UniformsStorageVec<'name, 'uniform> {
     pub fn new() -> Self {
@@ -72,27 +70,18 @@ impl<'name, 'uniform> Uniforms for UniformsStorageVec<'name, 'uniform> {
 fn init_gl(display: &glium::Display, args: &ArgMatches) -> (Shape, Vec<glium::texture::Texture2d>) {
     implement_vertex!(Vertex, position);
 
+    #[cfg_attr(rustfmt, rustfmt_skip)]
     let vertices = [
-        Vertex {
-            position: [-1.0, -1.0],
-        },
-        Vertex {
-            position: [1.0, -1.0],
-        },
-        Vertex {
-            position: [1.0, 1.0],
-        },
-        Vertex {
-            position: [-1.0, 1.0],
-        },
+        Vertex { position: [-1.0, -1.0] },
+        Vertex { position: [ 1.0, -1.0] },
+        Vertex { position: [ 1.0,  1.0] },
+        Vertex { position: [-1.0,  1.0] },
     ];
+
+    #[cfg_attr(rustfmt, rustfmt_skip)]
     let triangles = vec![
-        vertices[0],
-        vertices[1],
-        vertices[2],
-        vertices[0],
-        vertices[2],
-        vertices[3],
+        vertices[0], vertices[1], vertices[2],
+        vertices[0], vertices[2], vertices[3],
     ];
 
     let vertex_buffer = glium::VertexBuffer::new(display, &triangles).unwrap();
@@ -108,10 +97,7 @@ fn init_gl(display: &glium::Display, args: &ArgMatches) -> (Shape, Vec<glium::te
     let mut buf_reader = BufReader::new(file);
     let mut fragment_source = String::new();
     match buf_reader.read_to_string(&mut fragment_source) {
-        Ok(_) => println!(
-            "Using fragment shader: {}",
-            args.value_of("fragment").unwrap()
-        ),
+        Ok(_) => println!("Using fragment shader: {}", args.value_of("fragment").unwrap()),
         Err(error) => {
             error!("Could not read fragment shader file: {}", error);
             std::process::exit(1);
@@ -135,8 +121,7 @@ fn init_gl(display: &glium::Display, args: &ArgMatches) -> (Shape, Vec<glium::te
         }
     };
 
-    let shader_program =
-        glium::Program::from_source(display, &vertex_source, &fragment_source, None);
+    let shader_program = glium::Program::from_source(display, &vertex_source, &fragment_source, None);
     let shader_program = match shader_program {
         Ok(program) => program,
         Err(error) => {
@@ -151,10 +136,7 @@ fn init_gl(display: &glium::Display, args: &ArgMatches) -> (Shape, Vec<glium::te
             let image = image::open(&Path::new(&path)).unwrap();
             let image = image.as_rgba8().unwrap().clone();
             let image_dimensions = image.dimensions();
-            let image = glium::texture::RawImage2d::from_raw_rgba_reversed(
-                &image.into_raw(),
-                image_dimensions,
-            );
+            let image = glium::texture::RawImage2d::from_raw_rgba_reversed(&image.into_raw(), image_dimensions);
             return glium::texture::Texture2d::new(display, image).unwrap();
         })
         .collect();
@@ -168,10 +150,7 @@ fn init_gl(display: &glium::Display, args: &ArgMatches) -> (Shape, Vec<glium::te
     return (shape, textures);
 }
 
-fn render(
-    display: &glium::Display, shape: &Shape, textures: &Vec<glium::texture::Texture2d>,
-    start_time: &time::Tm,
-) {
+fn render(display: &glium::Display, shape: &Shape, textures: &Vec<glium::texture::Texture2d>, start_time: &time::Tm) {
     let mut target = display.draw();
     target.clear_color(0.0, 0.0, 0.0, 1.0);
 
@@ -179,23 +158,14 @@ fn render(
 
     let mut uniforms = UniformsStorageVec::new();
     uniforms.push("resolution", (window_size.0 as f32, window_size.1 as f32));
-    uniforms.push(
-        "time",
-        (((time::now() - *start_time).num_microseconds().unwrap() as f64) / 1000_000.0 %
-            4096.0) as f32,
-    );
+    uniforms
+        .push("time", (((time::now() - *start_time).num_microseconds().unwrap() as f64) / 1000_000.0 % 4096.0) as f32);
     for (i, texture) in textures.iter().enumerate() {
         uniforms.push(format!("texture{}", i), texture);
     }
 
     target
-        .draw(
-            &shape.vertex_buffer,
-            &shape.index_buffer,
-            &shape.shader_program,
-            &uniforms,
-            &Default::default(),
-        )
+        .draw(&shape.vertex_buffer, &shape.index_buffer, &shape.shader_program, &uniforms, &Default::default())
         .unwrap();
     target.finish().unwrap();
 }
