@@ -42,10 +42,11 @@ struct Vertex {
     position: [f32; 2],
 }
 
-struct Shape {
+struct Quad {
     vertex_buffer: glium::VertexBuffer<Vertex>,
     index_buffer: glium::index::NoIndices,
     shader_program: glium::Program,
+    textures: Vec<glium::texture::Texture2d>,
 }
 
 struct UniformsStorageVec<'name, 'uniform>(Vec<(Cow<'name, str>, Box<AsUniformValue + 'uniform>)>);
@@ -73,7 +74,7 @@ impl<'name, 'uniform> Uniforms for UniformsStorageVec<'name, 'uniform> {
     }
 }
 
-fn init_gl(display: &glium::Display, args: &ArgMatches) -> (Shape, Vec<glium::texture::Texture2d>) {
+fn init_gl(display: &glium::Display, args: &ArgMatches) -> Quad {
     implement_vertex!(Vertex, position);
 
     #[cfg_attr(rustfmt, rustfmt_skip)]
@@ -103,7 +104,7 @@ fn init_gl(display: &glium::Display, args: &ArgMatches) -> (Shape, Vec<glium::te
     let mut buf_reader = BufReader::new(file);
     let mut fragment_source = String::new();
     match buf_reader.read_to_string(&mut fragment_source) {
-        Ok(_) => println!("Using fragment shader: {}", args.value_of("fragment").unwrap()),
+        Ok(_) => info!("Using fragment shader: {}", args.value_of("fragment").unwrap()),
         Err(error) => {
             error!("Could not read fragment shader file: {}", error);
             std::process::exit(1);
@@ -120,7 +121,7 @@ fn init_gl(display: &glium::Display, args: &ArgMatches) -> (Shape, Vec<glium::te
     let mut buf_reader = BufReader::new(file);
     let mut vertex_source = String::new();
     match buf_reader.read_to_string(&mut vertex_source) {
-        Ok(_) => println!("Using vertex shader: {}", args.value_of("vertex").unwrap()),
+        Ok(_) => info!("Using vertex shader: {}", args.value_of("vertex").unwrap()),
         Err(error) => {
             error!("Could not read vertex shader file: {}", error);
             std::process::exit(1);
@@ -147,16 +148,15 @@ fn init_gl(display: &glium::Display, args: &ArgMatches) -> (Shape, Vec<glium::te
         })
         .collect();
 
-    let shape = Shape {
+    return Quad {
         vertex_buffer: vertex_buffer,
         index_buffer: index_buffer,
         shader_program: shader_program,
+        textures: textures,
     };
-
-    (shape, textures)
 }
 
-fn render(display: &glium::Display, shape: &Shape, textures: &[glium::texture::Texture2d], start_time: &time::Tm) {
+fn render(display: &glium::Display, quad: &Quad, start_time: &time::Tm) {
     let mut target = display.draw();
     target.clear_color(0.0, 0.0, 0.0, 1.0);
 
@@ -166,12 +166,12 @@ fn render(display: &glium::Display, shape: &Shape, textures: &[glium::texture::T
     uniforms.push("resolution", (window_size.0 as f32, window_size.1 as f32));
     uniforms
         .push("time", (((time::now() - *start_time).num_microseconds().unwrap() as f64) / 1000_000.0 % 4096.0) as f32);
-    for (i, texture) in textures.iter().enumerate() {
+    for (i, texture) in quad.textures.iter().enumerate() {
         uniforms.push(format!("texture{}", i), texture);
     }
 
     target
-        .draw(&shape.vertex_buffer, &shape.index_buffer, &shape.shader_program, &uniforms, &Default::default())
+        .draw(&quad.vertex_buffer, &quad.index_buffer, &quad.shader_program, &uniforms, &Default::default())
         .unwrap();
     target.finish().unwrap();
 }
@@ -182,20 +182,19 @@ fn main() {
     let _ = env_logger::init();
 
     // Register signal handler
-    let trap = Trap::trap(&[Signal::SIGUSR1, Signal::SIGUSR2]);
+    let trap = Trap::trap(&[Signal::SIGUSR1, Signal::SIGUSR2, Signal::SIGHUP]);
 
     let args = args::parse_args();
     let mut events_loop = glutin::EventsLoop::new();
     let display = DisplayExt::init(&events_loop, &args);
-    let (shape, textures) = init_gl(&display, &args);
-
-    let start_time = time::now();
+    let mut quad = init_gl(&display, &args); // Make it mutable so we can reassign it later
+    let mut start_time = time::now();
 
     let mut closed = false;
     let mut paused = false;
     while !closed {
         if !paused {
-            render(&display, &shape, &textures, &start_time);
+            render(&display, &quad, &start_time);
         } else {
             // Tuck this value away too
             let _ = display.swap_buffers();
@@ -207,6 +206,11 @@ fn main() {
             match signal.unwrap() {
                 Signal::SIGUSR1 => paused = true,
                 Signal::SIGUSR2 => paused = false,
+                Signal::SIGHUP => {
+                    info!("Restarting!");
+                    quad = init_gl(&display, &args);
+                    start_time = time::now();
+                }
                 _ => (),
             }
         }
