@@ -68,10 +68,11 @@ pub fn parse_args<'a>() -> ArgMatches<'a> {
                 .help("Specify font for FPS counter")
                 .takes_value(true),
         )
-        .after_help(
-            "This program uses `env_logger` as its logging backend.\n\
-             See http://rust-lang-nursery.github.io/log/env_logger/ for more information.",
-        );
+        .after_help("\
+            This program uses `env_logger` as its logging backend.\n\
+            Common usage: `RUST_LOG=yotredash=info yotredash`\n\
+            See http://rust-lang-nursery.github.io/log/env_logger/ for more information.\
+        ");
 
     let app = if cfg!(windows) {
         app
