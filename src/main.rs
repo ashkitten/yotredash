@@ -140,8 +140,7 @@ fn init_gl(display: &glium::Display, args: &ArgMatches) -> Quad {
     let textures = args.values_of("texture")
         .unwrap_or_default()
         .map(|path: &str| {
-            let image = image::open(&Path::new(&path)).unwrap();
-            let image = image.as_rgba8().unwrap().clone();
+            let image = image::open(&Path::new(&path)).unwrap().to_rgba();
             let image_dimensions = image.dimensions();
             let image = glium::texture::RawImage2d::from_raw_rgba_reversed(&image.into_raw(), image_dimensions);
             glium::texture::Texture2d::new(display, image).unwrap()
