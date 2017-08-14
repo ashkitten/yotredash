@@ -10,4 +10,6 @@ time = "0.1.38"
 image = "0.15.0"
 log = "0.3.8"
 env_logger = "0.4.3"
+
+[target.'cfg(unix)'.dependencies]
 signal = "0.4.0"

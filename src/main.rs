@@ -5,6 +5,7 @@ extern crate log;
 extern crate clap;
 extern crate env_logger;
 extern crate image;
+#[cfg(unix)]
 extern crate signal;
 extern crate time;
 
@@ -22,7 +23,9 @@ use clap::ArgMatches;
 
 // Signal
 
+#[cfg(unix)]
 use signal::Signal;
+#[cfg(unix)]
 use signal::trap::Trap;
 
 // Std
@@ -181,6 +184,7 @@ fn main() {
     let _ = env_logger::init();
 
     // Register signal handler
+    #[cfg(unix)]
     let trap = Trap::trap(&[Signal::SIGUSR1, Signal::SIGUSR2, Signal::SIGHUP]);
 
     let args = args::parse_args();
@@ -201,20 +205,23 @@ fn main() {
             let _ = display.swap_buffers();
         }
 
-        // Catch signals between draw calls
-        let signal = trap.wait(std::time::Instant::now());
-        if signal.is_some() {
-            match signal.unwrap() {
-                Signal::SIGUSR1 => paused = true,
-                Signal::SIGUSR2 => paused = false,
-                Signal::SIGHUP => {
-                    info!("Restarting!");
-                    quad = init_gl(&display, &args);
-                    start_time = time::now();
+	#[cfg(unix)]
+	{
+            // Catch signals between draw calls
+            let signal = trap.wait(std::time::Instant::now());
+            if signal.is_some() {
+                match signal.unwrap() {
+                    Signal::SIGUSR1 => paused = true,
+                    Signal::SIGUSR2 => paused = false,
+                    Signal::SIGHUP => {
+                        info!("Restarting!");
+                        quad = init_gl(&display, &args);
+                        start_time = time::now();
+                    }
+                    _ => (),
                 }
-                _ => (),
             }
-        }
+	}
 
         if args.is_present("fps") {
             let delta = time::now() - last_frame;

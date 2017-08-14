@@ -9,11 +9,11 @@ use glium::{glutin, Surface};
 use clap::ArgMatches;
 
 pub trait DisplayExt {
-    fn init(events_loop: &glutin::EventsLoop, args: &Args) -> Self;
+    fn init(events_loop: &glutin::EventsLoop, args: &ArgMatches) -> Self;
 }
 
 impl DisplayExt for glium::Display {
-    fn init(events_loop: &glutin::EventsLoop, args: &Args) -> Self {
+    fn init(events_loop: &glutin::EventsLoop, args: &ArgMatches) -> Self {
         let window_builder = glutin::WindowBuilder::new()
             .with_dimensions(
                 args.value_of("width")
