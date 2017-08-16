@@ -166,8 +166,10 @@ fn render(display: &glium::Display, quad: &Quad, start_time: &time::Tm) {
 
     let mut uniforms = UniformsStorageVec::new();
     uniforms.push("resolution", (window_size.0 as f32, window_size.1 as f32));
-    uniforms
-        .push("time", (((time::now() - *start_time).num_nanoseconds().unwrap() as f64) / 1000_000_000.0 % 4096.0) as f32);
+    uniforms.push(
+        "time",
+        (((time::now() - *start_time).num_nanoseconds().unwrap() as f64) / 1000_000_000.0 % 4096.0) as f32,
+    );
     for (i, texture) in quad.textures.iter().enumerate() {
         uniforms.push(format!("texture{}", i), texture);
     }
@@ -205,8 +207,8 @@ fn main() {
             let _ = display.swap_buffers();
         }
 
-	#[cfg(unix)]
-	{
+        #[cfg(unix)]
+        {
             // Catch signals between draw calls
             let signal = trap.wait(std::time::Instant::now());
             if signal.is_some() {
@@ -221,7 +223,7 @@ fn main() {
                     _ => (),
                 }
             }
-	}
+        }
 
         if args.is_present("fps") {
             let delta = time::now() - last_frame;
