@@ -7,10 +7,6 @@ out vec4 color;
 uniform float time;
 uniform vec2 resolution;
 
-//// Global variables
-
-vec2 uv;
-
 //// Definitions
 
 #define CAMERA_SPEED 0.5
@@ -20,24 +16,24 @@ vec2 uv;
 
 #define SHADOWS
 #define SHADOW_THRESHOLD 0.01
-//#define SOFT_SHADOWS // Doesn't work, haven't tested tho
-#define SHADOW_SOFTNESS 1.0
+#define SOFT_SHADOWS
+#define SHADOW_HARDNESS 50.0
 
 #define LIGHT_INTENSITY 25.0
 #define AMBIENT_LIGHT 0.05
 
-#define MAX_REFLECTIONS 10.0
+#define MAX_REFLECTIONS 5
 #define REFLECTION_THRESHOLD 0.01
 
 #define FOG
 #define FOG_DISTANCE 25.0
-#define FOG_COLOR vec3(0.8, 0.9, 1.0)
+#define FOG_COLOR vec3(0.2, 0.25, 0.3)
 
-#define MATERIAL_LIGHTGRAY Material(vec3(0.9, 0.9, 0.9), 0.5, 8.0, 0.05)
-#define MATERIAL_GREEN Material(vec3(0.258824, 0.956863, 0.607843), 0.8, 8.0, 0.3)
-#define MATERIAL_BLUE Material(vec3(0.258824, 0.52549, 0.956863), 0.8, 4.0, 0.2)
+#define MATERIAL_LIGHTGRAY Material(vec3(0.9, 0.9, 0.9), 0.5, 8.0, 0.4)
+#define MATERIAL_GREEN Material(vec3(0.258824, 0.956863, 0.607843), 0.8, 8.0, 0.7)
+#define MATERIAL_BLUE Material(vec3(0.258824, 0.52549, 0.956863), 0.8, 4.0, 0.4)
 #define MATERIAL_PURPLE Material(vec3(0.878431, 0.4, 1.0), 1.0, 8.0, 0.0)
-#define MATERIAL_YELLOW Material(vec3(1.0, 0.843137, 0.0), 1.0, 8.0, 0.1)
+#define MATERIAL_YELLOW Material(vec3(1.0, 0.843137, 0.0), 1.0, 8.0, 0.2)
 
 //// Structs
 
@@ -117,20 +113,17 @@ MapInfo box(vec3 origin, vec3 size, Material material) {
 
 MapInfo opUnion(MapInfo o1, MapInfo o2) {
     // min(o1, o2)
-    if(o1.hit < o2.hit) return o1;
-    else return o2;
+    return (o1.hit < o2.hit) ? o1 : o2;
 }
 
 MapInfo opSubtract(MapInfo o1, MapInfo o2) {
     // max(-o1, o2)
-    if(-o1.hit > o2.hit) return MapInfo(o1.material, -o1.hit);
-    else return o2;
+    return (-o1.hit > o2.hit) ? MapInfo(o1.material, -o1.hit) : o2;
 }
 
 MapInfo opIntersect(MapInfo o1, MapInfo o2) {
     // max(o1, o2)
-    if(o1.hit > o2.hit) return o1;
-    else return o2;
+    return (o1.hit > o2.hit) ? o1 : o2;
 }
 
 //// The main mapping function
@@ -143,13 +136,15 @@ MapInfo map(vec3 origin) {
     // green box at -1.5, 1.0, 1.5 with size 1.0 x 1.0 x 1.0
     mapInfo = opUnion(mapInfo, box(origin + vec3(-1.5, 1.0, 1.5), vec3(1.0), MATERIAL_GREEN));
     mapInfo = opUnion(mapInfo, opSubtract( // subtract sphere from box
-                sphere(origin + vec3(-1.5, 1.0, -1.5), 1.2, MATERIAL_PURPLE),  // purple sphere at -1.5, 1.0, -1.5 with radius 1.2
-                // purple box at -1.5, 1.0, -1.5 with size 1.0 x 1.0 x 1.0
-                box(origin + vec3(-1.5, 1.0, -1.5), vec3(1.0), MATERIAL_PURPLE)));
+        sphere(origin + vec3(-1.5, 1.0, -1.5), 1.2, MATERIAL_PURPLE),  // purple sphere at -1.5, 1.0, -1.5 with radius 1.2
+        // purple box at -1.5, 1.0, -1.5 with size 1.0 x 1.0 x 1.0
+        box(origin + vec3(-1.5, 1.0, -1.5), vec3(1.0), MATERIAL_PURPLE))
+    );
     mapInfo = opUnion(mapInfo, opIntersect( // intersect sphere with box
-                box(origin + vec3(1.5, 1.0, -1.5), vec3(1.0), MATERIAL_YELLOW), // yellow box at 1.5, 1.0, -1.5 with size 1.0 x 1.0 x 1.0
-                // yellow sphere at 1.5, 1.0, -1.5 with radius 1.2
-                sphere(origin + vec3(1.5, 1.0, -1.5), 1.2, MATERIAL_YELLOW)));
+        box(origin + vec3(1.5, 1.0, -1.5), vec3(1.0), MATERIAL_YELLOW), // yellow box at 1.5, 1.0, -1.5 with size 1.0 x 1.0 x 1.0
+        // yellow sphere at 1.5, 1.0, -1.5 with radius 1.2
+        sphere(origin + vec3(1.5, 1.0, -1.5), 1.2, MATERIAL_YELLOW))
+    );
     return mapInfo;
 }
 
@@ -158,11 +153,14 @@ MapInfo map(vec3 origin) {
 vec3 calcNormal(vec3 position) {
     // Step around the point and see how far we are from the map at each position
     // and do some math to figure out what the normal is
-    vec2 eps = vec2(0.0, EPSILON);
+    // I use a value of 0.02 because I find that's the best balance between accuracy and
+    // avoiding those nasty rings on some objects
+    vec2 eps = vec2(0.0, 0.005);
     return normalize(vec3(
-                map(position + eps.yxx).hit - map(position - eps.yxx).hit,
-                map(position + eps.xyx).hit - map(position - eps.xyx).hit,
-                map(position + eps.xxy).hit - map(position - eps.xxy).hit));
+        map(position + eps.yxx).hit - map(position - eps.yxx).hit,
+        map(position + eps.xyx).hit - map(position - eps.xyx).hit,
+        map(position + eps.xxy).hit - map(position - eps.xxy).hit
+    ));
 }
 
 MapInfo trace(inout Ray ray) {
@@ -191,7 +189,7 @@ float softshadow(inout Ray ray, float softness) {
 
         #ifdef SOFT_SHADOWS
             //TODO: fix soft shadows
-            penumbra = min(penumbra, softness * mapInfo.hit / distance(ray.origin, ray.position));
+            penumbra = min(penumbra, softness * mapInfo.hit / distance(ray.position, ray.target));
         #endif
 
         if(mapInfo.hit > SHADOW_THRESHOLD) ray.position += ray.direction * mapInfo.hit;
@@ -207,7 +205,7 @@ float softshadow(inout Ray ray, float softness) {
 void main() {
     //// Setup the viewport
     // Screen coords go from -1.0 to 1.0
-    uv = gl_FragCoord.xy / resolution.xy * 2.0 - 1.0;
+    vec2 uv = gl_FragCoord.xy / resolution.xy * 2.0 - 1.0;
     // Account for screen ratio
     uv.x *= resolution.x / resolution.y;
 
@@ -215,9 +213,10 @@ void main() {
     // Init camera 5.0 up, rotating in a circle, looking at 0.0, 0.0, 0.0
     // Axes are flipped here I guess? Note the -vec3s
     Ray cameraRay = initRayToTarget(-vec3(
-                sin(time * CAMERA_SPEED) * 5.0, 5.0,
-                cos(time * CAMERA_SPEED) * 5.0), -vec3(0.0, 0.0, 0.0)
-            );
+        sin(time * CAMERA_SPEED) * 5.0,
+        5.0,
+        cos(time * CAMERA_SPEED) * 5.0), -vec3(0.0, 0.0, 0.0)
+    );
     // Convert to screen coords
     // Global up direction
     vec3 globalUp = vec3(0.0, 1.0, 0.0);
@@ -228,10 +227,11 @@ void main() {
     // Set the camera ray direction to point from the screen coordinate to our target
     cameraRay.direction = normalize(cameraRight * uv.x + cameraUp * uv.y + cameraRay.direction);
 
+    vec4 reflections[MAX_REFLECTIONS + 1];
+
     // Background color
-    color = vec4(0.0, 0.0, 0.0, 1.0);
     float reflectivity = 1.0;
-    for(float i = 0.0; i < MAX_REFLECTIONS + 1.0; i++) {
+    for(int i = 0; i < MAX_REFLECTIONS + 1; i++) {
         // Trace the ray's path
         MapInfo mapInfo = trace(cameraRay);
 
@@ -246,7 +246,7 @@ void main() {
 
             #ifdef SHADOWS
                 // Trace shadows
-                float shadow = softshadow(lightRay, SHADOW_SOFTNESS);
+                float shadow = softshadow(lightRay, SHADOW_HARDNESS);
             #else
                 float shadow = 1.0;
             #endif
@@ -270,26 +270,26 @@ void main() {
 
             #ifdef FOG
                 // Add fog
-                hitColor = mix(hitColor,
-                        FOG_COLOR,
-                        max(1.0 - exp(-max(distance(cameraRay.origin, cameraRay.position) - FOG_DISTANCE, 0.0)
-                                * 0.15), 0.0)
-                        );
+                float fogAmount = 1.0 - exp(-max(distance(cameraRay.origin, cameraRay.position) - FOG_DISTANCE, 0.0) * 0.15);
+                hitColor = mix(hitColor, FOG_COLOR, fogAmount);
             #endif
 
-            // Blend the new color with the current color
-            color = mix(color, vec4(hitColor, 1.0), reflectivity);
+            reflections[i] = vec4(hitColor, mapInfo.material.reflectivity);
 
             // Set the camera ray to the reflection off the surface, and repeat
             cameraRay = initRayToDirection(
-                    cameraRay.position + normalize(reflect(cameraRay.direction, normal)),
-                    normalize(reflect(cameraRay.direction, normal))
-                    );
+                cameraRay.position + normalize(reflect(cameraRay.direction, normal)) * EPSILON,
+                normalize(reflect(cameraRay.direction, normal))
+            );
         } else {
-            color = mix(color, vec4(mapInfo.material.color, 1.0), reflectivity);
+            reflections[i] = vec4(mapInfo.material.color, 0.0);
+            break;
         }
+    }
 
-        reflectivity *= mapInfo.material.reflectivity;
-        if(reflectivity < 0.01) break;
+    color = vec4(reflections[MAX_REFLECTIONS - 1].rgb, 1.0);
+
+    for(int i = MAX_REFLECTIONS - 2; i >= 0; i--) {
+        color = mix(vec4(reflections[i].rgb, 1.0), color, reflections[i].a);
     }
 }
