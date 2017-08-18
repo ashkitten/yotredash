@@ -158,18 +158,18 @@ fn init_gl(display: &glium::Display, args: &ArgMatches) -> Quad {
     };
 }
 
-fn render(display: &glium::Display, quad: &Quad, start_time: &time::Tm) {
+fn render(display: &glium::Display, quad: &Quad, start_time: &time::Tm, pointer: (f32, f32, f32, f32)) {
     let mut target = display.draw();
     target.clear_color(0.0, 0.0, 0.0, 1.0);
 
-    let window_size = display.gl_window().get_inner_size_pixels().unwrap();
+    let window_size = display.gl_window().get_inner_size_points().unwrap();
+    let time = ((time::now() - *start_time).num_nanoseconds().unwrap() as f64) / 1000_000_000.0 % 4096.0;
 
     let mut uniforms = UniformsStorageVec::new();
     uniforms.push("resolution", (window_size.0 as f32, window_size.1 as f32));
-    uniforms.push(
-        "time",
-        (((time::now() - *start_time).num_nanoseconds().unwrap() as f64) / 1000_000_000.0 % 4096.0) as f32,
-    );
+    uniforms.push("time", time as f32);
+    uniforms
+        .push("pointer", (pointer.0, window_size.1 as f32 - pointer.1, pointer.2, window_size.1 as f32 - pointer.3));
     for (i, texture) in quad.textures.iter().enumerate() {
         uniforms.push(format!("texture{}", i), texture);
     }
@@ -193,7 +193,9 @@ fn main() {
     let mut events_loop = glutin::EventsLoop::new();
     let display = DisplayExt::init(&events_loop, &args);
     let mut quad = init_gl(&display, &args); // Make it mutable so we can reassign it later
+
     let mut start_time = time::now();
+    let mut pointer = (0.0, 0.0, 0.0, 0.0);
 
     let mut closed = false;
     let mut paused = false;
@@ -201,7 +203,7 @@ fn main() {
     let mut frames = 0.0;
     while !closed {
         if !paused {
-            render(&display, &quad, &start_time);
+            render(&display, &quad, &start_time, pointer);
         } else {
             // Tuck this value away too
             let _ = display.swap_buffers();
@@ -245,6 +247,19 @@ fn main() {
                     },
                     ..
                 } => closed = true,
+                glutin::WindowEvent::MouseMoved { position, .. } => {
+                    pointer = (position.0 as f32, position.1 as f32, pointer.2, pointer.3)
+                }
+                glutin::WindowEvent::MouseInput {
+                    button: glutin::MouseButton::Left,
+                    state,
+                    ..
+                } => match state {
+                    glutin::ElementState::Pressed => {
+                        pointer = (pointer.0 as f32, pointer.1 as f32, pointer.0 as f32, pointer.1 as f32)
+                    }
+                    glutin::ElementState::Released => pointer = (pointer.0 as f32, pointer.1 as f32, 0.0, 0.0),
+                },
                 _ => (),
             },
             _ => (),
