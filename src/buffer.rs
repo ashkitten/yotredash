@@ -57,7 +57,17 @@ impl Buffer {
             }
         };
 
-        let program = glium::Program::from_source(facade, &vertex_source, &fragment_source, None);
+        let input = glium::program::ProgramCreationInput::SourceCode {
+            vertex_shader: &vertex_source,
+            tessellation_control_shader: None,
+            tessellation_evaluation_shader: None,
+            geometry_shader: None,
+            fragment_shader: &fragment_source,
+            transform_feedback_varyings: None,
+            outputs_srgb: true,
+            uses_point_size: false,
+        };
+        let program = glium::Program::new(facade, input);
         let program = match program {
             Ok(program) => program,
             Err(error) => {
