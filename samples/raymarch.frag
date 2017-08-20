@@ -292,4 +292,7 @@ void main() {
     for(int i = MAX_REFLECTIONS - 2; i >= 0; i--) {
         color = mix(vec4(reflections[i].rgb, 1.0), color, reflections[i].a);
     }
+
+    // Gamma correction
+    color = vec4(pow(clamp(color.xyz, 0.0, 1.0), vec3(0.4545)), 1.0);
 }

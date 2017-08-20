@@ -1,14 +1,7 @@
 extern crate glium;
 
-// Glium
-
 use glium::uniforms::{AsUniformValue, UniformValue, Uniforms};
-
-// Std
-
 use std::borrow::Cow;
-
-// Structs
 
 pub struct UniformsStorageVec<'name, 'uniform>(Vec<(Cow<'name, str>, Box<AsUniformValue + 'uniform>)>);
 

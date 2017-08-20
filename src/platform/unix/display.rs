@@ -1,17 +1,13 @@
 extern crate glium;
-extern crate json;
-
-// Glium
 
 use glium::glutin;
 use glutin::EventsLoop;
 use glutin::os::unix::WindowExt;
 use glutin::os::unix::x11::XConnection;
-use glutin::os::unix::x11::ffi::{CWOverrideRedirect, Display, PropModeReplace, XSetWindowAttributes, XA_ATOM, XID};
-
-// Std
-
+use glutin::os::unix::x11::ffi::{CWOverrideRedirect, Display, PropModeReplace, XA_ATOM, XID, XSetWindowAttributes};
 use std::sync::Arc;
+
+use config::Config;
 
 pub struct XContainer {
     connection: Arc<XConnection>,
@@ -20,7 +16,7 @@ pub struct XContainer {
 }
 
 pub trait DisplayExt {
-    fn init(events_loop: &glutin::EventsLoop, config: &json::JsonValue) -> Self;
+    fn init(events_loop: &glutin::EventsLoop, config: &Config) -> Self;
     fn override_redirect(&self, x: &XContainer);
     fn lower_window(&self, x: &XContainer);
     fn desktop_window(&self, x: &XContainer);
@@ -28,15 +24,12 @@ pub trait DisplayExt {
 }
 
 impl DisplayExt for glium::Display {
-    fn init(events_loop: &EventsLoop, config: &json::JsonValue) -> Self {
-        let width = config["width"].as_u32().unwrap_or(640);
-        let height = config["height"].as_u32().unwrap_or(400);
-
+    fn init(events_loop: &EventsLoop, config: &Config) -> Self {
         let window_builder = glutin::WindowBuilder::new()
-            .with_dimensions(width, height)
+            .with_dimensions(config.buffers["__default__"].width, config.buffers["__default__"].height)
             .with_title("yotredash");
 
-        let context = glutin::ContextBuilder::new().with_vsync(config["vsync"].as_bool().unwrap_or(false));
+        let context = glutin::ContextBuilder::new().with_vsync(config.vsync);
 
         let display = glium::Display::new(window_builder, context, events_loop).unwrap();
 
@@ -47,21 +40,24 @@ impl DisplayExt for glium::Display {
             window: display.gl_window().get_xlib_window().unwrap() as XID,
         };
 
-        if config["override_redirect"].as_bool().unwrap_or(false) {
+        if config.platform_config.override_redirect {
             // Set override-redirect attribute
             display.override_redirect(&x);
             // After we set the override-redirect attribute, we need to remap the window for it to
             // take effect
             display.remap_window(&x);
             // After remapping the window we need to set the size again
-            display.gl_window().set_inner_size(width, height);
+            display.gl_window().set_inner_size(
+                config.buffers["__default__"].width,
+                config.buffers["__default__"].height,
+            );
         }
 
-        if config["lower_window"].as_bool().unwrap_or(false) {
+        if config.platform_config.lower_window {
             display.lower_window(&x);
         }
 
-        if config["desktop"].as_bool().unwrap_or(false) {
+        if config.platform_config.desktop {
             display.desktop_window(&x);
         }
 
