@@ -4,22 +4,19 @@ extern crate glium;
 extern crate log;
 extern crate clap;
 extern crate env_logger;
-extern crate image;
 #[cfg(unix)]
 extern crate signal;
 extern crate time;
+extern crate json;
 
 mod args;
+mod buffer;
 mod platform;
+mod uniforms;
 
 // Glium
 
-use glium::{glutin, Surface};
-use glium::uniforms::{AsUniformValue, UniformValue, Uniforms};
-
-// Clap
-
-use clap::ArgMatches;
+use glium::glutin;
 
 // Signal
 
@@ -30,54 +27,26 @@ use signal::trap::Trap;
 
 // Std
 
-use std::borrow::Cow;
 use std::fs::File;
 use std::io::BufReader;
 use std::io::prelude::*;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 // Local
 
+use buffer::Buffer;
 use platform::display::DisplayExt;
 
+// Structs
+
 #[derive(Copy, Clone)]
-struct Vertex {
+pub struct Vertex {
     position: [f32; 2],
 }
 
-struct Quad {
-    vertex_buffer: glium::VertexBuffer<Vertex>,
-    index_buffer: glium::index::NoIndices,
-    shader_program: glium::Program,
-    textures: Vec<glium::texture::Texture2d>,
-}
+// Functions
 
-struct UniformsStorageVec<'name, 'uniform>(Vec<(Cow<'name, str>, Box<AsUniformValue + 'uniform>)>);
-
-impl<'name, 'uniform> UniformsStorageVec<'name, 'uniform> {
-    pub fn new() -> Self {
-        UniformsStorageVec(Vec::new())
-    }
-
-    pub fn push<S, U>(&mut self, name: S, uniform: U)
-    where
-        S: Into<Cow<'name, str>>,
-        U: AsUniformValue + 'uniform,
-    {
-        self.0.push((name.into(), Box::new(uniform)))
-    }
-}
-
-impl<'name, 'uniform> Uniforms for UniformsStorageVec<'name, 'uniform> {
-    #[inline]
-    fn visit_values<'a, F: FnMut(&str, UniformValue<'a>)>(&'a self, mut output: F) {
-        for &(ref name, ref uniform) in &self.0 {
-            output(name, uniform.as_uniform_value());
-        }
-    }
-}
-
-fn init_gl(display: &glium::Display, args: &ArgMatches) -> Quad {
+fn init_gl(display: &glium::Display) -> (glium::VertexBuffer<Vertex>, glium::index::NoIndices) {
     implement_vertex!(Vertex, position);
 
     #[cfg_attr(rustfmt, rustfmt_skip)]
@@ -97,87 +66,52 @@ fn init_gl(display: &glium::Display, args: &ArgMatches) -> Quad {
     let vertex_buffer = glium::VertexBuffer::new(display, &triangles).unwrap();
     let index_buffer = glium::index::NoIndices(glium::index::PrimitiveType::TrianglesList);
 
-    let file = match File::open(&args.value_of("fragment").unwrap()) {
-        Ok(file) => file,
-        Err(error) => {
-            error!("Could not open fragment shader file: {}", error);
-            std::process::exit(1);
-        }
-    };
-    let mut buf_reader = BufReader::new(file);
-    let mut fragment_source = String::new();
-    match buf_reader.read_to_string(&mut fragment_source) {
-        Ok(_) => info!("Using fragment shader: {}", args.value_of("fragment").unwrap()),
-        Err(error) => {
-            error!("Could not read fragment shader file: {}", error);
-            std::process::exit(1);
-        }
-    };
-
-    let file = match File::open(&args.value_of("vertex").unwrap()) {
-        Ok(file) => file,
-        Err(error) => {
-            error!("Could not open vertex shader file: {}", error);
-            std::process::exit(1);
-        }
-    };
-    let mut buf_reader = BufReader::new(file);
-    let mut vertex_source = String::new();
-    match buf_reader.read_to_string(&mut vertex_source) {
-        Ok(_) => info!("Using vertex shader: {}", args.value_of("vertex").unwrap()),
-        Err(error) => {
-            error!("Could not read vertex shader file: {}", error);
-            std::process::exit(1);
-        }
-    };
-
-    let shader_program = glium::Program::from_source(display, &vertex_source, &fragment_source, None);
-    let shader_program = match shader_program {
-        Ok(program) => program,
-        Err(error) => {
-            error!("{}", error);
-            std::process::exit(1);
-        }
-    };
-
-    let textures = args.values_of("texture")
-        .unwrap_or_default()
-        .map(|path: &str| {
-            let image = image::open(&Path::new(&path)).unwrap().to_rgba();
-            let image_dimensions = image.dimensions();
-            let image = glium::texture::RawImage2d::from_raw_rgba_reversed(&image.into_raw(), image_dimensions);
-            glium::texture::Texture2d::new(display, image).unwrap()
-        })
-        .collect();
-
-    return Quad {
-        vertex_buffer: vertex_buffer,
-        index_buffer: index_buffer,
-        shader_program: shader_program,
-        textures: textures,
-    };
+    (vertex_buffer, index_buffer)
 }
 
-fn render(display: &glium::Display, quad: &Quad, start_time: &time::Tm, pointer: (f32, f32, f32, f32)) {
+fn render(
+    display: &glium::Display, main_buffer: &Buffer, vertex_buffer: &glium::VertexBuffer<Vertex>,
+    index_buffer: &glium::index::NoIndices, start_time: &time::Tm, pointer: (f32, f32, f32, f32),
+) {
+    let time = (((time::now() - *start_time).num_nanoseconds().unwrap() as f64) / 1000_000_000.0 % 4096.0) as f32;
+
     let mut target = display.draw();
-    target.clear_color(0.0, 0.0, 0.0, 1.0);
-
-    let window_size = display.gl_window().get_inner_size_points().unwrap();
-    let time = ((time::now() - *start_time).num_nanoseconds().unwrap() as f64) / 1000_000_000.0 % 4096.0;
-
-    let mut uniforms = UniformsStorageVec::new();
-    uniforms.push("resolution", (window_size.0 as f32, window_size.1 as f32));
-    uniforms.push("time", time as f32);
-    uniforms
-        .push("pointer", (pointer.0, window_size.1 as f32 - pointer.1, pointer.2, window_size.1 as f32 - pointer.3));
-    for (i, texture) in quad.textures.iter().enumerate() {
-        uniforms.push(format!("texture{}", i), texture);
-    }
-
-    target
-        .draw(&quad.vertex_buffer, &quad.index_buffer, &quad.shader_program, &uniforms, &Default::default())
-        .unwrap();
+    main_buffer.render_to(&mut target, vertex_buffer, index_buffer, time, pointer);
     target.finish().unwrap();
+}
+
+fn parse_config(path: &str) -> json::JsonValue {
+    match File::open(path) {
+        Ok(file) => {
+            let mut buf_reader = BufReader::new(file);
+            let mut config = String::new();
+            match buf_reader.read_to_string(&mut config) {
+                Ok(_) => {
+                    info!("Using config file: {}", path);
+                    json::parse(&config).unwrap()
+                }
+                Err(error) => {
+                    error!("Could not read config file: {}", error);
+                    json::JsonValue::new_object()
+                }
+            }
+        }
+        Err(error) => {
+            info!("Could not open config file: {}", error);
+            json::JsonValue::new_object()
+        }
+    }
+}
+
+fn get_config() -> (json::JsonValue, PathBuf) {
+    let args = args::parse_args();
+    if let Some(path) = args.value_of("config") {
+        (parse_config(path), Path::new(path).parent().unwrap().to_path_buf())
+    } else {
+        let mut config = json::JsonValue::new_object();
+        args::apply_args(&args, &mut config);
+        (config, std::env::current_dir().unwrap().to_path_buf())
+    }
 }
 
 fn main() {
@@ -189,10 +123,13 @@ fn main() {
     #[cfg(unix)]
     let trap = Trap::trap(&[Signal::SIGUSR1, Signal::SIGUSR2, Signal::SIGHUP]);
 
-    let args = args::parse_args();
+    let (mut config, base_dir) = get_config();
+
     let mut events_loop = glutin::EventsLoop::new();
-    let display = DisplayExt::init(&events_loop, &args);
-    let mut quad = init_gl(&display, &args); // Make it mutable so we can reassign it later
+    let display = DisplayExt::init(&events_loop, &config);
+    let (vertex_buffer, index_buffer) = init_gl(&display); // Make it mutable so we can reassign it later
+
+    let mut main_buffer = Buffer::new(&display, &config["output"], &base_dir);
 
     let mut start_time = time::now();
     let mut pointer = (0.0, 0.0, 0.0, 0.0);
@@ -203,7 +140,7 @@ fn main() {
     let mut frames = 0.0;
     while !closed {
         if !paused {
-            render(&display, &quad, &start_time, pointer);
+            render(&display, &main_buffer, &vertex_buffer, &index_buffer, &start_time, pointer);
         } else {
             // Tuck this value away too
             let _ = display.swap_buffers();
@@ -219,7 +156,8 @@ fn main() {
                     Signal::SIGUSR2 => paused = false,
                     Signal::SIGHUP => {
                         info!("Restarting!");
-                        quad = init_gl(&display, &args);
+                        config = get_config().0;
+                        main_buffer = Buffer::new(&display, &config["output"], &base_dir);
                         start_time = time::now();
                     }
                     _ => (),
@@ -227,7 +165,7 @@ fn main() {
             }
         }
 
-        if args.is_present("fps") {
+        if config["fps"].as_bool().unwrap_or(false) {
             let delta = time::now() - last_frame;
             frames += 1.0;
             if delta > time::Duration::seconds(5) {
@@ -240,6 +178,11 @@ fn main() {
         events_loop.poll_events(|event| match event {
             glutin::Event::WindowEvent { event, .. } => match event {
                 glutin::WindowEvent::Closed => closed = true,
+                glutin::WindowEvent::Resized(width, height) => {
+                    config["output"]["width"] = width.into();
+                    config["output"]["height"] = height.into();
+                    main_buffer.resize(&display, width, height);
+                }
                 glutin::WindowEvent::KeyboardInput {
                     input: glutin::KeyboardInput {
                         virtual_keycode: Some(glutin::VirtualKeyCode::Escape),

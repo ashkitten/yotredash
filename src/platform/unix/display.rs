@@ -1,4 +1,5 @@
 extern crate glium;
+extern crate json;
 
 // Glium
 
@@ -7,10 +8,6 @@ use glutin::EventsLoop;
 use glutin::os::unix::WindowExt;
 use glutin::os::unix::x11::XConnection;
 use glutin::os::unix::x11::ffi::{CWOverrideRedirect, Display, PropModeReplace, XSetWindowAttributes, XA_ATOM, XID};
-
-// Clap
-
-use clap::ArgMatches;
 
 // Std
 
@@ -23,7 +20,7 @@ pub struct XContainer {
 }
 
 pub trait DisplayExt {
-    fn init(events_loop: &glutin::EventsLoop, args: &ArgMatches) -> Self;
+    fn init(events_loop: &glutin::EventsLoop, config: &json::JsonValue) -> Self;
     fn override_redirect(&self, x: &XContainer);
     fn lower_window(&self, x: &XContainer);
     fn desktop_window(&self, x: &XContainer);
@@ -31,21 +28,15 @@ pub trait DisplayExt {
 }
 
 impl DisplayExt for glium::Display {
-    fn init(events_loop: &EventsLoop, args: &ArgMatches) -> Self {
-        let width = args.value_of("width")
-            .unwrap_or("640")
-            .parse::<u32>()
-            .unwrap();
-        let height = args.value_of("height")
-            .unwrap_or("400")
-            .parse::<u32>()
-            .unwrap();
+    fn init(events_loop: &EventsLoop, config: &json::JsonValue) -> Self {
+        let width = config["width"].as_u32().unwrap_or(640);
+        let height = config["height"].as_u32().unwrap_or(400);
 
         let window_builder = glutin::WindowBuilder::new()
             .with_dimensions(width, height)
             .with_title("yotredash");
 
-        let context = glutin::ContextBuilder::new().with_vsync(args.is_present("vsync"));
+        let context = glutin::ContextBuilder::new().with_vsync(config["vsync"].as_bool().unwrap_or(false));
 
         let display = glium::Display::new(window_builder, context, events_loop).unwrap();
 
@@ -56,7 +47,7 @@ impl DisplayExt for glium::Display {
             window: display.gl_window().get_xlib_window().unwrap() as XID,
         };
 
-        if args.is_present("override-redirect") {
+        if config["override_redirect"].as_bool().unwrap_or(false) {
             // Set override-redirect attribute
             display.override_redirect(&x);
             // After we set the override-redirect attribute, we need to remap the window for it to
@@ -66,11 +57,11 @@ impl DisplayExt for glium::Display {
             display.gl_window().set_inner_size(width, height);
         }
 
-        if args.is_present("lower-window") {
+        if config["lower_window"].as_bool().unwrap_or(false) {
             display.lower_window(&x);
         }
 
-        if args.is_present("desktop") {
+        if config["desktop"].as_bool().unwrap_or(false) {
             display.desktop_window(&x);
         }
 
