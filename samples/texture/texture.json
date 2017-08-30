@@ -1,0 +1,17 @@
+{
+    "buffers": {
+        "__default__": {
+            "vertex": "default.vert",
+            "fragment": "texture.frag",
+            "textures": [
+                "texture"
+            ]
+        }
+    },
+    "textures": {
+        "texture": {
+            "path": "texture.png"
+        }
+    }
+}
+

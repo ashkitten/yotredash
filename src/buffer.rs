@@ -3,11 +3,10 @@ extern crate image;
 
 use glium::Surface;
 use std;
-use std::collections::BTreeMap;
 use std::fs::File;
 use std::io::BufReader;
 use std::io::prelude::*;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::rc::Rc;
 
 use Vertex;
@@ -79,8 +78,10 @@ impl Buffer {
         let textures = config.buffers[name]
             .textures
             .iter()
-            .map(|path: &String| {
-                let image = image::open(Path::new(path)).unwrap().to_rgba();
+            .map(|name: &String| {
+                let image = image::open(Path::new(&config.textures[name].path))
+                    .unwrap()
+                    .to_rgba();
                 let image_dimensions = image.dimensions();
                 let image = glium::texture::RawImage2d::from_raw_rgba_reversed(&image.into_raw(), image_dimensions);
                 glium::texture::Texture2d::new(facade, image).unwrap()
@@ -93,13 +94,13 @@ impl Buffer {
             .map(|name: &String| Rc::new(Buffer::new(facade, config, name)))
             .collect();
 
-        return Buffer {
+        Buffer {
             texture: glium::texture::Texture2d::empty(facade, config.buffers[name].width, config.buffers[name].height)
                 .unwrap(),
             program: program,
             textures: textures,
             depends: depends,
-        };
+        }
     }
 
     pub fn render_to<S: Surface>(
@@ -141,7 +142,7 @@ impl Buffer {
 
     pub fn resize(&mut self, facade: &glium::backend::Facade, width: u32, height: u32) {
         self.texture = glium::texture::Texture2d::empty(facade, width, height).unwrap();
-        for mut buffer in self.depends.iter_mut() {
+        for buffer in &mut self.depends {
             Rc::get_mut(buffer).unwrap().resize(facade, width, height);
         }
     }

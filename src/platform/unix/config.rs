@@ -1,6 +1,6 @@
-extern crate clap;
+use clap::{App, Arg, ArgMatches};
 
-use clap::ArgMatches;
+use Config;
 
 #[derive(Deserialize, Default)]
 pub struct PlatformSpecificConfig {
@@ -38,5 +38,24 @@ impl PlatformSpecificConfig {
             desktop: args.is_present("desktop"),
             lower_window: args.is_present("lower-window"),
         }
+    }
+
+    pub fn build_cli() -> App<'static, 'static> {
+        Config::build_cli().args(
+            &[
+                Arg::with_name("root").long("root").help(
+                    "Display on the root window",
+                ),
+                Arg::with_name("override-redirect")
+                    .long("override-redirect")
+                    .help("Display as an override-redirect window"),
+                Arg::with_name("desktop").long("desktop").help(
+                    "Display as a desktop window",
+                ),
+                Arg::with_name("lower-window").long("lower-window").help(
+                    "Lower window to the bottom of the stack",
+                ),
+            ],
+        )
     }
 }

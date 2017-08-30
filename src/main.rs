@@ -23,12 +23,6 @@ use signal::Signal;
 use signal::trap::Trap;
 
 use glium::glutin;
-use std::collections::BTreeMap;
-use std::fs::File;
-use std::io::BufReader;
-use std::io::prelude::*;
-use std::path::{Path, PathBuf};
-use std::rc::Rc;
 
 use buffer::Buffer;
 use config::Config;
@@ -138,35 +132,31 @@ fn main() {
             }
         }
 
-        events_loop.poll_events(|event| match event {
-            glutin::Event::WindowEvent { event, .. } => {
-                match event {
-                    glutin::WindowEvent::Closed => closed = true,
-                    glutin::WindowEvent::Resized(width, height) => {
-                        main_buffer.resize(&display, width, height);
-                    }
-                    glutin::WindowEvent::KeyboardInput {
-                        input: glutin::KeyboardInput { virtual_keycode: Some(glutin::VirtualKeyCode::Escape), .. }, ..
-                    } => closed = true,
-                    glutin::WindowEvent::MouseMoved { position, .. } => {
-                        pointer = (position.0 as f32, position.1 as f32, pointer.2, pointer.3)
-                    }
-                    glutin::WindowEvent::MouseInput {
-                        button: glutin::MouseButton::Left,
-                        state,
-                        ..
-                    } => {
-                        match state {
-                            glutin::ElementState::Pressed => {
-                                pointer = (pointer.0 as f32, pointer.1 as f32, pointer.0 as f32, pointer.1 as f32)
-                            }
-                            glutin::ElementState::Released => pointer = (pointer.0 as f32, pointer.1 as f32, 0.0, 0.0),
-                        }
-                    }
-                    _ => (),
+        events_loop.poll_events(|event| if let glutin::Event::WindowEvent { event, .. } = event {
+            match event {
+                glutin::WindowEvent::Resized(width, height) => {
+                    main_buffer.resize(&display, width, height);
                 }
+                glutin::WindowEvent::Closed | glutin::WindowEvent::KeyboardInput {
+                    input: glutin::KeyboardInput { virtual_keycode: Some(glutin::VirtualKeyCode::Escape), .. }, ..
+                } => closed = true,
+                glutin::WindowEvent::MouseMoved { position, .. } => {
+                    pointer = (position.0 as f32, position.1 as f32, pointer.2, pointer.3)
+                }
+                glutin::WindowEvent::MouseInput {
+                    button: glutin::MouseButton::Left,
+                    state,
+                    ..
+                } => {
+                    match state {
+                        glutin::ElementState::Pressed => {
+                            pointer = (pointer.0 as f32, pointer.1 as f32, pointer.0 as f32, pointer.1 as f32)
+                        }
+                        glutin::ElementState::Released => pointer = (pointer.0 as f32, pointer.1 as f32, 0.0, 0.0),
+                    }
+                }
+                _ => (),
             }
-            _ => (),
         });
     }
 }

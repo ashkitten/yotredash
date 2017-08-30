@@ -1,4 +1,3 @@
-extern crate clap;
 extern crate serde_yaml;
 
 use clap::{App, Arg, ArgMatches};
@@ -7,86 +6,109 @@ use std::collections::BTreeMap;
 use std::fs::File;
 use std::io::BufReader;
 use std::io::prelude::*;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use platform::config::PlatformSpecificConfig;
 
+#[derive(Deserialize)]
+pub struct TextureConfig {
+    #[serde(default = "texture_config_error_no_path")]
+    pub path: String,
+}
+
+fn texture_config_error_no_path() -> String {
+    error!("Must provide path for texture");
+    std::process::exit(1);
+}
+
 #[derive(Deserialize, Clone)]
 pub struct BufferConfig {
-    #[serde(default = "error_no_vertex")]
+    #[serde(default = "buffer_config_error_no_vertex")]
     pub vertex: String,
-    #[serde(default = "error_no_fragment")]
+    #[serde(default = "buffer_config_error_no_fragment")]
     pub fragment: String,
-    #[serde(default = "default_textures")]
+    #[serde(default = "buffer_config_default_textures")]
     pub textures: Vec<String>,
-    #[serde(default = "default_width")]
+    #[serde(default = "buffer_config_default_width")]
     pub width: u32,
-    #[serde(default = "default_height")]
+    #[serde(default = "buffer_config_default_height")]
     pub height: u32,
-    #[serde(default = "default_depends")]
+    #[serde(default = "buffer_config_default_depends")]
     pub depends: Vec<String>,
 }
 
-fn error_no_vertex() -> String {
+fn buffer_config_error_no_vertex() -> String {
     error!("Must specify vertex shader");
     std::process::exit(1);
 }
 
-fn error_no_fragment() -> String {
+fn buffer_config_error_no_fragment() -> String {
     error!("Must specify fragment shader");
     std::process::exit(1);
 }
 
-fn default_textures() -> Vec<String> {
+fn buffer_config_default_textures() -> Vec<String> {
     Vec::new()
 }
 
-fn default_width() -> u32 {
+fn buffer_config_default_width() -> u32 {
     640
 }
 
-fn default_height() -> u32 {
+fn buffer_config_default_height() -> u32 {
     400
 }
 
-fn default_depends() -> Vec<String> {
+fn buffer_config_default_depends() -> Vec<String> {
     Vec::new()
 }
 
 #[derive(Deserialize)]
 pub struct Config {
+    #[serde(default = "config_error_no_buffers")]
     pub buffers: BTreeMap<String, BufferConfig>,
-    #[serde(default = "default_maximize")]
+    #[serde(default = "config_default_textures")]
+    pub textures: BTreeMap<String, TextureConfig>,
+    #[serde(default = "config_default_maximize")]
     pub maximize: bool,
-    #[serde(default = "default_vsync")]
+    #[serde(default = "config_default_vsync")]
     pub vsync: bool,
-    #[serde(default = "default_fps")]
+    #[serde(default = "config_default_fps")]
     pub fps: bool,
-    #[serde(default = "default_font")]
+    #[serde(default = "config_default_font")]
     pub font: String,
     #[serde(default)]
     pub platform_config: PlatformSpecificConfig,
 }
 
-fn default_maximize() -> bool {
+fn config_error_no_buffers() -> BTreeMap<String, BufferConfig> {
+    error!("Must provide buffer configuration");
+    std::process::exit(1);
+}
+
+fn config_default_textures() -> BTreeMap<String, TextureConfig> {
+    BTreeMap::new()
+}
+
+fn config_default_maximize() -> bool {
     false
 }
 
-fn default_vsync() -> bool {
+fn config_default_vsync() -> bool {
     false
 }
 
-fn default_fps() -> bool {
+fn config_default_fps() -> bool {
     false
 }
 
-fn default_font() -> String {
+fn config_default_font() -> String {
     "".to_string()
 }
 
 impl Config {
-    fn build_cli() -> App<'static, 'static> {
-        let app = App::new("yotredash")
+    pub fn build_cli() -> App<'static, 'static> {
+        App::new("yotredash")
             .version("0.1.0")
             .author("Ash Levy <ashlea@protonmail.com>")
             .args(
@@ -146,101 +168,92 @@ impl Config {
                  Common usage: `RUST_LOG=yotredash=info yotredash`\n\
                  See http://rust-lang-nursery.github.io/log/env_logger/ for more information.\
                  ",
-            );
-
-        if cfg!(windows) {
-            app
-        } else if cfg!(unix) {
-            (app) // TODO: remove parens, this is to trick rustfmt into formatting correctly
-                .args(&[
-                    Arg::with_name("root")
-                        .long("root")
-                        .help("Display on the root window"),
-                    Arg::with_name("override-redirect")
-                        .long("override-redirect")
-                        .help("Display as an override-redirect window"),
-                    Arg::with_name("desktop")
-                        .long("desktop")
-                        .help("Display as a desktop window"),
-                    Arg::with_name("lower-window")
-                        .long("lower-window")
-                        .help("Lower window to the bottom of the stack"),
-                ])
-        } else if cfg!(macos) {
-            app
-        } else {
-            app
-        }
+            )
     }
 
     fn from_args(args: &ArgMatches) -> Self {
+        let mut textures = BTreeMap::new();
+        if let Some(values) = args.values_of("textures") {
+            for path in values {
+                textures.insert(path.to_string(), TextureConfig { path: path.to_string() });
+            }
+        };
+
         let mut buffers = BTreeMap::new();
         buffers.insert(
             "__default__".to_string(),
             BufferConfig {
                 vertex: match args.value_of("vertex") {
-                    Some(vertex) => vertex.to_string(),
-                    None => error_no_vertex(),
+                    Some(value) => value.to_string(),
+                    None => buffer_config_error_no_vertex(),
                 },
                 fragment: match args.value_of("fragment") {
-                    Some(fragment) => fragment.to_string(),
-                    None => error_no_fragment(),
+                    Some(value) => value.to_string(),
+                    None => buffer_config_error_no_fragment(),
                 },
                 textures: match args.values_of("textures") {
-                    Some(textures) => textures.map(|texture: &str| texture.to_string()).collect(),
-                    None => default_textures(),
+                    Some(values) => values.map(|value: &str| value.to_string()).collect(),
+                    None => buffer_config_default_textures(),
                 },
                 width: match args.value_of("width") {
-                    Some(width) => width.parse::<u32>().unwrap(),
-                    None => default_width(),
+                    Some(value) => value.parse::<u32>().unwrap(),
+                    None => buffer_config_default_width(),
                 },
                 height: match args.value_of("height") {
-                    Some(height) => height.parse::<u32>().unwrap(),
-                    None => default_height(),
+                    Some(value) => value.parse::<u32>().unwrap(),
+                    None => buffer_config_default_height(),
                 },
-                depends: default_depends(),
+                depends: buffer_config_default_depends(),
             },
         );
 
         Self {
             buffers: buffers,
+            textures: textures,
             maximize: args.is_present("maximize"),
             vsync: args.is_present("vsync"),
             fps: args.is_present("fps"),
             font: match args.value_of("font") {
-                Some(font) => font.to_string(),
-                None => default_font(),
+                Some(value) => value.to_string(),
+                None => config_default_font(),
             },
             platform_config: PlatformSpecificConfig::from_args(args),
         }
     }
 
+    fn from_file(path: &Path) -> Self {
+        let file = match File::open(path) {
+            Ok(file) => file,
+            Err(error) => {
+                error!("Could not open config file: {}", error);
+                std::process::exit(1);
+            }
+        };
+        let mut reader = BufReader::new(file);
+        let mut config_str = String::new();
+        match reader.read_to_string(&mut config_str) {
+            Ok(_) => info!("Using config file: {}", path.to_str().unwrap()),
+            Err(error) => {
+                error!("Could not read config file: {}", error);
+                std::process::exit(1);
+            }
+        };
+        // TODO: handle this value
+        let _ = std::env::set_current_dir(Path::new(path).parent().unwrap());
+        serde_yaml::from_str(&config_str).unwrap()
+    }
+
     pub fn parse() -> Self {
-        let app = Self::build_cli();
+        let app = PlatformSpecificConfig::build_cli();
         let args = app.get_matches();
 
         match args.value_of("config") {
             Some(path) => {
-                let file = match File::open(path) {
-                    Ok(file) => file,
-                    Err(error) => {
-                        error!("Could not open config file: {}", error);
-                        std::process::exit(1);
-                    }
-                };
-                let mut reader = BufReader::new(file);
-                let mut config_str = String::new();
-                match reader.read_to_string(&mut config_str) {
-                    Ok(_) => info!("Using config file: {}", path),
-                    Err(error) => {
-                        error!("Could not read config file: {}", error);
-                        std::process::exit(1);
-                    }
-                };
-                std::env::set_current_dir(Path::new(path).parent().unwrap());
-                serde_yaml::from_str(&config_str).unwrap()
+                Self::from_file(Path::new(path))
             }
-            None => Config::from_args(&args),
+            None => {
+                Self::from_args(&args)
+            }
         }
     }
 }

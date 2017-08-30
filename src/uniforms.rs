@@ -1,5 +1,3 @@
-extern crate glium;
-
 use glium::uniforms::{AsUniformValue, UniformValue, Uniforms};
 use std::borrow::Cow;
 
