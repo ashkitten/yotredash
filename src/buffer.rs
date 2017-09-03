@@ -3,6 +3,7 @@ extern crate image;
 
 use glium::Surface;
 use std;
+use std::cell::RefCell;
 use std::fs::File;
 use std::io::BufReader;
 use std::io::prelude::*;
@@ -18,6 +19,8 @@ pub struct Buffer {
     program: glium::Program,
     textures: Vec<glium::texture::Texture2d>,
     depends: Vec<Rc<Buffer>>,
+    next_render: RefCell<u64>,
+    render_interval: u64,
 }
 
 impl Buffer {
@@ -100,44 +103,62 @@ impl Buffer {
             program: program,
             textures: textures,
             depends: depends,
+            next_render: RefCell::new(0),
+            render_interval: config.buffers[name].render_interval,
         }
     }
 
     pub fn render_to<S: Surface>(
         &self, target: &mut S, vertex_buffer: &glium::VertexBuffer<Vertex>, index_buffer: &glium::index::NoIndices,
-        time: f32, pointer: (f32, f32, f32, f32)
+        time: f32, pointer: (f32, f32, f32, f32),
     ) where
         S: Surface,
     {
-        target.clear_color(0.0, 0.0, 0.0, 1.0);
+        if *self.next_render.borrow() == 0 {
+            target.clear_color(0.0, 0.0, 0.0, 1.0);
 
-        let mut uniforms = UniformsStorageVec::new();
-        uniforms.push("resolution", (self.texture.get_width() as f32, self.texture.get_height().unwrap() as f32));
-        uniforms.push("time", time as f32);
-        uniforms.push("pointer", (
-            pointer.0,
-            self.texture.get_height().unwrap() as f32 - pointer.1,
-            pointer.2,
-            self.texture.get_height().unwrap() as f32 - pointer.3,
-        ));
-        for (i, texture) in self.textures.iter().enumerate() {
-            uniforms.push(format!("texture{}", i), texture);
-        }
-        for (i, buffer) in self.depends.iter().enumerate() {
-            buffer.render_to_texture(vertex_buffer, index_buffer, time, pointer);
-            uniforms.push(format!("buffer{}", i), buffer.texture.sampled());
-        }
+            let mut uniforms = UniformsStorageVec::new();
+            uniforms.push("resolution", (self.texture.get_width() as f32, self.texture.get_height().unwrap() as f32));
+            uniforms.push("time", time as f32);
+            uniforms.push(
+                "pointer",
+                (
+                    pointer.0,
+                    self.texture.get_height().unwrap() as f32 - pointer.1,
+                    pointer.2,
+                    self.texture.get_height().unwrap() as f32 - pointer.3,
+                ),
+            );
+            for (i, texture) in self.textures.iter().enumerate() {
+                uniforms.push(format!("texture{}", i), texture);
+            }
+            for (i, buffer) in self.depends.iter().enumerate() {
+                buffer.render_to_texture(vertex_buffer, index_buffer, time, pointer);
+                uniforms.push(format!("buffer{}", i), buffer.texture.sampled());
+            }
 
-        target
-            .draw(vertex_buffer, index_buffer, &self.program, &uniforms, &Default::default())
-            .unwrap();
+            target
+                .draw(vertex_buffer, index_buffer, &self.program, &uniforms, &Default::default())
+                .unwrap();
+
+            *self.next_render.borrow_mut() = self.render_interval;
+        }
     }
 
     pub fn render_to_texture(
         &self, vertex_buffer: &glium::VertexBuffer<Vertex>, index_buffer: &glium::index::NoIndices, time: f32,
-        pointer: (f32, f32, f32, f32)
+        pointer: (f32, f32, f32, f32),
     ) {
         self.render_to(&mut self.texture.as_surface(), vertex_buffer, index_buffer, time, pointer);
+    }
+
+    pub fn finish(&self) {
+        if *self.next_render.borrow() != 0 {
+            *self.next_render.borrow_mut() -= 1;
+        }
+        for buffer in self.depends.iter() {
+            buffer.finish();
+        }
     }
 
     pub fn resize(&mut self, facade: &glium::backend::Facade, width: u32, height: u32) {

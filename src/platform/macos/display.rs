@@ -1,6 +1,6 @@
 extern crate glium;
 
-use glium::{Surface, glutin};
+use glium::{glutin, Surface};
 
 pub trait DisplayExt {
     fn init(events_loop: &glutin::EventsLoop, args: &Config) -> Self;

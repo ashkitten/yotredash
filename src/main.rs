@@ -39,19 +39,15 @@ fn init_gl(display: &glium::Display) -> (glium::VertexBuffer<Vertex>, glium::ind
     #[cfg_attr(rustfmt, rustfmt_skip)]
     let vertices = [
         Vertex { position: [-1.0, -1.0] },
-        Vertex { position: [1.0, -1.0] },
-        Vertex { position: [1.0, 1.0] },
-        Vertex { position: [-1.0, 1.0] },
+        Vertex { position: [ 1.0, -1.0] },
+        Vertex { position: [ 1.0,  1.0] },
+        Vertex { position: [-1.0,  1.0] },
     ];
 
     #[cfg_attr(rustfmt, rustfmt_skip)]
     let triangles = vec![
-        vertices[0],
-        vertices[1],
-        vertices[2],
-        vertices[0],
-        vertices[2],
-        vertices[3],
+        vertices[0], vertices[1], vertices[2],
+        vertices[0], vertices[2], vertices[3],
     ];
 
     let vertex_buffer = glium::VertexBuffer::new(display, &triangles).unwrap();
@@ -62,12 +58,13 @@ fn init_gl(display: &glium::Display) -> (glium::VertexBuffer<Vertex>, glium::ind
 
 fn render(
     display: &glium::Display, main_buffer: &Buffer, vertex_buffer: &glium::VertexBuffer<Vertex>,
-    index_buffer: &glium::index::NoIndices, start_time: &time::Tm, pointer: (f32, f32, f32, f32)
+    index_buffer: &glium::index::NoIndices, start_time: &time::Tm, pointer: (f32, f32, f32, f32),
 ) {
     let time = (((time::now() - *start_time).num_nanoseconds().unwrap() as f64) / 1000_000_000.0 % 4096.0) as f32;
 
     let mut target = display.draw();
     main_buffer.render_to(&mut target, vertex_buffer, index_buffer, time, pointer);
+    main_buffer.finish();
     target.finish().unwrap();
 }
 
@@ -137,8 +134,13 @@ fn main() {
                 glutin::WindowEvent::Resized(width, height) => {
                     main_buffer.resize(&display, width, height);
                 }
-                glutin::WindowEvent::Closed | glutin::WindowEvent::KeyboardInput {
-                    input: glutin::KeyboardInput { virtual_keycode: Some(glutin::VirtualKeyCode::Escape), .. }, ..
+                glutin::WindowEvent::Closed |
+                glutin::WindowEvent::KeyboardInput {
+                    input: glutin::KeyboardInput {
+                        virtual_keycode: Some(glutin::VirtualKeyCode::Escape),
+                        ..
+                    },
+                    ..
                 } => closed = true,
                 glutin::WindowEvent::MouseMoved { position, .. } => {
                     pointer = (position.0 as f32, position.1 as f32, pointer.2, pointer.3)
@@ -147,14 +149,12 @@ fn main() {
                     button: glutin::MouseButton::Left,
                     state,
                     ..
-                } => {
-                    match state {
-                        glutin::ElementState::Pressed => {
-                            pointer = (pointer.0 as f32, pointer.1 as f32, pointer.0 as f32, pointer.1 as f32)
-                        }
-                        glutin::ElementState::Released => pointer = (pointer.0 as f32, pointer.1 as f32, 0.0, 0.0),
+                } => match state {
+                    glutin::ElementState::Pressed => {
+                        pointer = (pointer.0 as f32, pointer.1 as f32, pointer.0 as f32, pointer.1 as f32)
                     }
-                }
+                    glutin::ElementState::Released => pointer = (pointer.0 as f32, pointer.1 as f32, 0.0, 0.0),
+                },
                 _ => (),
             }
         });

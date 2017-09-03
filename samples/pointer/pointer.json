@@ -1,9 +1,0 @@
-{
-    "buffers": {
-        "__default__": {
-            "vertex": "default.vert",
-            "fragment": "pointer.frag"
-        }
-    }
-}
-

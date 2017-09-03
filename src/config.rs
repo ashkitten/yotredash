@@ -12,8 +12,7 @@ use platform::config::PlatformSpecificConfig;
 
 #[derive(Deserialize)]
 pub struct TextureConfig {
-    #[serde(default = "texture_config_error_no_path")]
-    pub path: String,
+    #[serde(default = "texture_config_error_no_path")] pub path: String,
 }
 
 fn texture_config_error_no_path() -> String {
@@ -23,18 +22,13 @@ fn texture_config_error_no_path() -> String {
 
 #[derive(Deserialize, Clone)]
 pub struct BufferConfig {
-    #[serde(default = "buffer_config_error_no_vertex")]
-    pub vertex: String,
-    #[serde(default = "buffer_config_error_no_fragment")]
-    pub fragment: String,
-    #[serde(default = "buffer_config_default_textures")]
-    pub textures: Vec<String>,
-    #[serde(default = "buffer_config_default_width")]
-    pub width: u32,
-    #[serde(default = "buffer_config_default_height")]
-    pub height: u32,
-    #[serde(default = "buffer_config_default_depends")]
-    pub depends: Vec<String>,
+    #[serde(default = "buffer_config_error_no_vertex")] pub vertex: String,
+    #[serde(default = "buffer_config_error_no_fragment")] pub fragment: String,
+    #[serde(default = "buffer_config_default_textures")] pub textures: Vec<String>,
+    #[serde(default = "buffer_config_default_width")] pub width: u32,
+    #[serde(default = "buffer_config_default_height")] pub height: u32,
+    #[serde(default = "buffer_config_default_depends")] pub depends: Vec<String>,
+    #[serde(default = "buffer_config_default_render_interval")] pub render_interval: u64,
 }
 
 fn buffer_config_error_no_vertex() -> String {
@@ -63,22 +57,19 @@ fn buffer_config_default_depends() -> Vec<String> {
     Vec::new()
 }
 
+fn buffer_config_default_render_interval() -> u64 {
+    1
+}
+
 #[derive(Deserialize)]
 pub struct Config {
-    #[serde(default = "config_error_no_buffers")]
-    pub buffers: BTreeMap<String, BufferConfig>,
-    #[serde(default = "config_default_textures")]
-    pub textures: BTreeMap<String, TextureConfig>,
-    #[serde(default = "config_default_maximize")]
-    pub maximize: bool,
-    #[serde(default = "config_default_vsync")]
-    pub vsync: bool,
-    #[serde(default = "config_default_fps")]
-    pub fps: bool,
-    #[serde(default = "config_default_font")]
-    pub font: String,
-    #[serde(default)]
-    pub platform_config: PlatformSpecificConfig,
+    #[serde(default = "config_error_no_buffers")] pub buffers: BTreeMap<String, BufferConfig>,
+    #[serde(default = "config_default_textures")] pub textures: BTreeMap<String, TextureConfig>,
+    #[serde(default = "config_default_maximize")] pub maximize: bool,
+    #[serde(default = "config_default_vsync")] pub vsync: bool,
+    #[serde(default = "config_default_fps")] pub fps: bool,
+    #[serde(default = "config_default_font")] pub font: String,
+    #[serde(default)] pub platform_config: PlatformSpecificConfig,
 }
 
 fn config_error_no_buffers() -> BTreeMap<String, BufferConfig> {
@@ -111,57 +102,55 @@ impl Config {
         App::new("yotredash")
             .version("0.1.0")
             .author("Ash Levy <ashlea@protonmail.com>")
-            .args(
-                &[
-                    Arg::with_name("vertex")
-                        .short("v")
-                        .long("vertex")
-                        .help("Specify a vertex shader")
-                        .takes_value(true),
-                    Arg::with_name("fragment")
-                        .short("f")
-                        .long("fragment")
-                        .help("Specify a fragment shader")
-                        .takes_value(true),
-                    Arg::with_name("texture")
-                        .short("t")
-                        .long("texture")
-                        .help("Add a texture")
-                        .takes_value(true)
-                        .multiple(true),
-                    Arg::with_name("width")
-                        .short("w")
-                        .long("width")
-                        .help("Set window width")
-                        .takes_value(true),
-                    Arg::with_name("height")
-                        .short("h")
-                        .long("height")
-                        .help("Set window height")
-                        .takes_value(true),
-                    Arg::with_name("maximize").long("maximize").help(
-                        "Maximize window dimensions",
-                    ),
-                    Arg::with_name("fullscreen").long("fullscreen").help(
-                        "Make window fullscreen",
-                    ),
-                    Arg::with_name("vsync").long("vsync").help(
-                        "Enable vertical sync",
-                    ),
-                    Arg::with_name("fps").long("fps").help(
-                        "Enable FPS log to console",
-                    ),
-                    Arg::with_name("font")
-                        .long("font")
-                        .help("Specify font for FPS counter")
-                        .takes_value(true),
-                    Arg::with_name("config")
-                        .short("c")
-                        .long("config")
-                        .help("Load a config file")
-                        .takes_value(true),
-                ],
-            )
+            .args(&[
+                Arg::with_name("vertex")
+                    .short("v")
+                    .long("vertex")
+                    .help("Specify a vertex shader")
+                    .takes_value(true),
+                Arg::with_name("fragment")
+                    .short("f")
+                    .long("fragment")
+                    .help("Specify a fragment shader")
+                    .takes_value(true),
+                Arg::with_name("texture")
+                    .short("t")
+                    .long("texture")
+                    .help("Add a texture")
+                    .takes_value(true)
+                    .multiple(true),
+                Arg::with_name("width")
+                    .short("w")
+                    .long("width")
+                    .help("Set window width")
+                    .takes_value(true),
+                Arg::with_name("height")
+                    .short("h")
+                    .long("height")
+                    .help("Set window height")
+                    .takes_value(true),
+                Arg::with_name("maximize")
+                    .long("maximize")
+                    .help("Maximize window dimensions"),
+                Arg::with_name("fullscreen")
+                    .long("fullscreen")
+                    .help("Make window fullscreen"),
+                Arg::with_name("vsync")
+                    .long("vsync")
+                    .help("Enable vertical sync"),
+                Arg::with_name("fps")
+                    .long("fps")
+                    .help("Enable FPS log to console"),
+                Arg::with_name("font")
+                    .long("font")
+                    .help("Specify font for FPS counter")
+                    .takes_value(true),
+                Arg::with_name("config")
+                    .short("c")
+                    .long("config")
+                    .help("Load a config file")
+                    .takes_value(true),
+            ])
             .after_help(
                 "\
                  This program uses `env_logger` as its logging backend.\n\
@@ -175,7 +164,12 @@ impl Config {
         let mut textures = BTreeMap::new();
         if let Some(values) = args.values_of("textures") {
             for path in values {
-                textures.insert(path.to_string(), TextureConfig { path: path.to_string() });
+                textures.insert(
+                    path.to_string(),
+                    TextureConfig {
+                        path: path.to_string(),
+                    },
+                );
             }
         };
 
@@ -204,6 +198,7 @@ impl Config {
                     None => buffer_config_default_height(),
                 },
                 depends: buffer_config_default_depends(),
+                render_interval: buffer_config_default_render_interval(),
             },
         );
 
@@ -248,12 +243,8 @@ impl Config {
         let args = app.get_matches();
 
         match args.value_of("config") {
-            Some(path) => {
-                Self::from_file(Path::new(path))
-            }
-            None => {
-                Self::from_args(&args)
-            }
+            Some(path) => Self::from_file(Path::new(path)),
+            None => Self::from_args(&args),
         }
     }
 }
