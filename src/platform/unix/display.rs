@@ -4,7 +4,7 @@ use glium::glutin;
 use glutin::EventsLoop;
 use glutin::os::unix::WindowExt;
 use glutin::os::unix::x11::XConnection;
-use glutin::os::unix::x11::ffi::{CWOverrideRedirect, Display, PropModeReplace, XA_ATOM, XID, XSetWindowAttributes};
+use glutin::os::unix::x11::ffi::{CWOverrideRedirect, Display, PropModeReplace, XSetWindowAttributes, XA_ATOM, XID};
 use std::sync::Arc;
 
 use config::Config;
@@ -47,10 +47,9 @@ impl DisplayExt for glium::Display {
             // take effect
             display.remap_window(&x);
             // After remapping the window we need to set the size again
-            display.gl_window().set_inner_size(
-                config.buffers["__default__"].width,
-                config.buffers["__default__"].height,
-            );
+            display
+                .gl_window()
+                .set_inner_size(config.buffers["__default__"].width, config.buffers["__default__"].height);
         }
 
         if config.platform_config.lower_window {
