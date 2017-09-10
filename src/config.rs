@@ -186,7 +186,7 @@ impl Config {
                     None => buffer_config_error_no_fragment(),
                 },
                 textures: match args.values_of("textures") {
-                    Some(values) => values.map(|value: &str| value.to_string()).collect(),
+                    Some(values) => values.map(|value| value.to_string()).collect(),
                     None => buffer_config_default_textures(),
                 },
                 width: match args.value_of("width") {
