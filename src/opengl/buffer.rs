@@ -106,7 +106,7 @@ impl Buffer {
 
         let mut uniforms = UniformsStorageVec::new();
 
-        uniforms.push("resolution", surface.get_dimensions());
+        uniforms.push("resolution", (surface.get_dimensions().0 as f32, surface.get_dimensions().1 as f32));
 
         uniforms.push("time", time as f32);
 
