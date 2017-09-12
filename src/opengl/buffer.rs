@@ -15,6 +15,8 @@ use std::io::BufReader;
 use std::io::prelude::*;
 use std::path::Path;
 use std::rc::Rc;
+use std::ops::Deref;
+use owning_ref::{RefRef,OwningHandle};
 
 use super::renderer::Vertex;
 use config::BufferConfig;
@@ -41,6 +43,24 @@ impl<'name, 'uniform> Uniforms for UniformsStorageVec<'name, 'uniform> {
         for &(ref name, ref uniform) in &self.0 {
             output(name, uniform.as_uniform_value());
         }
+    }
+}
+
+struct DerefInner<T>(T);
+
+impl<T> Deref for DerefInner<T> {
+    type Target = T;
+
+    fn deref(&self) -> &T {
+        &self.0
+    }
+}
+
+struct MapAsUniform<T,U: AsUniformValue>(T, fn(&T) -> &U);
+
+impl<T,U: AsUniformValue> AsUniformValue for MapAsUniform<T,U> {
+    fn as_uniform_value(&self) -> UniformValue {
+        (self.1)(&self.0).as_uniform_value()
     }
 }
 
@@ -151,7 +171,11 @@ impl Buffer {
 
         for (i, buffer) in self.depends.iter().enumerate() {
             buffer.borrow().render_to_self(vertex_buffer, index_buffer, time, pointer);
-            uniforms.push(format!("buffer{}", i), buffer.borrow().texture.sampled());
+
+            let buffer = OwningHandle::new(&**buffer);
+            let texture = OwningHandle::new_with_fn(buffer, |b| unsafe { DerefInner((*b).texture.sampled()) });
+            let texture = MapAsUniform(texture, |t| &**t);
+            uniforms.push(format!("buffer{}", i), texture);
         }
 
         surface

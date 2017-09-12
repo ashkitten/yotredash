@@ -11,6 +11,7 @@ extern crate env_logger;
 extern crate image;
 extern crate time;
 extern crate winit;
+extern crate owning_ref;
 
 #[cfg(feature = "opengl")]
 #[macro_use]
