@@ -6,63 +6,18 @@ use glium::framebuffer::SimpleFrameBuffer;
 use glium::index::NoIndices;
 use glium::program::ProgramCreationInput;
 use glium::texture::Texture2d;
-use glium::uniforms::{AsUniformValue, UniformValue, Uniforms};
+use owning_ref::OwningHandle;
 use std;
-use std::borrow::Cow;
 use std::cell::RefCell;
 use std::fs::File;
 use std::io::BufReader;
 use std::io::prelude::*;
 use std::path::Path;
 use std::rc::Rc;
-use std::ops::Deref;
-use owning_ref::{RefRef,OwningHandle};
 
+use super::util::{UniformsStorageVec,DerefInner,MapAsUniform};
 use super::renderer::Vertex;
 use config::BufferConfig;
-
-pub struct UniformsStorageVec<'name, 'uniform>(Vec<(Cow<'name, str>, Box<AsUniformValue + 'uniform>)>);
-
-impl<'name, 'uniform> UniformsStorageVec<'name, 'uniform> {
-    pub fn new() -> Self {
-        UniformsStorageVec(Vec::new())
-    }
-
-    pub fn push<S, U>(&mut self, name: S, uniform: U)
-    where
-        S: Into<Cow<'name, str>>,
-        U: AsUniformValue + 'uniform,
-    {
-        self.0.push((name.into(), Box::new(uniform)))
-    }
-}
-
-impl<'name, 'uniform> Uniforms for UniformsStorageVec<'name, 'uniform> {
-    #[inline]
-    fn visit_values<'a, F: FnMut(&str, UniformValue<'a>)>(&'a self, mut output: F) {
-        for &(ref name, ref uniform) in &self.0 {
-            output(name, uniform.as_uniform_value());
-        }
-    }
-}
-
-struct DerefInner<T>(T);
-
-impl<T> Deref for DerefInner<T> {
-    type Target = T;
-
-    fn deref(&self) -> &T {
-        &self.0
-    }
-}
-
-struct MapAsUniform<T,U: AsUniformValue>(T, fn(&T) -> &U);
-
-impl<T,U: AsUniformValue> AsUniformValue for MapAsUniform<T,U> {
-    fn as_uniform_value(&self) -> UniformValue {
-        (self.1)(&self.0).as_uniform_value()
-    }
-}
 
 pub struct Buffer {
     texture: Texture2d,
