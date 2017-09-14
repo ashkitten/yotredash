@@ -143,11 +143,9 @@ impl Config {
                 Arg::with_name("vsync")
                     .long("vsync")
                     .help("Enable vertical sync"),
-                #[cfg(feature = "font-rendering")]
                 Arg::with_name("fps")
                     .long("fps")
                     .help("Enable FPS log to console"),
-                #[cfg(feature = "font-rendering")]
                 Arg::with_name("font")
                     .long("font")
                     .help("Specify font for FPS counter")

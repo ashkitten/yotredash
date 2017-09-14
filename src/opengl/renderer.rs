@@ -10,12 +10,10 @@ use std::rc::Rc;
 use time::Tm;
 use winit::EventsLoop;
 
-#[cfg(feature = "font-rendering")]
-use super::text_renderer::TextRenderer;
-
-use super::buffer::Buffer;
 use config::Config;
 use renderer::Renderer;
+use super::buffer::Buffer;
+use super::text_renderer::TextRenderer;
 use util::FpsCounter;
 
 #[derive(Copy, Clone)]
@@ -31,8 +29,8 @@ pub struct OpenGLRenderer {
     index_buffer: NoIndices,
     buffers: HashMap<String, Rc<RefCell<Buffer>>>,
     start_time: Tm,
+    text_renderer: TextRenderer,
     fps_counter: FpsCounter,
-    #[cfg(feature = "font-rendering")] text_renderer: TextRenderer,
 }
 
 fn init_buffers(config: &Config, display: &Display) -> HashMap<String, Rc<RefCell<Buffer>>> {
@@ -79,7 +77,7 @@ impl Renderer for OpenGLRenderer {
     fn new(config: Config, events_loop: &EventsLoop) -> Self {
         let window_builder = WindowBuilder::new().with_title("yotredash");
         let context_builder = ContextBuilder::new().with_vsync(config.vsync);
-        let display = Display::new(window_builder, context_builder, events_loop).unwrap();
+        let display = Display::new(window_builder, context_builder, &events_loop).unwrap();
         ::platform::window::init(display.gl_window().window(), &config);
 
         #[cfg_attr(rustfmt, rustfmt_skip)]
@@ -95,9 +93,7 @@ impl Renderer for OpenGLRenderer {
         let vertex_buffer = VertexBuffer::new(&display, &vertices).unwrap();
         let index_buffer = NoIndices(PrimitiveType::TrianglesList);
         let buffers = init_buffers(&config, &display);
-
         // TODO: font should not be hardcoded
-        #[cfg(feature = "font-rendering")]
         let text_renderer =
             TextRenderer::new(&display, "/usr/share/fonts/adobe-source-code-pro/SourceCodePro-Regular.otf", 64);
 
@@ -108,9 +104,8 @@ impl Renderer for OpenGLRenderer {
             index_buffer: index_buffer,
             buffers: buffers,
             start_time: ::time::now(),
-            fps_counter: FpsCounter::new(1.0),
-            #[cfg(feature = "font-rendering")]
             text_renderer: text_renderer,
+            fps_counter: FpsCounter::new(1.0),
         }
     }
 
@@ -128,17 +123,14 @@ impl Renderer for OpenGLRenderer {
         if self.config.fps {
             self.fps_counter.next_frame();
 
-            #[cfg(feature = "font-rendering")]
-            {
-                self.text_renderer.draw_text(
-                    &self.display,
-                    &mut target,
-                    &("FPS: ".to_string() + &format!("{:.1}", self.fps_counter.fps())),
-                    0.0,
-                    0.0,
-                    [1.0, 1.0, 1.0],
-                );
-            }
+            self.text_renderer.draw_text(
+                &self.display,
+                &mut target,
+                &("FPS: ".to_string() + &format!("{:.1}", self.fps_counter.fps())),
+                0.0,
+                0.0,
+                [1.0, 1.0, 1.0],
+            );
         }
 
         target.finish().unwrap();

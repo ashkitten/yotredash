@@ -1,12 +1,12 @@
-use glium::{Blend, DrawParameters, Program, Surface, Texture2d, VertexBuffer};
 use glium::backend::Facade;
 use glium::index::{NoIndices, PrimitiveType};
 use glium::texture::{ClientFormat, MipmapsOption, RawImage2d, UncompressedFloatFormat};
+use glium::{Blend, DrawParameters, Program, Surface, Texture2d, VertexBuffer};
 use std::borrow::Cow;
 use std::rc::Rc;
 
-use super::UniformsStorageVec;
 use font::{FreeTypeRasterizer, GlyphCache, GlyphLoader};
+use super::UniformsStorageVec;
 
 #[derive(Copy, Clone)]
 pub struct Vertex {

@@ -8,6 +8,7 @@ extern crate serde_derive;
 
 extern crate clap;
 extern crate env_logger;
+extern crate freetype;
 extern crate image;
 extern crate owning_ref;
 extern crate time;
@@ -17,19 +18,14 @@ extern crate winit;
 #[macro_use]
 extern crate glium;
 
-#[cfg(feature = "font-rendering")]
-extern crate freetype;
-
 mod config;
+mod font;
 mod platform;
 mod renderer;
 mod util;
 
 #[cfg(feature = "opengl")]
 mod opengl;
-
-#[cfg(feature = "font-rendering")]
-mod font;
 
 #[cfg(unix)]
 use signal::Signal;
