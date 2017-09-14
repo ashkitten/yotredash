@@ -1,6 +1,6 @@
 use clap::ArgMatches;
 
-#[derive(Deserialize, Default)]
+#[derive(Deserialize, Default, Clone)]
 pub struct PlatformSpecificConfig {}
 
 impl PlatformSpecificConfig {

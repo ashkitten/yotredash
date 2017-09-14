@@ -10,7 +10,7 @@ use std::path::Path;
 
 use platform::config::PlatformSpecificConfig;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 pub struct TextureConfig {
     #[serde(default = "texture_config_error_no_path")] pub path: String,
 }
@@ -61,7 +61,7 @@ fn buffer_config_default_resizeable() -> bool {
     true
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 pub struct Config {
     #[serde(default = "config_error_no_buffers")] pub buffers: HashMap<String, BufferConfig>,
     #[serde(default = "config_default_textures")] pub textures: HashMap<String, TextureConfig>,
@@ -143,9 +143,11 @@ impl Config {
                 Arg::with_name("vsync")
                     .long("vsync")
                     .help("Enable vertical sync"),
+                #[cfg(feature = "font-rendering")]
                 Arg::with_name("fps")
                     .long("fps")
                     .help("Enable FPS log to console"),
+                #[cfg(feature = "font-rendering")]
                 Arg::with_name("font")
                     .long("font")
                     .help("Specify font for FPS counter")

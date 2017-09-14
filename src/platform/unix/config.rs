@@ -2,7 +2,7 @@ use clap::{App, Arg, ArgMatches};
 
 use Config;
 
-#[derive(Deserialize, Default)]
+#[derive(Deserialize, Default, Clone)]
 pub struct PlatformSpecificConfig {
     #[serde(default = "default_root")] pub root: bool,
     #[serde(default = "default_override_redirect")] pub override_redirect: bool,

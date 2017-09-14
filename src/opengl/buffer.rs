@@ -94,7 +94,7 @@ impl Buffer {
         self.depends.append(depends);
     }
 
-    pub fn render_to<'buf, S>(
+    pub fn render_to<S>(
         &self, surface: &mut S, vertex_buffer: &VertexBuffer<Vertex>, index_buffer: &NoIndices, time: f32,
         pointer: [f32; 4],
     ) where

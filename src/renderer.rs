@@ -2,7 +2,7 @@ use config::Config;
 use winit::EventsLoop;
 
 pub trait Renderer {
-    fn new(config: &Config, events_loop: &EventsLoop) -> Self
+    fn new(config: Config, events_loop: &EventsLoop) -> Self
     where
         Self: Sized;
     fn render(&mut self, pointer: [f32; 4]);

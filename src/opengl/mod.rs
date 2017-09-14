@@ -1,5 +1,7 @@
 pub mod buffer;
 pub mod renderer;
+
+#[cfg(feature = "font-rendering")]
 pub mod text_renderer;
 
 use glium::uniforms::{AsUniformValue, UniformValue, Uniforms};

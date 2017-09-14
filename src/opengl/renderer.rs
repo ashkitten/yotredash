@@ -10,10 +10,13 @@ use std::rc::Rc;
 use time::Tm;
 use winit::EventsLoop;
 
-use super::buffer::Buffer;
+#[cfg(feature = "font-rendering")]
 use super::text_renderer::TextRenderer;
+
+use super::buffer::Buffer;
 use config::Config;
 use renderer::Renderer;
+use util::FpsCounter;
 
 #[derive(Copy, Clone)]
 pub struct Vertex {
@@ -22,14 +25,14 @@ pub struct Vertex {
 implement_vertex!(Vertex, position);
 
 pub struct OpenGLRenderer {
+    config: Config,
     display: Display,
     vertex_buffer: VertexBuffer<Vertex>,
     index_buffer: NoIndices,
     buffers: HashMap<String, Rc<RefCell<Buffer>>>,
-    text_renderer: TextRenderer,
-    show_fps: bool,
     start_time: Tm,
-    last_frame: Tm,
+    fps_counter: FpsCounter,
+    #[cfg(feature = "font-rendering")] text_renderer: TextRenderer,
 }
 
 fn init_buffers(config: &Config, display: &Display) -> HashMap<String, Rc<RefCell<Buffer>>> {
@@ -51,7 +54,7 @@ fn init_buffers(config: &Config, display: &Display) -> HashMap<String, Rc<RefCel
             name.to_string(),
             Rc::new(RefCell::new(Buffer::new(
                 display,
-                &bconfig,
+                bconfig,
                 bconfig
                     .textures
                     .iter()
@@ -73,11 +76,11 @@ fn init_buffers(config: &Config, display: &Display) -> HashMap<String, Rc<RefCel
 }
 
 impl Renderer for OpenGLRenderer {
-    fn new(config: &Config, events_loop: &EventsLoop) -> Self {
+    fn new(config: Config, events_loop: &EventsLoop) -> Self {
         let window_builder = WindowBuilder::new().with_title("yotredash");
         let context_builder = ContextBuilder::new().with_vsync(config.vsync);
-        let display = Display::new(window_builder, context_builder, &events_loop).unwrap();
-        ::platform::window::init(display.gl_window().window(), config);
+        let display = Display::new(window_builder, context_builder, events_loop).unwrap();
+        ::platform::window::init(display.gl_window().window(), &config);
 
         #[cfg_attr(rustfmt, rustfmt_skip)]
         let vertices = [
@@ -91,20 +94,23 @@ impl Renderer for OpenGLRenderer {
 
         let vertex_buffer = VertexBuffer::new(&display, &vertices).unwrap();
         let index_buffer = NoIndices(PrimitiveType::TrianglesList);
-        let buffers = init_buffers(config, &display);
+        let buffers = init_buffers(&config, &display);
+
         // TODO: font should not be hardcoded
+        #[cfg(feature = "font-rendering")]
         let text_renderer =
             TextRenderer::new(&display, "/usr/share/fonts/adobe-source-code-pro/SourceCodePro-Regular.otf", 64);
 
         Self {
+            config: config,
             display: display,
             vertex_buffer: vertex_buffer,
             index_buffer: index_buffer,
             buffers: buffers,
-            text_renderer: text_renderer,
-            show_fps: config.fps,
             start_time: ::time::now(),
-            last_frame: ::time::now(),
+            fps_counter: FpsCounter::new(1.0),
+            #[cfg(feature = "font-rendering")]
+            text_renderer: text_renderer,
         }
     }
 
@@ -119,22 +125,20 @@ impl Renderer for OpenGLRenderer {
             pointer,
         );
 
-        if self.show_fps {
-            // TODO: set update interval for fps counter
+        if self.config.fps {
+            self.fps_counter.next_frame();
 
-            let delta = ::time::now() - self.last_frame;
-            let fps = 1.0 / (delta.num_nanoseconds().unwrap() as f64 / 1_000_000_000.0);
-
-            self.text_renderer.draw_text(
-                &self.display,
-                &mut target,
-                &("FPS: ".to_string() + &(fps as i32).to_string()),
-                0.0,
-                0.0,
-                [1.0, 1.0, 1.0],
-            );
-
-            self.last_frame = ::time::now();
+            #[cfg(feature = "font-rendering")]
+            {
+                self.text_renderer.draw_text(
+                    &self.display,
+                    &mut target,
+                    &("FPS: ".to_string() + &format!("{:.1}", self.fps_counter.fps())),
+                    0.0,
+                    0.0,
+                    [1.0, 1.0, 1.0],
+                );
+            }
         }
 
         target.finish().unwrap();
@@ -150,7 +154,7 @@ impl Renderer for OpenGLRenderer {
     }
 
     fn resize(&mut self, width: u32, height: u32) {
-        for (_, buffer) in &self.buffers {
+        for buffer in self.buffers.values() {
             buffer.borrow_mut().resize(&self.display, width, height);
         }
     }

@@ -23,6 +23,7 @@ extern crate freetype;
 mod config;
 mod platform;
 mod renderer;
+mod util;
 
 #[cfg(feature = "opengl")]
 mod opengl;
@@ -53,7 +54,7 @@ fn main() {
     let mut events_loop = winit::EventsLoop::new();
     let mut renderer: Box<Renderer> = match config.renderer.as_ref() as &str {
         #[cfg(feature = "opengl")]
-        "opengl" => Box::new(OpenGLRenderer::new(&config, &events_loop)),
+        "opengl" => Box::new(OpenGLRenderer::new(config.clone(), &events_loop)),
         other => {
             error!("Renderer {} does not exist", other);
             std::process::exit(1);
