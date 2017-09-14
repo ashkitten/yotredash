@@ -1,6 +1,13 @@
+//! yotredash is a an application for executing demoscene shaders
+
+// So we don't run into issues with the error_chain macro
+#![recursion_limit = "128"]
+
 #[cfg(unix)]
 extern crate signal;
 
+#[macro_use]
+extern crate error_chain;
 #[macro_use]
 extern crate log;
 #[macro_use]
@@ -11,6 +18,7 @@ extern crate env_logger;
 extern crate freetype;
 extern crate image;
 extern crate owning_ref;
+extern crate serde_yaml;
 extern crate time;
 extern crate winit;
 
@@ -18,39 +26,91 @@ extern crate winit;
 #[macro_use]
 extern crate glium;
 
-mod config;
-mod font;
-mod platform;
-mod renderer;
-mod util;
+pub mod config;
+pub mod font;
+pub mod platform;
+pub mod util;
 
 #[cfg(feature = "opengl")]
-mod opengl;
+pub mod opengl;
+
+mod errors {
+    // Create the Error, ErrorKind, ResultExt, and Result types
+    error_chain! {
+        foreign_links {
+            FreeType(::freetype::Error);
+
+            DisplayCreationError(::glium::backend::glutin::DisplayCreationError);
+            DrawError(::glium::DrawError);
+            ProgramChooserCreationError(::glium::program::ProgramChooserCreationError);
+            ProgramCreationError(::glium::ProgramCreationError);
+            SwapBuffersError(::glium::SwapBuffersError);
+            TextureCreationError(::glium::texture::TextureCreationError);
+            VertexCreationError(::glium::vertex::BufferCreationError);
+
+            Image(::image::ImageError);
+
+            SetLoggerError(::log::SetLoggerError);
+
+            SerdeYaml(::serde_yaml::Error);
+
+            Io(::std::io::Error);
+            ParseIntError(::std::num::ParseIntError);
+        }
+    }
+}
 
 #[cfg(unix)]
 use signal::Signal;
 #[cfg(unix)]
 use signal::trap::Trap;
 
+use winit::EventsLoop;
+
 #[cfg(feature = "opengl")]
 use opengl::renderer::OpenGLRenderer;
 
 use config::Config;
-use renderer::Renderer;
+use errors::*;
 
-fn main() {
-    env_logger::init().unwrap();
+/// Renders a configured shader
+pub trait Renderer {
+    /// Create a new renderer
+    fn new(config: Config, events_loop: &EventsLoop) -> Result<Self>
+    where
+        Self: Sized;
+    /// Render the current frame
+    fn render(&mut self, pointer: [f32; 4]) -> Result<()>;
+    /// Tells the renderer to swap buffers (only applicable to buffered renderers)
+    fn swap_buffers(&self) -> Result<()>;
+    /// Reload the renderer from a new configuration
+    fn reload(&mut self, config: &Config) -> Result<()>;
+    /// Resize the renderer's output without reloading
+    fn resize(&mut self, width: u32, height: u32) -> Result<()>;
+}
 
-    // Register signal handler
+#[derive(PartialEq)]
+enum RendererAction {
+    Resize(u32, u32),
+    Reload,
+    Close,
+}
+
+quick_main!(|| -> Result<()> {
+    env_logger::init()?;
+
+    // Register signal handler (unix only)
     #[cfg(unix)]
     let trap = Trap::trap(&[Signal::SIGUSR1, Signal::SIGUSR2, Signal::SIGHUP]);
 
-    let mut config = Config::parse();
+    // Get configuration
+    let mut config = Config::parse()?;
 
+    // Creates an appropriate renderer for the configuration, exits with an error if that fails
     let mut events_loop = winit::EventsLoop::new();
     let mut renderer: Box<Renderer> = match config.renderer.as_ref() as &str {
         #[cfg(feature = "opengl")]
-        "opengl" => Box::new(OpenGLRenderer::new(config.clone(), &events_loop)),
+        "opengl" => Box::new(OpenGLRenderer::new(config.clone(), &events_loop)?),
         other => {
             error!("Renderer {} does not exist", other);
             std::process::exit(1);
@@ -59,13 +119,13 @@ fn main() {
 
     let mut pointer = [0.0; 4];
 
-    let mut closed = false;
+    let mut actions: Vec<RendererAction> = Vec::new();
     let mut paused = false;
-    while !closed {
+    loop {
         if !paused {
-            renderer.render(pointer);
+            renderer.render(pointer)?;
         } else {
-            renderer.swap_buffers();
+            renderer.swap_buffers()?;
         }
 
         #[cfg(unix)]
@@ -76,10 +136,7 @@ fn main() {
                 match signal.unwrap() {
                     Signal::SIGUSR1 => paused = true,
                     Signal::SIGUSR2 => paused = false,
-                    Signal::SIGHUP => {
-                        config = Config::parse();
-                        renderer.reload(&config);
-                    }
+                    Signal::SIGHUP => actions.push(RendererAction::Reload),
                     _ => (),
                 }
             }
@@ -89,9 +146,9 @@ fn main() {
             use winit::WindowEvent;
 
             match event {
-                WindowEvent::Resized(width, height) => renderer.resize(width, height),
+                WindowEvent::Resized(width, height) => actions.push(RendererAction::Resize(width, height)),
 
-                WindowEvent::Closed => closed = true,
+                WindowEvent::Closed => actions.push(RendererAction::Close),
 
                 WindowEvent::KeyboardInput {
                     input: winit::KeyboardInput {
@@ -101,11 +158,8 @@ fn main() {
                     },
                     ..
                 } => match keycode {
-                    winit::VirtualKeyCode::Escape => closed = true,
-                    winit::VirtualKeyCode::F5 => {
-                        config = Config::parse();
-                        renderer.reload(&config);
-                    }
+                    winit::VirtualKeyCode::Escape => actions.push(RendererAction::Close),
+                    winit::VirtualKeyCode::F5 => actions.push(RendererAction::Reload),
                     _ => (),
                 },
 
@@ -132,5 +186,16 @@ fn main() {
                 _ => (),
             }
         });
+
+        for action in &actions {
+            match action {
+                &RendererAction::Resize(width, height) => renderer.resize(width, height)?,
+                &RendererAction::Reload => {
+                    config = Config::parse()?;
+                    renderer.reload(&config)?;
+                }
+                &RendererAction::Close => return Ok(()),
+            }
+        }
     }
-}
+});

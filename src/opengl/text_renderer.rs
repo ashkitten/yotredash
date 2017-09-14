@@ -1,12 +1,13 @@
+use glium::{Blend, DrawParameters, Program, Surface, Texture2d, VertexBuffer};
 use glium::backend::Facade;
 use glium::index::{NoIndices, PrimitiveType};
 use glium::texture::{ClientFormat, MipmapsOption, RawImage2d, UncompressedFloatFormat};
-use glium::{Blend, DrawParameters, Program, Surface, Texture2d, VertexBuffer};
 use std::borrow::Cow;
 use std::rc::Rc;
 
-use font::{FreeTypeRasterizer, GlyphCache, GlyphLoader};
 use super::UniformsStorageVec;
+use errors::*;
+use font::{FreeTypeRasterizer, GlyphCache, GlyphLoader};
 
 #[derive(Copy, Clone)]
 pub struct Vertex {
@@ -21,8 +22,8 @@ pub struct TextRenderer {
 }
 
 impl TextRenderer {
-    pub fn new(facade: &Facade, font_path: &str, font_size: u32) -> Self {
-        let glyph_cache = GlyphCache::new(Rc::new(FreeTypeRasterizer::new(font_path, font_size)));
+    pub fn new(facade: &Facade, font_path: &str, font_size: u32) -> Result<Self> {
+        let glyph_cache = GlyphCache::new(Rc::new(FreeTypeRasterizer::new(font_path, font_size)?))?;
 
         let program = program!(facade,
             140 => {
@@ -55,21 +56,23 @@ impl TextRenderer {
                     }
                 ",
             }
-        ).unwrap();
+        )?;
 
-        Self {
+        Ok(Self {
             glyph_cache: glyph_cache,
             program: program,
-        }
+        })
     }
 
-    pub fn draw_text<S>(&mut self, facade: &Facade, surface: &mut S, text: &str, x: f32, y: f32, color: [f32; 3])
+    pub fn draw_text<S>(
+        &mut self, facade: &Facade, surface: &mut S, text: &str, x: f32, y: f32, color: [f32; 3]
+    ) -> Result<()>
     where
         S: Surface,
     {
         let mut advance = 0.0;
         for c in text.chars() {
-            let glyph = self.glyph_cache.get(c as usize);
+            let glyph = self.glyph_cache.get(c as usize)?;
 
             let image = RawImage2d {
                 data: Cow::from(glyph.buffer.clone()),
@@ -77,8 +80,7 @@ impl TextRenderer {
                 height: glyph.rows as u32,
                 format: ClientFormat::U8,
             };
-            let image =
-                Texture2d::with_format(facade, image, UncompressedFloatFormat::U8, MipmapsOption::NoMipmap).unwrap();
+            let image = Texture2d::with_format(facade, image, UncompressedFloatFormat::U8, MipmapsOption::NoMipmap)?;
 
             let (win_width, win_height) = surface.get_dimensions();
             let p_x = 1.0 / win_width as f32;
@@ -114,7 +116,7 @@ impl TextRenderer {
                 Vertex { position: [x + w, y + h], tex_coords: [1.0, 0.0] },
             ];
 
-            let vertex_buffer = VertexBuffer::new(facade, &vertices).unwrap();
+            let vertex_buffer = VertexBuffer::new(facade, &vertices)?;
             let index_buffer = NoIndices(PrimitiveType::TrianglesList);
 
             let params = DrawParameters {
@@ -122,11 +124,11 @@ impl TextRenderer {
                 ..Default::default()
             };
 
-            surface
-                .draw(&vertex_buffer, &index_buffer, &self.program, &uniforms, &params)
-                .unwrap();
+            surface.draw(&vertex_buffer, &index_buffer, &self.program, &uniforms, &params)?;
 
             advance += glyph.advance as f32;
         }
+
+        Ok(())
     }
 }

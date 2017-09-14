@@ -1,9 +1,14 @@
 use time::Tm;
 
+/// A simple struct to count frames per second and update at a set interval
 pub struct FpsCounter {
+    /// The last time the counter reset
     last_time: Tm,
+    /// The number of frames counted since the last reset
     frames: u32,
+    /// Interval between resets
     interval: f32,
+    /// Current frames per second
     fps: f32,
 }
 

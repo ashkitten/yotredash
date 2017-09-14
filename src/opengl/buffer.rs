@@ -14,7 +14,8 @@ use std::rc::Rc;
 
 use super::{DerefInner, MapAsUniform, UniformsStorageVec};
 use super::renderer::Vertex;
-use config::BufferConfig;
+use config::buffer_config::BufferConfig;
+use errors::*;
 
 pub struct Buffer {
     texture: Texture2d,
@@ -25,40 +26,23 @@ pub struct Buffer {
 }
 
 impl Buffer {
-    pub fn new(facade: &Facade, config: &BufferConfig, attachments: Vec<Rc<Texture2d>>) -> Self {
-        let file = match File::open(config.vertex.to_string()) {
-            Ok(file) => file,
-            Err(error) => {
-                error!("Could not open vertex shader file: {}", error);
-                ::std::process::exit(1);
-            }
-        };
+    pub fn new(facade: &Facade, config: &BufferConfig, attachments: Vec<Rc<Texture2d>>) -> Result<Self> {
+        info!("Using vertex shader: {}", config.vertex);
+        info!("Using fragment shader: {}", config.fragment);
+
+        let file = File::open(config.vertex.to_string()).chain_err(|| "Could not open vertex shader file")?;
         let mut buf_reader = BufReader::new(file);
         let mut vertex_source = String::new();
-        match buf_reader.read_to_string(&mut vertex_source) {
-            Ok(_) => info!("Using vertex shader: {}", config.vertex),
-            Err(error) => {
-                error!("Could not read vertex shader file: {}", error);
-                ::std::process::exit(1);
-            }
-        };
+        buf_reader
+            .read_to_string(&mut vertex_source)
+            .chain_err(|| "Could not read vertex shader file")?;
 
-        let file = match File::open(config.fragment.to_string()) {
-            Ok(file) => file,
-            Err(error) => {
-                error!("Could not open fragment shader file: {}", error);
-                ::std::process::exit(1);
-            }
-        };
+        let file = File::open(config.fragment.to_string()).chain_err(|| "Could not open fragment shader file")?;
         let mut buf_reader = BufReader::new(file);
         let mut fragment_source = String::new();
-        match buf_reader.read_to_string(&mut fragment_source) {
-            Ok(_) => info!("Using fragment shader: {}", config.fragment),
-            Err(error) => {
-                error!("Could not read fragment shader file: {}", error);
-                ::std::process::exit(1);
-            }
-        };
+        buf_reader
+            .read_to_string(&mut fragment_source)
+            .chain_err(|| "Could not read fragment shader file")?;
 
         let input = ProgramCreationInput::SourceCode {
             vertex_shader: &vertex_source,
@@ -70,24 +54,17 @@ impl Buffer {
             outputs_srgb: true,
             uses_point_size: false,
         };
-        let program = Program::new(facade, input);
-        let program = match program {
-            Ok(program) => program,
-            Err(error) => {
-                error!("{}", error);
-                ::std::process::exit(1);
-            }
-        };
+        let program = Program::new(facade, input)?;
 
-        let texture = Texture2d::empty(facade, config.width, config.height).unwrap();
+        let texture = Texture2d::empty(facade, config.width, config.height)?;
 
-        Buffer {
+        Ok(Buffer {
             texture: texture,
             program: program,
             attachments: attachments,
             depends: Vec::new(),
             resizeable: config.resizeable,
-        }
+        })
     }
 
     pub fn link_depends(&mut self, depends: &mut Vec<Rc<RefCell<Buffer>>>) {
@@ -97,7 +74,8 @@ impl Buffer {
     pub fn render_to<S>(
         &self, surface: &mut S, vertex_buffer: &VertexBuffer<Vertex>, index_buffer: &NoIndices, time: f32,
         pointer: [f32; 4],
-    ) where
+    ) -> Result<()>
+    where
         S: Surface,
     {
         surface.clear_color(0.0, 0.0, 0.0, 1.0);
@@ -106,7 +84,7 @@ impl Buffer {
 
         uniforms.push("resolution", (surface.get_dimensions().0 as f32, surface.get_dimensions().1 as f32));
 
-        uniforms.push("time", time as f32);
+        uniforms.push("time", time);
 
         uniforms.push(
             "pointer",
@@ -125,7 +103,7 @@ impl Buffer {
         for (i, buffer) in self.depends.iter().enumerate() {
             buffer
                 .borrow()
-                .render_to_self(vertex_buffer, index_buffer, time, pointer);
+                .render_to_self(vertex_buffer, index_buffer, time, pointer)?;
 
             let buffer = OwningHandle::new(&**buffer);
             let texture = OwningHandle::new_with_fn(buffer, |b| unsafe { DerefInner((*b).texture.sampled()) });
@@ -133,20 +111,22 @@ impl Buffer {
             uniforms.push(format!("buffer{}", i), texture);
         }
 
-        surface
-            .draw(vertex_buffer, index_buffer, &self.program, &uniforms, &Default::default())
-            .unwrap();
+        surface.draw(vertex_buffer, index_buffer, &self.program, &uniforms, &Default::default())?;
+
+        Ok(())
     }
 
     pub fn render_to_self(
         &self, vertex_buffer: &VertexBuffer<Vertex>, index_buffer: &NoIndices, time: f32, pointer: [f32; 4]
-    ) {
-        self.render_to(&mut self.texture.as_surface(), vertex_buffer, index_buffer, time, pointer);
+    ) -> Result<()> {
+        self.render_to(&mut self.texture.as_surface(), vertex_buffer, index_buffer, time, pointer)?;
+        Ok(())
     }
 
-    pub fn resize(&mut self, facade: &Facade, width: u32, height: u32) {
+    pub fn resize(&mut self, facade: &Facade, width: u32, height: u32) -> Result<()> {
         if self.resizeable {
-            self.texture = Texture2d::empty(facade, width, height).unwrap();
+            self.texture = Texture2d::empty(facade, width, height)?
         }
+        Ok(())
     }
 }
