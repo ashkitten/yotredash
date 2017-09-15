@@ -1,13 +1,55 @@
 use glium::{Blend, DrawParameters, Program, Surface, Texture2d, VertexBuffer};
 use glium::backend::Facade;
 use glium::index::{NoIndices, PrimitiveType};
-use glium::texture::{ClientFormat, MipmapsOption, RawImage2d, UncompressedFloatFormat};
+use glium::texture::{RawImage2d, PixelValue, Texture2dDataSource};
 use std::borrow::Cow;
 use std::rc::Rc;
 
 use super::UniformsStorageVec;
 use errors::*;
-use font::{FreeTypeRasterizer, GlyphCache, GlyphLoader};
+use font::{FreeTypeRasterizer, GlyphCache, GlyphLoader, RenderedGlyph};
+use graphics::{Texture, GpuTexture, GpuGlyph};
+
+impl<'a, P> Texture2dDataSource<'a> for &'a Texture<P>
+    where P: Clone + PixelValue
+{
+    type Data = P;
+
+    fn into_raw(self) -> RawImage2d<'a, P> {
+        RawImage2d {
+            data: Cow::Borrowed(&self.data),
+            width: self.width as u32,
+            height: self.height as u32,
+            format: <P as PixelValue>::get_format(),
+        }
+    }
+}
+
+struct GliumGpuTexture {
+    texture: Texture2d,
+}
+
+impl<B> GpuTexture<B> for GliumGpuTexture where B: Facade {
+    fn new<P>(backend: &B, texture: Texture<P>) -> Result<Self> where P: Clone + PixelValue {
+        Ok(Self {
+            texture: Texture2d::new(backend, &texture)?,
+        })
+    }
+}
+
+struct GliumGpuGlyph {
+    texture: Texture2d,
+    glyph: RenderedGlyph,
+}
+
+impl<B> GpuGlyph<B> for GliumGpuGlyph where B: Facade + ?Sized {
+    fn new(backend: &B, glyph: RenderedGlyph) -> Result<Self> {
+        Ok(Self {
+            texture: Texture2d::new(backend, &glyph.clone().into())?,
+            glyph: glyph,
+        })
+    }
+}
 
 #[derive(Copy, Clone)]
 pub struct Vertex {
@@ -17,13 +59,13 @@ pub struct Vertex {
 implement_vertex!(Vertex, position, tex_coords);
 
 pub struct TextRenderer {
-    glyph_cache: GlyphCache,
+    glyph_cache: GlyphCache<GliumGpuGlyph>,
     program: Program,
 }
 
-impl TextRenderer {
-    pub fn new(facade: &Facade, font_path: &str, font_size: u32) -> Result<Self> {
-        let glyph_cache = GlyphCache::new(Rc::new(FreeTypeRasterizer::new(font_path, font_size)?))?;
+impl TextRenderer where {
+    pub fn new<B>(facade: &B, font_path: &str, font_size: u32) -> Result<Self> where B: Facade {
+        let glyph_cache = GlyphCache::new(facade, Rc::new(FreeTypeRasterizer::new(font_path, font_size)?))?;
 
         let program = program!(facade,
             140 => {
@@ -72,15 +114,7 @@ impl TextRenderer {
     {
         let mut advance = 0.0;
         for c in text.chars() {
-            let glyph = self.glyph_cache.get(c as usize)?;
-
-            let image = RawImage2d {
-                data: Cow::from(glyph.buffer.clone()),
-                width: glyph.width as u32,
-                height: glyph.rows as u32,
-                format: ClientFormat::U8,
-            };
-            let image = Texture2d::with_format(facade, image, UncompressedFloatFormat::U8, MipmapsOption::NoMipmap)?;
+            let glyph = self.glyph_cache.get(c as usize, facade)?;
 
             let (win_width, win_height) = surface.get_dimensions();
             let p_x = 1.0 / win_width as f32;
@@ -97,14 +131,14 @@ impl TextRenderer {
 
             let mut uniforms = UniformsStorageVec::new();
             uniforms.push("glyphColor", color);
-            uniforms.push("glyphTexture", image.sampled());
+            uniforms.push("glyphTexture", glyph.texture.sampled());
             uniforms.push("projection", projection);
 
-            let x = x + glyph.bearing_x as f32 + advance;
-            let y = y - (glyph.rows as f32 - glyph.bearing_y);
+            let x = x + glyph.glyph.bearing_x as f32 + advance;
+            let y = y - (glyph.glyph.height as f32 - glyph.glyph.bearing_y);
 
-            let w = glyph.width as f32;
-            let h = glyph.rows as f32;
+            let w = glyph.glyph.width as f32;
+            let h = glyph.glyph.height as f32;
 
             #[cfg_attr(rustfmt, rustfmt_skip)]
             let vertices = [
@@ -126,7 +160,7 @@ impl TextRenderer {
 
             surface.draw(&vertex_buffer, &index_buffer, &self.program, &uniforms, &params)?;
 
-            advance += glyph.advance as f32;
+            advance += glyph.glyph.advance as f32;
         }
 
         Ok(())

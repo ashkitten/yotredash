@@ -4,14 +4,16 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use errors::*;
+use graphics::{Texture, GpuGlyph};
 
+#[derive(Clone)]
 pub struct RenderedGlyph {
     /// Bitmap buffer (format: U8)
     pub buffer: Vec<u8>,
     /// Width of bitmap in pixels
     pub width: u32,
     /// Number of rows in bitmap
-    pub rows: u32,
+    pub height: u32,
     /// Additional distance from left
     pub bearing_x: f32,
     /// Additional distance from top
@@ -20,6 +22,17 @@ pub struct RenderedGlyph {
     pub advance: f32,
 }
 
+impl Into<Texture<u8>> for RenderedGlyph {
+    fn into(self) -> Texture<u8> {
+        Texture {
+            data: self.buffer,
+            width: self.width,
+            height: self.height,
+        }
+    }
+}
+
+/// Generic loader for glyphs
 pub trait GlyphLoader {
     /// Creates a new instance of the GlyphCache
     fn new(path: &str, size: u32) -> Result<Self>
@@ -29,15 +42,16 @@ pub trait GlyphLoader {
     fn load(&self, key: usize) -> Result<RenderedGlyph>;
 }
 
-pub struct GlyphCache {
+/// A cache of glyphs on the GPU
+pub struct GlyphCache<T> {
     /// The cache in which rendered glyphs are stored
-    cache: HashMap<usize, RenderedGlyph>,
+    cache: HashMap<usize, T>,
     /// A reference to the loader this GlyphCache uses to load new glyphs
     loader: Rc<GlyphLoader>,
 }
 
-impl GlyphCache {
-    pub fn new<L: GlyphLoader + 'static>(loader: Rc<L>) -> Result<Self> {
+impl<T> GlyphCache<T> {
+    pub fn new<B, L>(backend: &B, loader: Rc<L>) -> Result<Self> where T: GpuGlyph<B>, L: GlyphLoader + 'static {
         let mut cache = Self {
             cache: HashMap::new(),
             loader: loader,
@@ -46,14 +60,14 @@ impl GlyphCache {
         // Prerender all visible ascii characters
         // TODO: change to `32..=127` when inclusive ranges make it to stable Rust
         for i in 32..128usize {
-            cache.get(i)?;
+            cache.get(i, backend)?;
         }
 
         Ok(cache)
     }
 
-    pub fn get(&mut self, key: usize) -> Result<&RenderedGlyph> {
-        Ok(self.cache.entry(key).or_insert(self.loader.load(key)?))
+    pub fn get<B>(&mut self, key: usize, backend: &B) -> Result<&T> where T: GpuGlyph<B>, B: ?Sized {
+        Ok(self.cache.entry(key).or_insert(T::new(backend, self.loader.load(key)?.into())?))
     }
 }
 
@@ -79,7 +93,7 @@ impl GlyphLoader for FreeTypeRasterizer {
         Ok(RenderedGlyph {
             buffer: slot.bitmap().buffer().into(),
             width: slot.bitmap().width() as u32,
-            rows: slot.bitmap().rows() as u32,
+            height: slot.bitmap().rows() as u32,
             bearing_x: slot.bitmap_left() as f32,
             bearing_y: slot.bitmap_top() as f32,
             // TODO: figure out why I need to divide by 2.0
