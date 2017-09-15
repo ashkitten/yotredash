@@ -6,6 +6,7 @@ use winit::os::unix::x11::ffi::{CWOverrideRedirect, Display, PropModeReplace, XS
 
 use config::Config;
 
+/// Sets the override-redirect flag of a window
 unsafe fn override_redirect(x_connection: &Arc<XConnection>, x_display: *mut Display, x_window: XID) {
     // Change the override-redirect attribute
     (x_connection.xlib.XChangeWindowAttributes)(
@@ -32,10 +33,12 @@ unsafe fn override_redirect(x_connection: &Arc<XConnection>, x_display: *mut Dis
     );
 }
 
+/// Lowers a window to the back of the stack
 unsafe fn lower_window(x_connection: &Arc<XConnection>, x_display: *mut Display, x_window: XID) {
     (x_connection.xlib.XLowerWindow)(x_display, x_window);
 }
 
+/// Sets the _NET_WM_WINDOW_TYPE atom of a window to _NET_WM_WINDOW_TYPE_DESKTOP
 unsafe fn desktop_window(x_connection: &Arc<XConnection>, x_display: *mut Display, x_window: XID) {
     let window_type_str = b"_NET_WM_WINDOW_TYPE\0".as_ptr();
     let window_type_desktop_str = b"_NET_WM_WINDOW_TYPE_DESKTOP\0".as_ptr();
@@ -54,6 +57,7 @@ unsafe fn desktop_window(x_connection: &Arc<XConnection>, x_display: *mut Displa
     );
 }
 
+/// Unmaps a window and maps it again
 unsafe fn remap_window(x_connection: &Arc<XConnection>, x_display: *mut Display, x_window: XID) {
     // Remap the window so the override-redirect attribute can take effect
     // Unmap window
@@ -64,6 +68,7 @@ unsafe fn remap_window(x_connection: &Arc<XConnection>, x_display: *mut Display,
     (x_connection.xlib.XMapWindow)(x_display, x_window);
 }
 
+/// Initializes an X11 window according to a configuration
 pub fn init(window: &Window, config: &Config) {
     // Get info about our connection, display, and window
     let x_connection = window.get_xlib_xconnection().unwrap();

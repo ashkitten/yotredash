@@ -1,45 +1,68 @@
 extern crate serde_yaml;
 
+/// The texture configuration contains all the information necessary to build a texture
 pub mod texture_config {
+    /// The texture configuration contains all the information necessary to build a texture
     #[derive(Deserialize, Clone)]
     pub struct TextureConfig {
+        /// The path to the texture file (relative to the configuration file, if there is one)
         pub path: String,
     }
 }
 
+/// The buffer configuration contains all the information necessary to build a buffer
 pub mod buffer_config {
+    /// The buffer configuration contains all the information necessary to build a buffer
     #[derive(Deserialize, Clone)]
     pub struct BufferConfig {
+        /// The path to the vertex shader (relative to the configuration file, if there is one)
         pub vertex: String,
+
+        /// The path to the fragment shader (relative to the configuration file, if there is one)
         pub fragment: String,
+
+        /// The names of the texture configurations this buffer references
         #[serde(default = "default_textures")]
         pub textures: Vec<String>,
+
+        /// The width of the buffer
         #[serde(default = "default_width")]
         pub width: u32,
+
+        /// The height of the buffer
         #[serde(default = "default_height")]
         pub height: u32,
+
+        /// The names of the buffer configurations this buffer references
         #[serde(default = "default_depends")]
         pub depends: Vec<String>,
+
+        /// Whether or not this buffer is resizeable
         #[serde(default = "default_resizeable")]
         pub resizeable: bool,
     }
 
+    /// A function that returns the default value of the "textures" field
     pub fn default_textures() -> Vec<String> {
         Vec::new()
     }
 
+    /// A function that returns the default value of the "width" field
     pub fn default_width() -> u32 {
         640
     }
 
+    /// A function that returns the default value of the "height" field
     pub fn default_height() -> u32 {
         400
     }
 
+    /// A function that returns the default value of the "depends" field
     pub fn default_depends() -> Vec<String> {
         Vec::new()
     }
 
+    /// A function that returns the default value of the "resizeable" field
     pub fn default_resizeable() -> bool {
         true
     }
@@ -57,50 +80,75 @@ use self::texture_config::TextureConfig;
 use errors::*;
 use platform::config::PlatformSpecificConfig;
 
+/// The main configuration contains all the information necessary to build a renderer
 #[derive(Deserialize, Clone)]
 pub struct Config {
+    /// The buffer configurations, keyed by name
+    ///
+    /// The buffer called "__default__" must be specified, as this is the output buffer
     pub buffers: HashMap<String, BufferConfig>,
+
+    /// The texture configurations, keyed by name
     #[serde(default = "default_textures")]
     pub textures: HashMap<String, TextureConfig>,
+
+    /// Whether or not to maximize the window
     #[serde(default = "default_maximize")]
     pub maximize: bool,
+
+    /// Whether or not the program should use vertical sync
     #[serde(default = "default_vsync")]
     pub vsync: bool,
+
+    /// Whether or not to show the FPS counter
     #[serde(default = "default_fps")]
     pub fps: bool,
+
+    /// The name of the font to use
     #[serde(default = "default_font")]
     pub font: String,
+
+    /// Specifies which renderer to use (current options: opengl)
     #[serde(default = "default_renderer")]
     pub renderer: String,
+
+    /// Extra platform-specific configurations
     #[serde(default)]
     pub platform_config: PlatformSpecificConfig,
 }
 
+/// A function that returns the default value of the "textures" field
 fn default_textures() -> HashMap<String, TextureConfig> {
     HashMap::new()
 }
 
+/// A function that returns the default value of the "maximize" field
 fn default_maximize() -> bool {
     false
 }
 
+/// A function that returns the default value of the "vsync" field
 fn default_vsync() -> bool {
     false
 }
 
+/// A function that returns the default value of the "fps" field
 fn default_fps() -> bool {
     false
 }
 
+/// A function that returns the default value of the "font" field
 fn default_font() -> String {
     "".to_string()
 }
 
+/// A function that returns the default value of the "renderer" field
 fn default_renderer() -> String {
     "opengl".to_string()
 }
 
 impl Config {
+    /// Builds the application description needed to parse command-line arguments
     pub fn build_cli() -> App<'static, 'static> {
         App::new("yotredash")
             .version("0.1.0")
@@ -167,6 +215,7 @@ impl Config {
             )
     }
 
+    /// Parses the configuration from command-line arguments
     fn from_args(args: &ArgMatches) -> Result<Self> {
         let mut textures = HashMap::new();
         if let Some(values) = args.values_of("textures") {
@@ -227,6 +276,7 @@ impl Config {
         })
     }
 
+    /// Parses the configuration from a specified file
     fn from_file(path: &Path) -> Result<Self> {
         info!("Using config file: {:?}", path);
         let file = File::open(path).chain_err(|| "Unable to open config file")?;
@@ -239,6 +289,8 @@ impl Config {
         Ok(::serde_yaml::from_str(&config_str)?)
     }
 
+    /// Returns the configuration, appropriately sourced from either command-line arguments or a
+    /// config file
     pub fn parse() -> Result<Self> {
         let app = PlatformSpecificConfig::build_cli();
         let args = app.get_matches();
