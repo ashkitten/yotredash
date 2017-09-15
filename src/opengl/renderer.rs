@@ -127,7 +127,7 @@ impl Renderer for OpenGLRenderer {
             self.text_renderer.draw_text(
                 &self.display,
                 &mut target,
-                &("FPS: ".to_string() + &format!("{:.1}", self.fps_counter.fps())),
+                &format!("FPS: {:.1}", self.fps_counter.fps()),
                 0.0,
                 0.0,
                 [1.0, 1.0, 1.0],
