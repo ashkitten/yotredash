@@ -4,10 +4,14 @@ use Config;
 
 #[derive(Deserialize, Default, Clone)]
 pub struct PlatformSpecificConfig {
-    #[serde(default = "default_root")] pub root: bool,
-    #[serde(default = "default_override_redirect")] pub override_redirect: bool,
-    #[serde(default = "default_desktop")] pub desktop: bool,
-    #[serde(default = "default_lower_window")] pub lower_window: bool,
+    #[serde(default = "default_root")]
+    pub root: bool,
+    #[serde(default = "default_override_redirect")]
+    pub override_redirect: bool,
+    #[serde(default = "default_desktop")]
+    pub desktop: bool,
+    #[serde(default = "default_lower_window")]
+    pub lower_window: bool,
 }
 
 fn default_root() -> bool {

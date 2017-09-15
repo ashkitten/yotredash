@@ -6,6 +6,7 @@ authors = ["Ash Levy <ashy.of.ren@gmail.com>"]
 [dependencies]
 clap = "2.26.0"
 env_logger = "0.4.3"
+derive-error-chain = "0.11.0"
 error-chain = "0.11.0"
 freetype-rs = "0.14.0"
 image = "0.15.0"

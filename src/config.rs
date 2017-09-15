@@ -12,11 +12,16 @@ pub mod buffer_config {
     pub struct BufferConfig {
         pub vertex: String,
         pub fragment: String,
-        #[serde(default = "default_textures")] pub textures: Vec<String>,
-        #[serde(default = "default_width")] pub width: u32,
-        #[serde(default = "default_height")] pub height: u32,
-        #[serde(default = "default_depends")] pub depends: Vec<String>,
-        #[serde(default = "default_resizeable")] pub resizeable: bool,
+        #[serde(default = "default_textures")]
+        pub textures: Vec<String>,
+        #[serde(default = "default_width")]
+        pub width: u32,
+        #[serde(default = "default_height")]
+        pub height: u32,
+        #[serde(default = "default_depends")]
+        pub depends: Vec<String>,
+        #[serde(default = "default_resizeable")]
+        pub resizeable: bool,
     }
 
     pub fn default_textures() -> Vec<String> {
@@ -55,13 +60,20 @@ use platform::config::PlatformSpecificConfig;
 #[derive(Deserialize, Clone)]
 pub struct Config {
     pub buffers: HashMap<String, BufferConfig>,
-    #[serde(default = "default_textures")] pub textures: HashMap<String, TextureConfig>,
-    #[serde(default = "default_maximize")] pub maximize: bool,
-    #[serde(default = "default_vsync")] pub vsync: bool,
-    #[serde(default = "default_fps")] pub fps: bool,
-    #[serde(default = "default_font")] pub font: String,
-    #[serde(default = "default_renderer")] pub renderer: String,
-    #[serde(default)] pub platform_config: PlatformSpecificConfig,
+    #[serde(default = "default_textures")]
+    pub textures: HashMap<String, TextureConfig>,
+    #[serde(default = "default_maximize")]
+    pub maximize: bool,
+    #[serde(default = "default_vsync")]
+    pub vsync: bool,
+    #[serde(default = "default_fps")]
+    pub fps: bool,
+    #[serde(default = "default_font")]
+    pub font: String,
+    #[serde(default = "default_renderer")]
+    pub renderer: String,
+    #[serde(default)]
+    pub platform_config: PlatformSpecificConfig,
 }
 
 fn default_textures() -> HashMap<String, TextureConfig> {

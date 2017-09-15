@@ -7,6 +7,8 @@
 extern crate signal;
 
 #[macro_use]
+extern crate derive_error_chain;
+#[macro_use]
 extern crate error_chain;
 #[macro_use]
 extern crate log;
@@ -36,27 +38,48 @@ pub mod opengl;
 
 mod errors {
     // Create the Error, ErrorKind, ResultExt, and Result types
-    error_chain! {
-        foreign_links {
-            FreeType(::freetype::Error);
+    #[derive(Debug, ErrorChain)]
+    pub enum ErrorKind {
+        Msg(String),
 
-            DisplayCreationError(::glium::backend::glutin::DisplayCreationError);
-            DrawError(::glium::DrawError);
-            ProgramChooserCreationError(::glium::program::ProgramChooserCreationError);
-            ProgramCreationError(::glium::ProgramCreationError);
-            SwapBuffersError(::glium::SwapBuffersError);
-            TextureCreationError(::glium::texture::TextureCreationError);
-            VertexCreationError(::glium::vertex::BufferCreationError);
+        #[error_chain(foreign)]
+        FreeTypeError(::freetype::Error),
 
-            Image(::image::ImageError);
+        #[cfg(feature = "opengl")]
+        #[error_chain(foreign)]
+        GliumDisplayCreationError(::glium::backend::glutin::DisplayCreationError),
+        #[cfg(feature = "opengl")]
+        #[error_chain(foreign)]
+        GliumDrawError(::glium::DrawError),
+        #[cfg(feature = "opengl")]
+        #[error_chain(foreign)]
+        GliumProgramChooserCreationError(::glium::program::ProgramChooserCreationError),
+        #[cfg(feature = "opengl")]
+        #[error_chain(foreign)]
+        GliumProgramCreationError(::glium::ProgramCreationError),
+        #[cfg(feature = "opengl")]
+        #[error_chain(foreign)]
+        GliumSwapBuffersError(::glium::SwapBuffersError),
+        #[cfg(feature = "opengl")]
+        #[error_chain(foreign)]
+        GliumTextureCreationError(::glium::texture::TextureCreationError),
+        #[cfg(feature = "opengl")]
+        #[error_chain(foreign)]
+        GliumVertexCreationError(::glium::vertex::BufferCreationError),
 
-            SetLoggerError(::log::SetLoggerError);
+        #[error_chain(foreign)]
+        ImageError(::image::ImageError),
 
-            SerdeYaml(::serde_yaml::Error);
+        #[error_chain(foreign)]
+        LogSetLoggerError(::log::SetLoggerError),
 
-            Io(::std::io::Error);
-            ParseIntError(::std::num::ParseIntError);
-        }
+        #[error_chain(foreign)]
+        SerdeYamlError(::serde_yaml::Error),
+
+        #[error_chain(foreign)]
+        StdIoError(::std::io::Error),
+        #[error_chain(foreign)]
+        StdParseIntError(::std::num::ParseIntError),
     }
 }
 
