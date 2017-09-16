@@ -1,6 +1,4 @@
-use glium::Program;
-use glium::Surface;
-use glium::VertexBuffer;
+use glium::{Program, Surface, VertexBuffer};
 use glium::backend::Facade;
 use glium::index::NoIndices;
 use glium::program::ProgramCreationInput;

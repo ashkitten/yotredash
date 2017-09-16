@@ -1,14 +1,14 @@
 use glium::{Blend, DrawParameters, Program, Surface, Texture2d, VertexBuffer};
 use glium::backend::Facade;
 use glium::index::{NoIndices, PrimitiveType};
-use glium::texture::{RawImage2d, PixelValue, Texture2dDataSource};
+use glium::texture::{RawImage2d, PixelValue, Texture2dDataSource, MipmapsOption, UncompressedFloatFormat};
 use std::borrow::Cow;
 use std::rc::Rc;
 
 use super::UniformsStorageVec;
 use errors::*;
 use font::{FreeTypeRasterizer, GlyphCache, GlyphLoader, RenderedGlyph};
-use graphics::{Texture, GpuTexture, GpuGlyph};
+use graphics::{Texture, GpuGlyph};
 
 impl<'a, P> Texture2dDataSource<'a> for &'a Texture<P>
     where P: Clone + PixelValue
@@ -25,18 +25,6 @@ impl<'a, P> Texture2dDataSource<'a> for &'a Texture<P>
     }
 }
 
-struct GliumGpuTexture {
-    texture: Texture2d,
-}
-
-impl<B> GpuTexture<B> for GliumGpuTexture where B: Facade {
-    fn new<P>(backend: &B, texture: Texture<P>) -> Result<Self> where P: Clone + PixelValue {
-        Ok(Self {
-            texture: Texture2d::new(backend, &texture)?,
-        })
-    }
-}
-
 struct GliumGpuGlyph {
     texture: Texture2d,
     glyph: RenderedGlyph,
@@ -44,8 +32,9 @@ struct GliumGpuGlyph {
 
 impl<B> GpuGlyph<B> for GliumGpuGlyph where B: Facade + ?Sized {
     fn new(backend: &B, glyph: RenderedGlyph) -> Result<Self> {
+        let texture = glyph.clone().into();
         Ok(Self {
-            texture: Texture2d::new(backend, &glyph.clone().into())?,
+            texture: Texture2d::with_format(backend, &texture, UncompressedFloatFormat::U8, MipmapsOption::NoMipmap)?,
             glyph: glyph,
         })
     }
