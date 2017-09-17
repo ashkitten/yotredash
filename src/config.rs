@@ -1,5 +1,3 @@
-extern crate serde_yaml;
-
 /// The texture configuration contains all the information necessary to build a texture
 pub mod texture_config {
     /// The texture configuration contains all the information necessary to build a texture

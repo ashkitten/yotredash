@@ -20,6 +20,7 @@ extern crate env_logger;
 extern crate freetype;
 extern crate image;
 extern crate owning_ref;
+extern crate rect_packer;
 extern crate serde_yaml;
 extern crate time;
 extern crate winit;
@@ -30,7 +31,6 @@ extern crate glium;
 
 pub mod config;
 pub mod font;
-pub mod graphics;
 pub mod platform;
 pub mod util;
 

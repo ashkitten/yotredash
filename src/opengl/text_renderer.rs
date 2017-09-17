@@ -1,42 +1,132 @@
-use glium::{Blend, DrawParameters, Program, Surface, Texture2d, VertexBuffer};
 use glium::backend::Facade;
 use glium::index::{NoIndices, PrimitiveType};
 use glium::texture::{RawImage2d, PixelValue, Texture2dDataSource, MipmapsOption, UncompressedFloatFormat};
+use glium::uniforms::MagnifySamplerFilter;
+use glium::{Blend, DrawParameters, Program, Surface, Texture2d, VertexBuffer};
+use rect_packer::DensePacker;
 use std::borrow::Cow;
+use std::collections::HashMap;
 use std::rc::Rc;
 
 use super::UniformsStorageVec;
 use errors::*;
-use font::{FreeTypeRasterizer, GlyphCache, GlyphLoader, RenderedGlyph};
-use graphics::{Texture, GpuGlyph};
+use font::{FreeTypeRasterizer, GlyphLoader, RenderedGlyph};
 
-impl<'a, P> Texture2dDataSource<'a> for &'a Texture<P>
-    where P: Clone + PixelValue
-{
-    type Data = P;
+#[derive(Clone)]
+pub struct GlyphData {
+    /// Rectangle containing the glyph within the cache texture
+    pub rect: ::rect_packer::Rect,
+    /// Width of glyph in pixels
+    pub width: u32,
+    /// Height of glyph in pixels
+    pub height: u32,
+    /// Additional distance from left
+    pub bearing_x: f32,
+    /// Additional distance from top
+    pub bearing_y: f32,
+    /// Advance distance to start of next character
+    pub advance: f32,
+}
 
-    fn into_raw(self) -> RawImage2d<'a, P> {
+/// A cache of glyphs on the GPU
+pub struct GlyphCache {
+    /// The cache in which rendered glyphs are stored
+    cache: HashMap<usize, GlyphData>,
+    /// The texture on which the rendered glyphs are stored
+    texture: Texture2d,
+    /// A reference to the loader this GlyphCache uses to load new glyphs
+    loader: Rc<GlyphLoader>,
+    /// The packer used to pack glyphs into the texture
+    packer: DensePacker,
+}
+
+impl<'a> Texture2dDataSource<'a> for &'a RenderedGlyph {
+    type Data = u8;
+    fn into_raw(self) -> RawImage2d<'a, u8> {
         RawImage2d {
-            data: Cow::Borrowed(&self.data),
+            data: Cow::Borrowed(&self.buffer),
             width: self.width as u32,
             height: self.height as u32,
-            format: <P as PixelValue>::get_format(),
+            format: <u8 as PixelValue>::get_format(),
         }
     }
 }
 
-struct GliumGpuGlyph {
-    texture: Texture2d,
-    glyph: RenderedGlyph,
-}
+impl GlyphCache {
+    pub fn new<L>(facade: &Facade, loader: Rc<L>) -> Result<Self> where L: GlyphLoader + 'static {
+        let mut cache = Self {
+            cache: HashMap::new(),
+            loader: loader,
+            packer: DensePacker::new(512, 512),
+            texture: Texture2d::empty_with_format(facade, UncompressedFloatFormat::U8, MipmapsOption::NoMipmap, 512, 512)?,
+        };
 
-impl<B> GpuGlyph<B> for GliumGpuGlyph where B: Facade + ?Sized {
-    fn new(backend: &B, glyph: RenderedGlyph) -> Result<Self> {
-        let texture = glyph.clone().into();
-        Ok(Self {
-            texture: Texture2d::with_format(backend, &texture, UncompressedFloatFormat::U8, MipmapsOption::NoMipmap)?,
-            glyph: glyph,
-        })
+        // Prerender all visible ascii characters
+        // TODO: change to `32..=127` when inclusive ranges make it to stable Rust
+        for i in 32..128usize {
+            cache.insert(i, facade)?;
+        }
+
+        Ok(cache)
+    }
+
+    pub fn get(&mut self, key: usize, facade: &Facade) -> Result<&GlyphData> {
+        if self.cache.contains_key(&key) {
+            Ok(self.cache.get(&key).unwrap())
+        } else {
+            Ok(self.insert(key, facade)?)
+        }
+    }
+
+    pub fn insert(&mut self, key: usize, facade: &Facade) -> Result<&GlyphData> {
+        let rendered = self.loader.load(key)?;
+
+        if rendered.width == 0 || rendered.height == 0 {
+            self.cache.insert(key, GlyphData {
+                rect: ::rect_packer::Rect {
+                    x: 0,
+                    y: 0,
+                    width: 0,
+                    height: 0,
+                },
+                width: rendered.width,
+                height: rendered.height,
+                bearing_x: rendered.bearing_x,
+                bearing_y: rendered.bearing_y,
+                advance: rendered.advance,
+            });
+            return Ok(self.cache.get(&key).unwrap());
+        }
+
+        // TODO: can fail if texture is not big enough
+        if let Some(rect) = self.packer.pack(rendered.width as i32, rendered.height as i32, false) {
+            let blit_source = Texture2d::with_format(facade, &rendered, UncompressedFloatFormat::U8, MipmapsOption::NoMipmap)?;
+            let blit_rect = ::glium::Rect {
+                left: 0,
+                bottom: 0,
+                width: rendered.width,
+                height: rendered.height,
+            };
+            let blit_target = ::glium::BlitTarget {
+                left: rect.x as u32,
+                bottom: rect.y as u32,
+                width: rect.width,
+                height: rect.height,
+            };
+            self.texture.as_surface().blit_from_simple_framebuffer(&blit_source.as_surface(), &blit_rect, &blit_target, MagnifySamplerFilter::Nearest);
+
+            self.cache.insert(key, GlyphData {
+                rect: rect,
+                width: rendered.width,
+                height: rendered.height,
+                bearing_x: rendered.bearing_x,
+                bearing_y: rendered.bearing_y,
+                advance: rendered.advance,
+            });
+            Ok(self.cache.get(&key).unwrap())
+        } else {
+            bail!("Failed to pack texture");
+        }
     }
 }
 
@@ -48,7 +138,7 @@ pub struct Vertex {
 implement_vertex!(Vertex, position, tex_coords);
 
 pub struct TextRenderer {
-    glyph_cache: GlyphCache<GliumGpuGlyph>,
+    glyph_cache: GlyphCache,
     program: Program,
 }
 
@@ -103,53 +193,60 @@ impl TextRenderer where {
     {
         let mut advance = 0.0;
         for c in text.chars() {
-            let glyph = self.glyph_cache.get(c as usize, facade)?;
+            let glyph = self.glyph_cache.get(c as usize, facade)?.clone();
 
-            let (win_width, win_height) = surface.get_dimensions();
-            let p_x = 1.0 / win_width as f32;
-            let p_y = 1.0 / win_height as f32;
+            if glyph.width != 0 && glyph.height != 0 {
 
-            // Rows translate to columns in glsl
-            #[cfg_attr(rustfmt, rustfmt_skip)]
-            let projection = [
-                [ p_x,  0.0,  0.0,  0.0],
-                [ 0.0,  p_y,  0.0,  0.0],
-                [ 0.0,  0.0,  1.0,  0.0],
-                [-1.0, -1.0,  0.0,  1.0],
-            ];
+                let (win_width, win_height) = surface.get_dimensions();
+                let p_x = 1.0 / win_width as f32;
+                let p_y = 1.0 / win_height as f32;
 
-            let mut uniforms = UniformsStorageVec::new();
-            uniforms.push("glyphColor", color);
-            uniforms.push("glyphTexture", glyph.texture.sampled());
-            uniforms.push("projection", projection);
+                // Rows translate to columns in glsl
+                #[cfg_attr(rustfmt, rustfmt_skip)]
+                let projection = [
+                    [ p_x,  0.0,  0.0,  0.0],
+                    [ 0.0,  p_y,  0.0,  0.0],
+                    [ 0.0,  0.0,  1.0,  0.0],
+                    [-1.0, -1.0,  0.0,  1.0],
+                ];
 
-            let x = x + glyph.glyph.bearing_x as f32 + advance;
-            let y = y - (glyph.glyph.height as f32 - glyph.glyph.bearing_y);
+                let mut uniforms = UniformsStorageVec::new();
+                uniforms.push("glyphColor", color);
+                uniforms.push("glyphTexture", self.glyph_cache.texture.sampled());
+                uniforms.push("projection", projection);
 
-            let w = glyph.glyph.width as f32;
-            let h = glyph.glyph.height as f32;
+                let x = x + glyph.bearing_x as f32 + advance;
+                let y = y - (glyph.height as f32 - glyph.bearing_y);
+                let w = glyph.width as f32;
+                let h = glyph.height as f32;
 
-            #[cfg_attr(rustfmt, rustfmt_skip)]
-            let vertices = [
-                Vertex { position: [x    , y + h], tex_coords: [0.0, 0.0] },
-                Vertex { position: [x    , y    ], tex_coords: [0.0, 1.0] },
-                Vertex { position: [x + w, y    ], tex_coords: [1.0, 1.0] },
-                Vertex { position: [x    , y + h], tex_coords: [0.0, 0.0] },
-                Vertex { position: [x + w, y    ], tex_coords: [1.0, 1.0] },
-                Vertex { position: [x + w, y + h], tex_coords: [1.0, 0.0] },
-            ];
+                let t_x1 = glyph.rect.x as f32 / self.glyph_cache.texture.width() as f32;
+                let t_x2 = (glyph.rect.x as f32 + glyph.rect.width as f32) / self.glyph_cache.texture.width() as f32;
+                let t_y1 = glyph.rect.y as f32 / self.glyph_cache.texture.height() as f32;
+                let t_y2 = (glyph.rect.y as f32 + glyph.rect.height as f32) / self.glyph_cache.texture.height() as f32;
 
-            let vertex_buffer = VertexBuffer::new(facade, &vertices)?;
-            let index_buffer = NoIndices(PrimitiveType::TrianglesList);
+                #[cfg_attr(rustfmt, rustfmt_skip)]
+                let vertices = [
+                    Vertex { position: [x    , y + h], tex_coords: [t_x1, t_y1] },
+                    Vertex { position: [x    , y    ], tex_coords: [t_x1, t_y2] },
+                    Vertex { position: [x + w, y    ], tex_coords: [t_x2, t_y2] },
+                    Vertex { position: [x    , y + h], tex_coords: [t_x1, t_y1] },
+                    Vertex { position: [x + w, y    ], tex_coords: [t_x2, t_y2] },
+                    Vertex { position: [x + w, y + h], tex_coords: [t_x2, t_y1] },
+                ];
 
-            let params = DrawParameters {
-                blend: Blend::alpha_blending(),
-                ..Default::default()
-            };
+                let vertex_buffer = VertexBuffer::new(facade, &vertices)?;
+                let index_buffer = NoIndices(PrimitiveType::TrianglesList);
 
-            surface.draw(&vertex_buffer, &index_buffer, &self.program, &uniforms, &params)?;
+                let params = DrawParameters {
+                    blend: Blend::alpha_blending(),
+                    ..Default::default()
+                };
 
-            advance += glyph.glyph.advance as f32;
+                surface.draw(&vertex_buffer, &index_buffer, &self.program, &uniforms, &params)?;
+            }
+
+            advance += glyph.advance as f32;
         }
 
         Ok(())
