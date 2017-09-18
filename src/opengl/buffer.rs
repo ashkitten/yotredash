@@ -88,7 +88,7 @@ impl Buffer {
             "pointer",
             [
                 pointer[0],
-                surface.get_dimensions().0 as f32 - pointer[1],
+                surface.get_dimensions().1 as f32 - pointer[1],
                 pointer[2],
                 surface.get_dimensions().1 as f32 - pointer[3],
             ],
