@@ -94,9 +94,10 @@ impl Renderer for OpenGLRenderer {
         let vertex_buffer = VertexBuffer::new(&display, &vertices)?;
         let index_buffer = NoIndices(PrimitiveType::TrianglesList);
         let buffers = init_buffers(&config, &display)?;
+
         // TODO: font should not be hardcoded
         let text_renderer =
-            TextRenderer::new(&display, "/usr/share/fonts/adobe-source-code-pro/SourceCodePro-Regular.otf", 64)?;
+            TextRenderer::new(&display, "/usr/share/fonts/adobe-source-code-pro/SourceCodePro-Regular.otf", config.font_size)?;
 
         Ok(Self {
             config: config,

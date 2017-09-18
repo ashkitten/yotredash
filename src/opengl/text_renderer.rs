@@ -21,9 +21,9 @@ pub struct GlyphData {
     /// Height of glyph in pixels
     pub height: u32,
     /// Additional distance from left
-    pub bearing_x: f32,
+    pub bearing_x: i32,
     /// Additional distance from top
-    pub bearing_y: f32,
+    pub bearing_y: i32,
     /// Advance distance to start of next character
     pub advance: f32,
 }
@@ -104,8 +104,8 @@ impl GlyphCache {
             let blit_rect = ::glium::Rect {
                 left: 0,
                 bottom: 0,
-                width: rendered.width,
-                height: rendered.height,
+                width: rendered.width as u32,
+                height: rendered.height as u32,
             };
             let blit_target = ::glium::BlitTarget {
                 left: rect.x as u32,
@@ -143,7 +143,7 @@ pub struct TextRenderer {
 }
 
 impl TextRenderer where {
-    pub fn new<B>(facade: &B, font_path: &str, font_size: u32) -> Result<Self> where B: Facade {
+    pub fn new<B>(facade: &B, font_path: &str, font_size: f32) -> Result<Self> where B: Facade {
         let glyph_cache = GlyphCache::new(facade, Rc::new(FreeTypeRasterizer::new(font_path, font_size)?))?;
 
         let program = program!(facade,
@@ -191,15 +191,15 @@ impl TextRenderer where {
     where
         S: Surface,
     {
-        let mut advance = 0.0;
+        let mut advance = 0;
         for c in text.chars() {
             let glyph = self.glyph_cache.get(c as usize, facade)?.clone();
 
             if glyph.width != 0 && glyph.height != 0 {
 
                 let (win_width, win_height) = surface.get_dimensions();
-                let p_x = 1.0 / win_width as f32;
-                let p_y = 1.0 / win_height as f32;
+                let p_x = 2.0 / win_width as f32;
+                let p_y = 2.0 / win_height as f32;
 
                 // Rows translate to columns in glsl
                 #[cfg_attr(rustfmt, rustfmt_skip)]
@@ -215,8 +215,8 @@ impl TextRenderer where {
                 uniforms.push("glyphTexture", self.glyph_cache.texture.sampled());
                 uniforms.push("projection", projection);
 
-                let x = x + glyph.bearing_x as f32 + advance;
-                let y = y - (glyph.height as f32 - glyph.bearing_y);
+                let x = x + (glyph.bearing_x + advance) as f32;
+                let y = y - (glyph.height as f32 - glyph.bearing_y as f32);
                 let w = glyph.width as f32;
                 let h = glyph.height as f32;
 
@@ -246,7 +246,7 @@ impl TextRenderer where {
                 surface.draw(&vertex_buffer, &index_buffer, &self.program, &uniforms, &params)?;
             }
 
-            advance += glyph.advance as f32;
+            advance += glyph.advance as i32;
         }
 
         Ok(())

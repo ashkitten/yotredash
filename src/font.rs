@@ -3,6 +3,16 @@ use freetype::face::Face;
 
 use errors::*;
 
+#[inline]
+pub fn to_freetype_26_6(f: f32) -> isize {
+    ((1i32 << 6) as f32 * f) as isize
+}
+
+#[inline]
+pub fn from_freetype_26_6(i: isize) -> f32 {
+    (i >> 6) as f32
+}
+
 #[derive(Clone)]
 pub struct RenderedGlyph {
     /// Bitmap buffer (format: U8)
@@ -12,9 +22,9 @@ pub struct RenderedGlyph {
     /// Height of glyph in pixels
     pub height: u32,
     /// Additional distance from left
-    pub bearing_x: f32,
+    pub bearing_x: i32,
     /// Additional distance from top
-    pub bearing_y: f32,
+    pub bearing_y: i32,
     /// Advance distance to start of next character
     pub advance: f32,
 }
@@ -22,7 +32,7 @@ pub struct RenderedGlyph {
 /// Generic loader for glyphs
 pub trait GlyphLoader {
     /// Creates a new instance of the GlyphCache
-    fn new(path: &str, size: u32) -> Result<Self>
+    fn new(path: &str, size: f32) -> Result<Self>
     where
         Self: Sized;
     /// Loads a glyph and renders it
@@ -35,11 +45,11 @@ pub struct FreeTypeRasterizer {
 }
 
 impl GlyphLoader for FreeTypeRasterizer {
-    fn new(path: &str, size: u32) -> Result<Self> {
+    fn new(path: &str, size: f32) -> Result<Self> {
         let library = Library::init()?;
         let face = library.new_face(path, 0)?;
 
-        face.set_pixel_sizes(0, size)?;
+        face.set_char_size(to_freetype_26_6(size), 0, 0, 0)?;
 
         Ok(Self { face: face })
     }
@@ -52,10 +62,9 @@ impl GlyphLoader for FreeTypeRasterizer {
             buffer: slot.bitmap().buffer().into(),
             width: slot.bitmap().width() as u32,
             height: slot.bitmap().rows() as u32,
-            bearing_x: slot.bitmap_left() as f32,
-            bearing_y: slot.bitmap_top() as f32,
-            // TODO: figure out why I need to divide by 2.0
-            advance: slot.advance().x as f32 / 26.6 / 2.0,
+            bearing_x: slot.bitmap_left(),
+            bearing_y: slot.bitmap_top(),
+            advance: from_freetype_26_6(slot.advance().x as isize),
         })
     }
 }

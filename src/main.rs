@@ -81,6 +81,8 @@ mod errors {
         StdIoError(::std::io::Error),
         #[error_chain(foreign)]
         StdParseIntError(::std::num::ParseIntError),
+        #[error_chain(foreign)]
+        StdParseFloatError(::std::num::ParseFloatError),
     }
 }
 

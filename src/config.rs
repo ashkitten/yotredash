@@ -106,6 +106,10 @@ pub struct Config {
     #[serde(default = "default_font")]
     pub font: String,
 
+    /// The size of the font, in points
+    #[serde(default = "default_font_size")]
+    pub font_size: f32,
+
     /// Specifies which renderer to use (current options: opengl)
     #[serde(default = "default_renderer")]
     pub renderer: String,
@@ -138,6 +142,11 @@ fn default_fps() -> bool {
 /// A function that returns the default value of the "font" field
 fn default_font() -> String {
     "".to_string()
+}
+
+/// A function that returns the default value of the "font" field
+fn default_font_size() -> f32 {
+    20.0
 }
 
 /// A function that returns the default value of the "renderer" field
@@ -192,7 +201,11 @@ impl Config {
                     .help("Enable FPS log to console"),
                 Arg::with_name("font")
                     .long("font")
-                    .help("Specify font for FPS counter")
+                    .help("Specify font")
+                    .takes_value(true),
+                Arg::with_name("font_size")
+                    .long("font-size")
+                    .help("Specify font size")
                     .takes_value(true),
                 Arg::with_name("renderer")
                     .long("renderer")
@@ -265,6 +278,10 @@ impl Config {
             font: match args.value_of("font") {
                 Some(value) => value.to_string(),
                 None => default_font(),
+            },
+            font_size: match args.value_of("font_size") {
+                Some(value) => value.parse::<f32>()?,
+                None => default_font_size(),
             },
             renderer: match args.value_of("renderer") {
                 Some(value) => value.to_string(),

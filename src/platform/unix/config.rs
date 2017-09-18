@@ -53,13 +53,13 @@ impl PlatformSpecificConfig {
             Arg::with_name("root")
                 .long("root")
                 .help("Display on the root window"),
-            Arg::with_name("override-redirect")
+            Arg::with_name("override_redirect")
                 .long("override-redirect")
                 .help("Display as an override-redirect window"),
             Arg::with_name("desktop")
                 .long("desktop")
                 .help("Display as a desktop window"),
-            Arg::with_name("lower-window")
+            Arg::with_name("lower_window")
                 .long("lower-window")
                 .help("Lower window to the bottom of the stack"),
         ])
@@ -69,9 +69,9 @@ impl PlatformSpecificConfig {
     pub fn from_args(args: &ArgMatches) -> Self {
         Self {
             root: args.is_present("root"),
-            override_redirect: args.is_present("override-redirect"),
+            override_redirect: args.is_present("override_redirect"),
             desktop: args.is_present("desktop"),
-            lower_window: args.is_present("lower-window"),
+            lower_window: args.is_present("lower_window"),
         }
     }
 }
