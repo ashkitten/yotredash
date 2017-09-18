@@ -1,10 +1,11 @@
+use glium::{Blend, DrawParameters, Program, Surface, Texture2d, VertexBuffer};
 use glium::backend::Facade;
 use glium::index::{NoIndices, PrimitiveType};
-use glium::texture::{RawImage2d, PixelValue, Texture2dDataSource, MipmapsOption, UncompressedFloatFormat};
+use glium::texture::{MipmapsOption, PixelValue, RawImage2d, Texture2dDataSource, UncompressedFloatFormat};
 use glium::uniforms::MagnifySamplerFilter;
-use glium::{Blend, DrawParameters, Program, Surface, Texture2d, VertexBuffer};
 use rect_packer::DensePacker;
 use std::borrow::Cow;
+use std::cmp::max;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -53,12 +54,21 @@ impl<'a> Texture2dDataSource<'a> for &'a RenderedGlyph {
 }
 
 impl GlyphCache {
-    pub fn new<L>(facade: &Facade, loader: Rc<L>) -> Result<Self> where L: GlyphLoader + 'static {
+    pub fn new<L>(facade: &Facade, loader: Rc<L>) -> Result<Self>
+    where
+        L: GlyphLoader + 'static,
+    {
         let mut cache = Self {
             cache: HashMap::new(),
             loader: loader,
             packer: DensePacker::new(512, 512),
-            texture: Texture2d::empty_with_format(facade, UncompressedFloatFormat::U8, MipmapsOption::NoMipmap, 512, 512)?,
+            texture: Texture2d::empty_with_format(
+                facade,
+                UncompressedFloatFormat::U8,
+                MipmapsOption::NoMipmap,
+                512,
+                512,
+            )?,
         };
 
         // Prerender all visible ascii characters
@@ -82,25 +92,71 @@ impl GlyphCache {
         let rendered = self.loader.load(key)?;
 
         if rendered.width == 0 || rendered.height == 0 {
-            self.cache.insert(key, GlyphData {
-                rect: ::rect_packer::Rect {
-                    x: 0,
-                    y: 0,
-                    width: 0,
-                    height: 0,
+            self.cache.insert(
+                key,
+                GlyphData {
+                    rect: ::rect_packer::Rect {
+                        x: 0,
+                        y: 0,
+                        width: 0,
+                        height: 0,
+                    },
+                    width: rendered.width,
+                    height: rendered.height,
+                    bearing_x: rendered.bearing_x,
+                    bearing_y: rendered.bearing_y,
+                    advance: rendered.advance,
                 },
-                width: rendered.width,
-                height: rendered.height,
-                bearing_x: rendered.bearing_x,
-                bearing_y: rendered.bearing_y,
-                advance: rendered.advance,
-            });
+            );
             return Ok(self.cache.get(&key).unwrap());
         }
 
+        if !self.packer
+            .can_pack(rendered.width as i32, rendered.height as i32, false)
+        {
+            let old_size = (self.packer.size().0 as u32, self.packer.size().1 as u32);
+            // Let new size be at least 2x the old size so we're not resizing so much
+            let new_size =
+                (max(old_size.0 + rendered.width, old_size.0 * 2), max(old_size.1 + rendered.height, old_size.1 * 2));
+
+            self.packer.resize(new_size.0 as i32, new_size.1 as i32);
+
+            self.texture = {
+                let new_texture = Texture2d::empty_with_format(
+                    facade,
+                    UncompressedFloatFormat::U8,
+                    MipmapsOption::NoMipmap,
+                    new_size.0,
+                    new_size.1,
+                )?;
+                let blit_rect = ::glium::Rect {
+                    left: 0,
+                    bottom: 0,
+                    width: old_size.0,
+                    height: old_size.1,
+                };
+                let blit_target = ::glium::BlitTarget {
+                    left: 0,
+                    bottom: 0,
+                    width: old_size.0 as i32,
+                    height: old_size.1 as i32,
+                };
+                new_texture.as_surface().blit_from_simple_framebuffer(
+                    &self.texture.as_surface(),
+                    &blit_rect,
+                    &blit_target,
+                    MagnifySamplerFilter::Nearest,
+                );
+                new_texture
+            };
+        }
+
         // TODO: can fail if texture is not big enough
-        if let Some(rect) = self.packer.pack(rendered.width as i32, rendered.height as i32, false) {
-            let blit_source = Texture2d::with_format(facade, &rendered, UncompressedFloatFormat::U8, MipmapsOption::NoMipmap)?;
+        if let Some(rect) = self.packer
+            .pack(rendered.width as i32, rendered.height as i32, false)
+        {
+            let blit_source =
+                Texture2d::with_format(facade, &rendered, UncompressedFloatFormat::U8, MipmapsOption::NoMipmap)?;
             let blit_rect = ::glium::Rect {
                 left: 0,
                 bottom: 0,
@@ -113,16 +169,24 @@ impl GlyphCache {
                 width: rect.width,
                 height: rect.height,
             };
-            self.texture.as_surface().blit_from_simple_framebuffer(&blit_source.as_surface(), &blit_rect, &blit_target, MagnifySamplerFilter::Nearest);
+            self.texture.as_surface().blit_from_simple_framebuffer(
+                &blit_source.as_surface(),
+                &blit_rect,
+                &blit_target,
+                MagnifySamplerFilter::Nearest,
+            );
 
-            self.cache.insert(key, GlyphData {
-                rect: rect,
-                width: rendered.width,
-                height: rendered.height,
-                bearing_x: rendered.bearing_x,
-                bearing_y: rendered.bearing_y,
-                advance: rendered.advance,
-            });
+            self.cache.insert(
+                key,
+                GlyphData {
+                    rect: rect,
+                    width: rendered.width,
+                    height: rendered.height,
+                    bearing_x: rendered.bearing_x,
+                    bearing_y: rendered.bearing_y,
+                    advance: rendered.advance,
+                },
+            );
             Ok(self.cache.get(&key).unwrap())
         } else {
             bail!("Failed to pack texture");
@@ -142,8 +206,12 @@ pub struct TextRenderer {
     program: Program,
 }
 
-impl TextRenderer where {
-    pub fn new<B>(facade: &B, font_path: &str, font_size: f32) -> Result<Self> where B: Facade {
+impl TextRenderer // where
+{
+    pub fn new<B>(facade: &B, font_path: &str, font_size: f32) -> Result<Self>
+    where
+        B: Facade,
+    {
         let glyph_cache = GlyphCache::new(facade, Rc::new(FreeTypeRasterizer::new(font_path, font_size)?))?;
 
         let program = program!(facade,
@@ -196,7 +264,6 @@ impl TextRenderer where {
             let glyph = self.glyph_cache.get(c as usize, facade)?.clone();
 
             if glyph.width != 0 && glyph.height != 0 {
-
                 let (win_width, win_height) = surface.get_dimensions();
                 let p_x = 2.0 / win_width as f32;
                 let p_y = 2.0 / win_height as f32;
