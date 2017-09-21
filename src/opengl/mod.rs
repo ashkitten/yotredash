@@ -4,7 +4,6 @@ pub mod text_renderer;
 
 use glium::uniforms::{AsUniformValue, UniformValue, Uniforms};
 use std::borrow::Cow;
-use std::ops::Deref;
 
 pub struct UniformsStorageVec<'name, 'uniform>(Vec<(Cow<'name, str>, Box<AsUniformValue + 'uniform>)>);
 
@@ -28,16 +27,6 @@ impl<'name, 'uniform> Uniforms for UniformsStorageVec<'name, 'uniform> {
         for &(ref name, ref uniform) in &self.0 {
             output(name, uniform.as_uniform_value());
         }
-    }
-}
-
-pub struct DerefInner<T>(pub T);
-
-impl<T> Deref for DerefInner<T> {
-    type Target = T;
-
-    fn deref(&self) -> &T {
-        &self.0
     }
 }
 

@@ -1,4 +1,15 @@
+use std::ops::Deref;
 use time::Tm;
+
+pub struct DerefInner<T>(pub T);
+
+impl<T> Deref for DerefInner<T> {
+    type Target = T;
+
+    fn deref(&self) -> &T {
+        &self.0
+    }
+}
 
 /// A simple struct to count frames per second and update at a set interval
 pub struct FpsCounter {

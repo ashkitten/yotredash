@@ -10,10 +10,11 @@ use std::io::BufReader;
 use std::io::prelude::*;
 use std::rc::Rc;
 
-use super::{DerefInner, MapAsUniform, UniformsStorageVec};
+use super::{MapAsUniform, UniformsStorageVec};
 use super::renderer::Vertex;
 use config::buffer_config::BufferConfig;
 use errors::*;
+use util::DerefInner;
 
 pub struct Buffer {
     texture: Texture2d,

@@ -96,11 +96,7 @@ impl Renderer for OpenGLRenderer {
         let buffers = init_buffers(&config, &display)?;
 
         // TODO: font should not be hardcoded
-        let text_renderer = TextRenderer::new(
-            &display,
-            "/usr/share/fonts/adobe-source-code-pro/SourceCodePro-Regular.otf",
-            config.font_size,
-        )?;
+        let text_renderer = TextRenderer::new(&display, &config.font, config.font_size)?;
 
         Ok(Self {
             config: config,

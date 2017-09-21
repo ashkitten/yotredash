@@ -17,6 +17,7 @@ extern crate serde_derive;
 
 extern crate clap;
 extern crate env_logger;
+extern crate font_loader;
 extern crate freetype;
 extern crate image;
 extern crate owning_ref;

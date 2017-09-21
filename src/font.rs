@@ -1,5 +1,8 @@
 use freetype::Library;
 use freetype::face::Face;
+use owning_ref::OwningHandle;
+use std::rc::Rc;
+use util::DerefInner;
 
 use errors::*;
 
@@ -41,17 +44,27 @@ pub trait GlyphLoader {
 
 /// A GlyphLoader implementation that uses the FreeType library to load and render glyphs
 pub struct FreeTypeRasterizer {
-    face: Face<'static>,
+    face: OwningHandle<Rc<Vec<u8>>, DerefInner<Face<'static>>>,
 }
 
 impl GlyphLoader for FreeTypeRasterizer {
-    fn new(path: &str, size: f32) -> Result<Self> {
+    fn new(font: &str, size: f32) -> Result<Self> {
         let library = Library::init()?;
-        let face = library.new_face(path, 0)?;
 
-        face.set_char_size(to_freetype_26_6(size), 0, 0, 0)?;
+        let property = ::font_loader::system_fonts::FontPropertyBuilder::new()
+            .family(font)
+            .build();
+        if let Some((font_buf, _)) = ::font_loader::system_fonts::get(&property) {
+            let font_buf = Rc::new(font_buf);
+            let face =
+                OwningHandle::try_new(font_buf, |fb| unsafe { library.new_memory_face(&*fb, 0).map(DerefInner) })?;
 
-        Ok(Self { face: face })
+            (*face).set_char_size(to_freetype_26_6(size), 0, 0, 0)?;
+
+            Ok(Self { face: face })
+        } else {
+            bail!("Failed to load font");
+        }
     }
 
     fn load(&self, key: usize) -> Result<RenderedGlyph> {
