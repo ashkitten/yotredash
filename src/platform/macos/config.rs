@@ -1,4 +1,6 @@
-use clap::ArgMatches;
+use clap::{App, ArgMatches};
+
+use config::Config;
 
 /// Platform-specific configuration
 #[derive(Deserialize, Default, Clone)]
