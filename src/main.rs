@@ -20,6 +20,7 @@ extern crate env_logger;
 extern crate font_loader;
 extern crate freetype;
 extern crate image;
+extern crate nfd;
 extern crate owning_ref;
 extern crate rect_packer;
 extern crate serde_yaml;
@@ -74,6 +75,9 @@ mod errors {
 
         #[error_chain(foreign)]
         LogSetLoggerError(::log::SetLoggerError),
+
+        #[error_chain(foreign)]
+        NFDError(::nfd::error::NFDError),
 
         #[error_chain(foreign)]
         SerdeYamlError(::serde_yaml::Error),
@@ -131,7 +135,8 @@ quick_main!(|| -> Result<()> {
     let trap = Trap::trap(&[Signal::SIGUSR1, Signal::SIGUSR2, Signal::SIGHUP]);
 
     // Get configuration
-    let mut config = Config::parse()?;
+    let config_path = Config::get_path()?;
+    let mut config = Config::parse(&config_path)?;
 
     // Creates an appropriate renderer for the configuration, exits with an error if that fails
     let mut events_loop = winit::EventsLoop::new();
@@ -178,11 +183,12 @@ quick_main!(|| -> Result<()> {
                 WindowEvent::Closed => actions.push(RendererAction::Close),
 
                 WindowEvent::KeyboardInput {
-                    input: winit::KeyboardInput {
-                        virtual_keycode: Some(keycode),
-                        state: winit::ElementState::Pressed,
-                        ..
-                    },
+                    input:
+                        winit::KeyboardInput {
+                            virtual_keycode: Some(keycode),
+                            state: winit::ElementState::Pressed,
+                            ..
+                        },
                     ..
                 } => match keycode {
                     winit::VirtualKeyCode::Escape => actions.push(RendererAction::Close),
@@ -218,7 +224,7 @@ quick_main!(|| -> Result<()> {
             match action {
                 &RendererAction::Resize(width, height) => renderer.resize(width, height)?,
                 &RendererAction::Reload => {
-                    config = Config::parse()?;
+                    config = Config::parse(&config_path)?;
                     renderer.reload(&config)?;
                 }
                 &RendererAction::Close => return Ok(()),

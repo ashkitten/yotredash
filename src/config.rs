@@ -67,11 +67,12 @@ pub mod buffer_config {
 }
 
 use clap::{App, Arg, ArgMatches};
+use nfd::{self, Response};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::BufReader;
 use std::io::prelude::*;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use self::buffer_config::BufferConfig;
 use self::texture_config::TextureConfig;
@@ -161,22 +162,6 @@ impl Config {
             .version("0.1.0")
             .author("Ash Levy <ashlea@protonmail.com>")
             .args(&[
-                Arg::with_name("vertex")
-                    .short("v")
-                    .long("vertex")
-                    .help("Specify a vertex shader")
-                    .takes_value(true),
-                Arg::with_name("fragment")
-                    .short("f")
-                    .long("fragment")
-                    .help("Specify a fragment shader")
-                    .takes_value(true),
-                Arg::with_name("texture")
-                    .short("t")
-                    .long("texture")
-                    .help("Add a texture")
-                    .takes_value(true)
-                    .multiple(true),
                 Arg::with_name("width")
                     .short("w")
                     .long("width")
@@ -227,68 +212,40 @@ impl Config {
     }
 
     /// Parses the configuration from command-line arguments
-    fn from_args(args: &ArgMatches) -> Result<Self> {
-        let mut textures = HashMap::new();
-        if let Some(values) = args.values_of("textures") {
-            for path in values {
-                textures.insert(
-                    path.to_string(),
-                    TextureConfig {
-                        path: path.to_string(),
-                    },
-                );
-            }
-        };
+    fn merge_args(&mut self, args: &ArgMatches) -> Result<()> {
+        if let Some(value) = args.value_of("width") {
+            self.buffers.get_mut("__default__").unwrap().width = value.parse::<u32>()?;
+        }
 
-        let mut buffers = HashMap::new();
-        buffers.insert(
-            "__default__".to_string(),
-            BufferConfig {
-                vertex: match args.value_of("vertex") {
-                    Some(value) => value.to_string(),
-                    None => bail!("Must specify vertex shader"),
-                },
-                fragment: match args.value_of("fragment") {
-                    Some(value) => value.to_string(),
-                    None => bail!("Must specify fragment shader"),
-                },
-                textures: match args.values_of("textures") {
-                    Some(values) => values.map(|value| value.to_string()).collect(),
-                    None => buffer_config::default_textures(),
-                },
-                width: match args.value_of("width") {
-                    Some(value) => value.parse::<u32>()?,
-                    None => buffer_config::default_width(),
-                },
-                height: match args.value_of("height") {
-                    Some(value) => value.parse::<u32>()?,
-                    None => buffer_config::default_height(),
-                },
-                resizeable: !(args.is_present("width") || args.is_present("height")),
-                depends: buffer_config::default_depends(),
-            },
-        );
+        if let Some(value) = args.value_of("height") {
+            self.buffers.get_mut("__default__").unwrap().height = value.parse::<u32>()?;
+        }
 
-        Ok(Self {
-            buffers: buffers,
-            textures: textures,
-            maximize: args.is_present("maximize"),
-            vsync: args.is_present("vsync"),
-            fps: args.is_present("fps"),
-            font: match args.value_of("font") {
-                Some(value) => value.to_string(),
-                None => default_font(),
-            },
-            font_size: match args.value_of("font_size") {
-                Some(value) => value.parse::<f32>()?,
-                None => default_font_size(),
-            },
-            renderer: match args.value_of("renderer") {
-                Some(value) => value.to_string(),
-                None => default_renderer(),
-            },
-            platform_config: PlatformSpecificConfig::from_args(args),
-        })
+        if args.is_present("maximize") {
+            self.maximize = true;
+        }
+
+        if args.is_present("vsync") {
+            self.vsync = true;
+        }
+
+        if args.is_present("fps") {
+            self.fps = true;
+        }
+
+        if let Some(value) = args.value_of("font") {
+            self.font = value.to_string();
+        }
+
+        if let Some(value) = args.value_of("font_size") {
+            self.font_size = value.parse::<f32>()?;
+        }
+
+        if let Some(value) = args.value_of("renderer") {
+            self.renderer = value.to_string();
+        }
+
+        Ok(())
     }
 
     /// Parses the configuration from a specified file
@@ -304,15 +261,36 @@ impl Config {
         Ok(::serde_yaml::from_str(&config_str)?)
     }
 
-    /// Returns the configuration, appropriately sourced from either command-line arguments or a
+    /// Returns the configuration, appropriately sourced from both command-line arguments and the
     /// config file
-    pub fn parse() -> Result<Self> {
+    pub fn parse(path: &Path) -> Result<Self> {
         let app = PlatformSpecificConfig::build_cli();
         let args = app.get_matches();
 
-        match args.value_of("config") {
-            Some(path) => Self::from_file(Path::new(path)),
-            None => Self::from_args(&args),
-        }
+        let mut config = Self::from_file(path)?;
+        config.merge_args(&args)?;
+
+        Ok(config)
+    }
+
+    /// Returns the chosen config file path
+    pub fn get_path() -> Result<PathBuf> {
+        let app = PlatformSpecificConfig::build_cli();
+        let args = app.get_matches();
+
+        Ok(match args.value_of("config") {
+            Some(path) => Path::new(&path).to_path_buf(),
+            None => {
+                let result = nfd::open_file_dialog(
+                    Some("yml,yaml,json"),
+                    ::std::env::current_dir().unwrap_or(PathBuf::new()).to_str(),
+                )?;
+                match result {
+                    Response::Okay(path) => Path::new(&path).to_path_buf(),
+                    Response::OkayMultiple(paths) => Path::new(&paths[0]).to_path_buf(),
+                    Response::Cancel => bail!("No file selected"),
+                }
+            }
+        })
     }
 }
