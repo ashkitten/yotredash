@@ -135,8 +135,10 @@ quick_main!(|| -> Result<()> {
     let trap = Trap::trap(&[Signal::SIGUSR1, Signal::SIGUSR2, Signal::SIGHUP]);
 
     // Get configuration
-    let config_path = Config::get_path()?;
+    let config_path = Config::get_path()?.canonicalize().unwrap();
     let mut config = Config::parse(&config_path)?;
+
+    ::std::env::set_current_dir(config_path.parent().unwrap()).chain_err(|| "Failed to set current directory")?;
 
     // Creates an appropriate renderer for the configuration, exits with an error if that fails
     let mut events_loop = winit::EventsLoop::new();
@@ -151,9 +153,10 @@ quick_main!(|| -> Result<()> {
 
     let mut pointer = [0.0; 4];
 
-    let mut actions: Vec<RendererAction> = Vec::new();
     let mut paused = false;
     loop {
+        let mut actions: Vec<RendererAction> = Vec::new();
+
         if !paused {
             renderer.render(pointer)?;
         } else {

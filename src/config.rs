@@ -257,7 +257,6 @@ impl Config {
         reader
             .read_to_string(&mut config_str)
             .chain_err(|| "Could not read config file")?;
-        ::std::env::set_current_dir(Path::new(path).parent().unwrap()).chain_err(|| "Failed to set current directory")?;
         Ok(::serde_yaml::from_str(&config_str)?)
     }
 
@@ -278,7 +277,7 @@ impl Config {
         let app = PlatformSpecificConfig::build_cli();
         let args = app.get_matches();
 
-        Ok(match args.value_of("config") {
+        let path = match args.value_of("config") {
             Some(path) => Path::new(&path).to_path_buf(),
             None => {
                 let result = nfd::open_file_dialog(
@@ -291,6 +290,8 @@ impl Config {
                     Response::Cancel => bail!("No file selected"),
                 }
             }
-        })
+        };
+
+        Ok(path)
     }
 }
