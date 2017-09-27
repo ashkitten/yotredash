@@ -12,7 +12,7 @@ font-loader = "0.4.2"
 freetype-rs = "0.15.0"
 image = "0.15.0"
 log = "0.3.8"
-nfd = { git = "https://github.com/ashkitten/nfd-rs" }
+nfd = { git = "https://github.com/ashkitten/nfd-rs", branch = "dev" }
 owning_ref = "0.3.3"
 rect_packer = "0.2.1"
 serde = "1.0.11"
