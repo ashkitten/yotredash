@@ -1,6 +1,8 @@
 use glium::VertexBuffer;
+use glium::backend::Facade;
 use glium::backend::glutin::Display;
-use glium::glutin::{ContextBuilder, WindowBuilder};
+use glium::backend::glutin::headless::Headless;
+use glium::glutin::{ContextBuilder, WindowBuilder, HeadlessRendererBuilder};
 use glium::index::{NoIndices, PrimitiveType};
 use glium::texture::{RawImage2d, Texture2d};
 use std::cell::RefCell;
@@ -17,6 +19,21 @@ use config::Config;
 use errors::*;
 use util::FpsCounter;
 
+pub enum Backend {
+    Display(Display),
+    Headless(Headless),
+}
+
+impl AsRef<Facade> for Backend {
+    fn as_ref(&self) -> &(Facade + 'static) {
+        use self::Backend::*;
+        match *self {
+            Display(ref facade) => facade,
+            Headless(ref facade) => facade,
+        }
+    }
+}
+
 #[derive(Copy, Clone)]
 pub struct Vertex {
     position: [f32; 2],
@@ -25,7 +42,7 @@ implement_vertex!(Vertex, position);
 
 pub struct OpenGLRenderer {
     config: Config,
-    display: Display,
+    backend: Backend,
     vertex_buffer: VertexBuffer<Vertex>,
     index_buffer: NoIndices,
     buffers: HashMap<String, Rc<RefCell<Buffer>>>,
@@ -34,7 +51,7 @@ pub struct OpenGLRenderer {
     fps_counter: FpsCounter,
 }
 
-fn init_buffers(config: &Config, display: &Display) -> Result<HashMap<String, Rc<RefCell<Buffer>>>> {
+fn init_buffers(config: &Config, facade: &Facade) -> Result<HashMap<String, Rc<RefCell<Buffer>>>> {
     let mut textures = HashMap::new();
 
     for (name, tconfig) in &config.textures {
@@ -42,7 +59,7 @@ fn init_buffers(config: &Config, display: &Display) -> Result<HashMap<String, Rc
             let image = ::image::open(Path::new(&tconfig.path))?.to_rgba();
             let image_dimensions = image.dimensions();
             let image = RawImage2d::from_raw_rgba_reversed(&image.into_raw(), image_dimensions);
-            Rc::new(Texture2d::new(display, image)?)
+            Rc::new(Texture2d::new(facade, image)?)
         });
     }
 
@@ -52,7 +69,7 @@ fn init_buffers(config: &Config, display: &Display) -> Result<HashMap<String, Rc
         buffers.insert(
             name.to_string(),
             Rc::new(RefCell::new(Buffer::new(
-                display,
+                facade,
                 bconfig,
                 bconfig
                     .textures
@@ -76,10 +93,21 @@ fn init_buffers(config: &Config, display: &Display) -> Result<HashMap<String, Rc
 
 impl Renderer for OpenGLRenderer {
     fn new(config: Config, events_loop: &EventsLoop) -> Result<Self> {
-        let window_builder = WindowBuilder::new().with_title("yotredash");
-        let context_builder = ContextBuilder::new().with_vsync(config.vsync);
-        let display = Display::new(window_builder, context_builder, &events_loop)?;
-        ::platform::window::init(display.gl_window().window(), &config);
+        let width = config.buffers["__default__"].width;
+        let height = config.buffers["__default__"].height;
+        let backend = if config.show_window {
+            let window_builder = WindowBuilder::new().with_title("yotredash");
+            let context_builder = ContextBuilder::new().with_vsync(config.vsync);
+            let display = Display::new(window_builder, context_builder, &events_loop)?;
+            ::platform::window::init(display.gl_window().window(), &config);
+            Backend::Display(display)
+        } else {
+            let context = HeadlessRendererBuilder::new(width, height)
+                .build()?;
+            Backend::Headless(Headless::new(context)?)
+        };
+
+        debug!("{:?}", backend.as_ref().get_context().get_opengl_version_string());
 
         #[cfg_attr(rustfmt, rustfmt_skip)]
         let vertices = [
@@ -91,16 +119,16 @@ impl Renderer for OpenGLRenderer {
             Vertex { position: [-1.0,  1.0] },
         ];
 
-        let vertex_buffer = VertexBuffer::new(&display, &vertices)?;
+        let vertex_buffer = VertexBuffer::new(backend.as_ref(), &vertices)?;
         let index_buffer = NoIndices(PrimitiveType::TrianglesList);
-        let buffers = init_buffers(&config, &display)?;
+        let buffers = init_buffers(&config, backend.as_ref())?;
 
         // TODO: font should not be hardcoded
-        let text_renderer = TextRenderer::new(&display, &config.font, config.font_size)?;
+        let text_renderer = TextRenderer::new(backend.as_ref(), &config.font, config.font_size)?;
 
         Ok(Self {
             config: config,
-            display: display,
+            backend: backend,
             vertex_buffer: vertex_buffer,
             index_buffer: index_buffer,
             buffers: buffers,
@@ -111,7 +139,10 @@ impl Renderer for OpenGLRenderer {
     }
 
     fn render(&mut self, pointer: [f32; 4]) -> Result<()> {
-        let mut target = self.display.draw();
+        let mut target = match self.backend {
+            Backend::Display(ref facade) => facade.draw(),
+            Backend::Headless(ref facade) => facade.draw(),
+        };
 
         self.buffers["__default__"].borrow().render_to(
             &mut target,
@@ -125,7 +156,7 @@ impl Renderer for OpenGLRenderer {
             self.fps_counter.next_frame();
 
             self.text_renderer.draw_text(
-                &self.display,
+                self.backend.as_ref(),
                 &mut target,
                 &format!("FPS: {:.1}", self.fps_counter.fps()),
                 0.0,
@@ -140,19 +171,19 @@ impl Renderer for OpenGLRenderer {
     }
 
     fn swap_buffers(&self) -> Result<()> {
-        self.display.draw().finish()?;
+        self.backend.as_ref().get_context().swap_buffers()?;
         Ok(())
     }
 
     fn reload(&mut self, config: &Config) -> Result<()> {
         info!("Reloading config");
-        self.buffers = init_buffers(config, &self.display)?;
+        self.buffers = init_buffers(config, self.backend.as_ref())?;
         Ok(())
     }
 
     fn resize(&mut self, width: u32, height: u32) -> Result<()> {
         for buffer in self.buffers.values() {
-            buffer.borrow_mut().resize(&self.display, width, height)?;
+            buffer.borrow_mut().resize(self.backend.as_ref(), width, height)?;
         }
         Ok(())
     }

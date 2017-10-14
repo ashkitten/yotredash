@@ -56,6 +56,12 @@ mod errors {
         GliumDrawError(::glium::DrawError),
         #[cfg(feature = "opengl")]
         #[error_chain(foreign)]
+        GliumGlutinCreationError(::glium::glutin::CreationError),
+        #[cfg(feature = "opengl")]
+        #[error_chain(foreign)]
+        GliumIncompatibleOpenGlError(::glium::IncompatibleOpenGl),
+        #[cfg(feature = "opengl")]
+        #[error_chain(foreign)]
         GliumProgramChooserCreationError(::glium::program::ProgramChooserCreationError),
         #[cfg(feature = "opengl")]
         #[error_chain(foreign)]

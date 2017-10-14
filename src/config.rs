@@ -115,6 +115,10 @@ pub struct Config {
     #[serde(default = "default_renderer")]
     pub renderer: String,
 
+    /// Whether to show the window at all
+    #[serde(default="default_show_window")]
+    pub show_window: bool,
+
     /// Extra platform-specific configurations
     #[serde(default)]
     pub platform_config: PlatformSpecificConfig,
@@ -153,6 +157,11 @@ fn default_font_size() -> f32 {
 /// A function that returns the default value of the "renderer" field
 fn default_renderer() -> String {
     "opengl".to_string()
+}
+
+/// A function that returns the default value of the "show_window" field
+fn default_show_window() -> bool {
+    true
 }
 
 impl Config {
@@ -196,6 +205,9 @@ impl Config {
                     .long("renderer")
                     .help("Specify renderer to use")
                     .takes_value(true),
+                Arg::with_name("no_window")
+                    .long("no-window")
+                    .help("Don't show a window"),
                 Arg::with_name("config")
                     .short("c")
                     .long("config")
@@ -243,6 +255,10 @@ impl Config {
 
         if let Some(value) = args.value_of("renderer") {
             self.renderer = value.to_string();
+        }
+
+        if args.is_present("no_window") {
+            self.show_window = false;
         }
 
         Ok(())
