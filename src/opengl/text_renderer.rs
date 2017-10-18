@@ -208,8 +208,7 @@ pub struct TextRenderer {
 
 impl TextRenderer // where
 {
-    pub fn new(facade: &Facade, font: &str, font_size: f32) -> Result<Self>
-    {
+    pub fn new(facade: &Facade, font: &str, font_size: f32) -> Result<Self> {
         let glyph_cache = GlyphCache::new(facade, Rc::new(FreeTypeRasterizer::new(font, font_size)?))?;
 
         let program = program!(facade,

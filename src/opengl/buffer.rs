@@ -29,14 +29,14 @@ impl Buffer {
         info!("Using vertex shader: {}", config.vertex);
         info!("Using fragment shader: {}", config.fragment);
 
-        let file = File::open(config.vertex.to_string()).chain_err(|| "Could not open vertex shader file")?;
+        let file = File::open(config.path_to(&config.vertex)).chain_err(|| "Could not open vertex shader file")?;
         let mut buf_reader = BufReader::new(file);
         let mut vertex_source = String::new();
         buf_reader
             .read_to_string(&mut vertex_source)
             .chain_err(|| "Could not read vertex shader file")?;
 
-        let file = File::open(config.fragment.to_string()).chain_err(|| "Could not open fragment shader file")?;
+        let file = File::open(config.path_to(&config.fragment)).chain_err(|| "Could not open fragment shader file")?;
         let mut buf_reader = BufReader::new(file);
         let mut fragment_source = String::new();
         buf_reader
@@ -127,5 +127,9 @@ impl Buffer {
             self.texture = Texture2d::empty(facade, width, height)?
         }
         Ok(())
+    }
+
+    pub fn get_texture(&self) -> &Texture2d {
+        &self.texture
     }
 }

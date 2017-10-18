@@ -2,7 +2,7 @@ use glium::VertexBuffer;
 use glium::backend::Facade;
 use glium::backend::glutin::Display;
 use glium::backend::glutin::headless::Headless;
-use glium::glutin::{ContextBuilder, WindowBuilder, HeadlessRendererBuilder};
+use glium::glutin::{ContextBuilder, HeadlessRendererBuilder, WindowBuilder};
 use glium::index::{NoIndices, PrimitiveType};
 use glium::texture::{RawImage2d, Texture2d};
 use std::cell::RefCell;
@@ -56,7 +56,7 @@ fn init_buffers(config: &Config, facade: &Facade) -> Result<HashMap<String, Rc<R
 
     for (name, tconfig) in &config.textures {
         textures.insert(name.to_string(), {
-            let image = ::image::open(Path::new(&tconfig.path))?.to_rgba();
+            let image = ::image::open(config.path_to(&tconfig.path))?.to_rgba();
             let image_dimensions = image.dimensions();
             let image = RawImage2d::from_raw_rgba_reversed(&image.into_raw(), image_dimensions);
             Rc::new(Texture2d::new(facade, image)?)
@@ -102,8 +102,7 @@ impl Renderer for OpenGLRenderer {
             ::platform::window::init(display.gl_window().window(), &config);
             Backend::Display(display)
         } else {
-            let context = HeadlessRendererBuilder::new(width, height)
-                .build()?;
+            let context = HeadlessRendererBuilder::new(width, height).build()?;
             Backend::Headless(Headless::new(context)?)
         };
 
@@ -183,8 +182,26 @@ impl Renderer for OpenGLRenderer {
 
     fn resize(&mut self, width: u32, height: u32) -> Result<()> {
         for buffer in self.buffers.values() {
-            buffer.borrow_mut().resize(self.backend.as_ref(), width, height)?;
+            buffer
+                .borrow_mut()
+                .resize(self.backend.as_ref(), width, height)?;
         }
+        Ok(())
+    }
+
+    fn render_to_file(&mut self, pointer: [f32; 4], path: &Path) -> Result<()> {
+        self.buffers["__default__"].borrow().render_to_self(
+            &self.vertex_buffer,
+            &self.index_buffer,
+            ((::time::now() - self.start_time).num_nanoseconds().unwrap() as f32) / 1000_000_000.0 % 4096.0,
+            pointer,
+        )?;
+
+        let raw: RawImage2d<u8> = self.buffers["__default__"].borrow().get_texture().read();
+        let raw = RawImage2d::from_raw_rgba_reversed(&raw.data, (raw.width, raw.height));
+
+        ::image::save_buffer(path, &raw.data, raw.width, raw.height, ::image::RGBA(8))?;
+
         Ok(())
     }
 }

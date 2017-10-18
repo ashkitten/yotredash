@@ -13,6 +13,10 @@ pub mod buffer_config {
     /// The buffer configuration contains all the information necessary to build a buffer
     #[derive(Deserialize, Clone)]
     pub struct BufferConfig {
+        /// The current working directory relative to the main config file
+        #[serde(default)]
+        pub _cwd: String,
+
         /// The path to the vertex shader (relative to the configuration file, if there is one)
         pub vertex: String,
 
@@ -64,6 +68,14 @@ pub mod buffer_config {
     pub fn default_resizeable() -> bool {
         true
     }
+
+    use std::path::{Path, PathBuf};
+
+    impl BufferConfig {
+        pub fn path_to(&self, path: &str) -> PathBuf {
+            Path::new(&self._cwd).join(Path::new(path))
+        }
+    }
 }
 
 use clap::{App, Arg, ArgMatches};
@@ -82,6 +94,11 @@ use platform::config::PlatformSpecificConfig;
 /// The main configuration contains all the information necessary to build a renderer
 #[derive(Deserialize, Clone)]
 pub struct Config {
+    /// The current working directory
+    /// Not meant to actually be specified in yaml, but can be
+    #[serde(default)]
+    pub _cwd: String,
+
     /// The buffer configurations, keyed by name
     ///
     /// The buffer called "__default__" must be specified, as this is the output buffer
@@ -116,7 +133,7 @@ pub struct Config {
     pub renderer: String,
 
     /// Whether to show the window at all
-    #[serde(default="default_show_window")]
+    #[serde(default = "default_show_window")]
     pub show_window: bool,
 
     /// Extra platform-specific configurations
@@ -273,7 +290,14 @@ impl Config {
         reader
             .read_to_string(&mut config_str)
             .chain_err(|| "Could not read config file")?;
-        Ok(::serde_yaml::from_str(&config_str)?)
+        let mut config: Config = ::serde_yaml::from_str(&config_str)?;
+
+        config._cwd = path.parent().unwrap().to_string_lossy().into_owned();
+        for (_, mut buffer) in &mut config.buffers {
+            buffer._cwd = config._cwd.clone();
+        }
+
+        Ok(config)
     }
 
     /// Returns the configuration, appropriately sourced from both command-line arguments and the
@@ -309,5 +333,9 @@ impl Config {
         };
 
         Ok(path)
+    }
+
+    pub fn path_to(&self, path: &str) -> PathBuf {
+        Path::new(&self._cwd).join(Path::new(path))
     }
 }

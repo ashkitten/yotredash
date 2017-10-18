@@ -94,6 +94,9 @@ mod errors {
         StdParseIntError(::std::num::ParseIntError),
         #[error_chain(foreign)]
         StdParseFloatError(::std::num::ParseFloatError),
+
+        #[error_chain(foreign)]
+        TimeParseError(::time::ParseError),
     }
 }
 
@@ -102,6 +105,7 @@ use signal::Signal;
 #[cfg(unix)]
 use signal::trap::Trap;
 
+use std::path::Path;
 use winit::EventsLoop;
 
 #[cfg(feature = "opengl")]
@@ -118,6 +122,8 @@ pub trait Renderer {
         Self: Sized;
     /// Render the current frame
     fn render(&mut self, pointer: [f32; 4]) -> Result<()>;
+    /// Render the current frame to a file
+    fn render_to_file(&mut self, pointer: [f32; 4], path: &Path) -> Result<()>;
     /// Tells the renderer to swap buffers (only applicable to buffered renderers)
     fn swap_buffers(&self) -> Result<()>;
     /// Reload the renderer from a new configuration
@@ -130,6 +136,7 @@ pub trait Renderer {
 enum RendererAction {
     Resize(u32, u32),
     Reload,
+    Snapshot,
     Close,
 }
 
@@ -143,8 +150,6 @@ quick_main!(|| -> Result<()> {
     // Get configuration
     let config_path = Config::get_path()?.canonicalize().unwrap();
     let mut config = Config::parse(&config_path)?;
-
-    ::std::env::set_current_dir(config_path.parent().unwrap()).chain_err(|| "Failed to set current directory")?;
 
     // Creates an appropriate renderer for the configuration, exits with an error if that fails
     let mut events_loop = winit::EventsLoop::new();
@@ -202,6 +207,7 @@ quick_main!(|| -> Result<()> {
                 } => match keycode {
                     winit::VirtualKeyCode::Escape => actions.push(RendererAction::Close),
                     winit::VirtualKeyCode::F5 => actions.push(RendererAction::Reload),
+                    winit::VirtualKeyCode::F2 => actions.push(RendererAction::Snapshot),
                     _ => (),
                 },
 
@@ -235,6 +241,9 @@ quick_main!(|| -> Result<()> {
                 &RendererAction::Reload => {
                     config = Config::parse(&config_path)?;
                     renderer.reload(&config)?;
+                }
+                &RendererAction::Snapshot => {
+                    renderer.render_to_file(pointer, Path::new(&format!("{}.png", time::now().strftime("%F_%T")?)))?
                 }
                 &RendererAction::Close => return Ok(()),
             }
