@@ -72,7 +72,7 @@ impl GlyphLoader for FreeTypeRasterizer {
     }
 
     fn load(&self, key: usize) -> Result<RenderedGlyph> {
-        self.face.load_char(key, ::freetype::face::RENDER)?;
+        self.face.load_char(key, ::freetype::face::LoadFlag::RENDER)?;
         let slot = self.face.glyph();
 
         Ok(RenderedGlyph {
