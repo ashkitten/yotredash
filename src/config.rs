@@ -112,6 +112,10 @@ pub struct Config {
     #[serde(default = "default_maximize")]
     pub maximize: bool,
 
+    /// Whether or not to make the window fullscreen
+    #[serde(default = "default_fullscreen")]
+    pub fullscreen: bool,
+
     /// Whether or not the program should use vertical sync
     #[serde(default = "default_vsync")]
     pub vsync: bool,
@@ -148,6 +152,11 @@ fn default_textures() -> HashMap<String, TextureConfig> {
 
 /// A function that returns the default value of the "maximize" field
 fn default_maximize() -> bool {
+    false
+}
+
+/// A function that returns the default value of the "fullscreen" field
+fn default_fullscreen() -> bool {
     false
 }
 
@@ -252,6 +261,10 @@ impl Config {
 
         if args.is_present("maximize") {
             self.maximize = true;
+        }
+
+        if args.is_present("fullscreen") {
+            self.fullscreen = true;
         }
 
         if args.is_present("vsync") {
