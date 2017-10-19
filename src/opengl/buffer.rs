@@ -10,22 +10,23 @@ use std::io::BufReader;
 use std::io::prelude::*;
 use std::rc::Rc;
 
-use super::{MapAsUniform, UniformsStorageVec};
-use super::renderer::Vertex;
 use config::buffer_config::BufferConfig;
 use errors::*;
+use super::image::Image;
+use super::renderer::Vertex;
+use super::{MapAsUniform, UniformsStorageVec};
 use util::DerefInner;
 
 pub struct Buffer {
     texture: Texture2d,
     program: Program,
-    attachments: Vec<Rc<Texture2d>>,
+    attachments: Vec<Rc<RefCell<Image>>>,
     depends: Vec<Rc<RefCell<Buffer>>>,
     resizeable: bool,
 }
 
 impl Buffer {
-    pub fn new(facade: &Facade, config: &BufferConfig, attachments: Vec<Rc<Texture2d>>) -> Result<Self> {
+    pub fn new(facade: &Facade, config: &BufferConfig, attachments: Vec<Rc<RefCell<Image>>>) -> Result<Self> {
         info!("Using vertex shader: {}", config.vertex);
         info!("Using fragment shader: {}", config.fragment);
 
@@ -71,7 +72,7 @@ impl Buffer {
     }
 
     pub fn render_to<S>(
-        &self, surface: &mut S, vertex_buffer: &VertexBuffer<Vertex>, index_buffer: &NoIndices, time: f32,
+        &self, surface: &mut S, facade: &Facade, vertex_buffer: &VertexBuffer<Vertex>, index_buffer: &NoIndices, time: f32,
         pointer: [f32; 4],
     ) -> Result<()>
     where
@@ -96,13 +97,20 @@ impl Buffer {
         );
 
         for (i, attachment) in self.attachments.iter().enumerate() {
-            uniforms.push(format!("texture{}", i), attachment.sampled());
+            attachment
+                .borrow_mut()
+                .render_to_self(facade, time)?;
+
+            let attachment = OwningHandle::new(&**attachment);
+            let texture = OwningHandle::new_with_fn(attachment, |a| unsafe { DerefInner((*a).texture().sampled()) });
+            let texture = MapAsUniform(texture, |t| &**t);
+            uniforms.push(format!("texture{}", i), texture);
         }
 
         for (i, buffer) in self.depends.iter().enumerate() {
             buffer
                 .borrow()
-                .render_to_self(vertex_buffer, index_buffer, time, pointer)?;
+                .render_to_self(facade, vertex_buffer, index_buffer, time, pointer)?;
 
             let buffer = OwningHandle::new(&**buffer);
             let texture = OwningHandle::new_with_fn(buffer, |b| unsafe { DerefInner((*b).texture.sampled()) });
@@ -116,9 +124,9 @@ impl Buffer {
     }
 
     pub fn render_to_self(
-        &self, vertex_buffer: &VertexBuffer<Vertex>, index_buffer: &NoIndices, time: f32, pointer: [f32; 4]
+        &self, facade: &Facade, vertex_buffer: &VertexBuffer<Vertex>, index_buffer: &NoIndices, time: f32, pointer: [f32; 4]
     ) -> Result<()> {
-        self.render_to(&mut self.texture.as_surface(), vertex_buffer, index_buffer, time, pointer)?;
+        self.render_to(&mut self.texture.as_surface(), facade, vertex_buffer, index_buffer, time, pointer)?;
         Ok(())
     }
 

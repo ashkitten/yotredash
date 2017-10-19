@@ -1,4 +1,5 @@
 pub mod buffer;
+pub mod image;
 pub mod renderer;
 pub mod text_renderer;
 
