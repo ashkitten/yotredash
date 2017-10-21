@@ -113,6 +113,7 @@ use opengl::renderer::OpenGLRenderer;
 
 use config::Config;
 use errors::*;
+use util::FpsCounter;
 
 /// Renders a configured shader
 pub trait Renderer {
@@ -121,9 +122,9 @@ pub trait Renderer {
     where
         Self: Sized;
     /// Render the current frame
-    fn render(&mut self, pointer: [f32; 4]) -> Result<()>;
+    fn render(&mut self, time: time::Duration, pointer: [f32; 4], fps: f32) -> Result<()>;
     /// Render the current frame to a file
-    fn render_to_file(&mut self, pointer: [f32; 4], path: &Path) -> Result<()>;
+    fn render_to_file(&mut self, time: time::Duration, pointer: [f32; 4], fps: f32, path: &Path) -> Result<()>;
     /// Tells the renderer to swap buffers (only applicable to buffered renderers)
     fn swap_buffers(&self) -> Result<()>;
     /// Reload the renderer from a new configuration
@@ -162,6 +163,9 @@ quick_main!(|| -> Result<()> {
         }
     };
 
+    let mut time = time::Duration::zero();
+    let mut last_frame = time::now();
+    let mut fps_counter = FpsCounter::new(2.0);
     let mut pointer = [0.0; 4];
 
     let mut paused = false;
@@ -169,8 +173,17 @@ quick_main!(|| -> Result<()> {
         let mut actions: Vec<RendererAction> = Vec::new();
 
         if !paused {
-            renderer.render(pointer)?;
+            let delta = time::now() - last_frame;
+
+            time = time + delta;
+            last_frame = time::now();
+
+            fps_counter.next_frame(delta);
+
+            renderer.render(time, pointer, fps_counter.fps())?;
         } else {
+            last_frame = time::now();
+
             renderer.swap_buffers()?;
         }
 
@@ -206,8 +219,9 @@ quick_main!(|| -> Result<()> {
                     ..
                 } => match keycode {
                     winit::VirtualKeyCode::Escape => actions.push(RendererAction::Close),
-                    winit::VirtualKeyCode::F5 => actions.push(RendererAction::Reload),
                     winit::VirtualKeyCode::F2 => actions.push(RendererAction::Snapshot),
+                    winit::VirtualKeyCode::F5 => actions.push(RendererAction::Reload),
+                    winit::VirtualKeyCode::F6 => paused = !paused,
                     _ => (),
                 },
 
@@ -243,7 +257,8 @@ quick_main!(|| -> Result<()> {
                     renderer.reload(&config)?;
                 }
                 &RendererAction::Snapshot => {
-                    renderer.render_to_file(pointer, Path::new(&format!("{}.png", time::now().strftime("%F_%T")?)))?
+                    let path = Path::new(&format!("{}.png", time::now().strftime("%F_%T")?)).to_path_buf();
+                    renderer.render_to_file(time, pointer, fps_counter.fps(), &path)?
                 }
                 &RendererAction::Close => return Ok(()),
             }

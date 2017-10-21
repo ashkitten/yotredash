@@ -1,8 +1,8 @@
 use glium::backend::Facade;
 use glium::texture::{RawImage2d, Texture2d};
-use image::ImageFormat::*;
-use image::{Frame};
 use image::{self, ImageDecoder};
+use image::Frame;
+use image::ImageFormat::*;
 use std::fs::File;
 use std::io::{BufReader, SeekFrom};
 use std::io::prelude::*;

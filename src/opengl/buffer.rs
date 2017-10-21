@@ -10,11 +10,11 @@ use std::io::BufReader;
 use std::io::prelude::*;
 use std::rc::Rc;
 
-use config::buffer_config::BufferConfig;
-use errors::*;
+use super::{MapAsUniform, UniformsStorageVec};
 use super::image::Image;
 use super::renderer::Vertex;
-use super::{MapAsUniform, UniformsStorageVec};
+use config::buffer_config::BufferConfig;
+use errors::*;
 use util::DerefInner;
 
 pub struct Buffer {
@@ -72,8 +72,8 @@ impl Buffer {
     }
 
     pub fn render_to<S>(
-        &self, surface: &mut S, facade: &Facade, vertex_buffer: &VertexBuffer<Vertex>, index_buffer: &NoIndices, time: f32,
-        pointer: [f32; 4],
+        &self, surface: &mut S, facade: &Facade, vertex_buffer: &VertexBuffer<Vertex>, index_buffer: &NoIndices,
+        time: f32, pointer: [f32; 4],
     ) -> Result<()>
     where
         S: Surface,
@@ -97,9 +97,7 @@ impl Buffer {
         );
 
         for (i, attachment) in self.attachments.iter().enumerate() {
-            attachment
-                .borrow_mut()
-                .render_to_self(facade, time)?;
+            attachment.borrow_mut().render_to_self(facade, time)?;
 
             let attachment = OwningHandle::new(&**attachment);
             let texture = OwningHandle::new_with_fn(attachment, |a| unsafe { DerefInner((*a).texture().sampled()) });
@@ -124,7 +122,8 @@ impl Buffer {
     }
 
     pub fn render_to_self(
-        &self, facade: &Facade, vertex_buffer: &VertexBuffer<Vertex>, index_buffer: &NoIndices, time: f32, pointer: [f32; 4]
+        &self, facade: &Facade, vertex_buffer: &VertexBuffer<Vertex>, index_buffer: &NoIndices, time: f32,
+        pointer: [f32; 4],
     ) -> Result<()> {
         self.render_to(&mut self.texture.as_surface(), facade, vertex_buffer, index_buffer, time, pointer)?;
         Ok(())

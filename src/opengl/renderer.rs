@@ -4,21 +4,19 @@ use glium::backend::glutin::Display;
 use glium::backend::glutin::headless::Headless;
 use glium::glutin::{ContextBuilder, HeadlessRendererBuilder, WindowBuilder};
 use glium::index::{NoIndices, PrimitiveType};
-use glium::texture::{RawImage2d};
+use glium::texture::RawImage2d;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::path::Path;
 use std::rc::Rc;
-use time::Tm;
 use winit::EventsLoop;
 
-use Renderer;
-use config::Config;
-use errors::*;
 use super::buffer::Buffer;
 use super::image::Image;
 use super::text_renderer::TextRenderer;
-use util::FpsCounter;
+use Renderer;
+use config::Config;
+use errors::*;
 
 pub enum Backend {
     Display(Display),
@@ -47,9 +45,7 @@ pub struct OpenGLRenderer {
     vertex_buffer: VertexBuffer<Vertex>,
     index_buffer: NoIndices,
     buffers: HashMap<String, Rc<RefCell<Buffer>>>,
-    start_time: Tm,
     text_renderer: TextRenderer,
-    fps_counter: FpsCounter,
 }
 
 fn init_buffers(config: &Config, facade: &Facade) -> Result<HashMap<String, Rc<RefCell<Buffer>>>> {
@@ -92,7 +88,8 @@ impl Renderer for OpenGLRenderer {
         let width = config.buffers["__default__"].width;
         let height = config.buffers["__default__"].height;
         let backend = if config.show_window {
-            let window_builder = WindowBuilder::new().with_title("yotredash")
+            let window_builder = WindowBuilder::new()
+                .with_title("yotredash")
                 .with_maximized(config.maximize)
                 .with_fullscreen(match config.fullscreen {
                     true => Some(events_loop.get_primary_monitor()),
@@ -133,13 +130,11 @@ impl Renderer for OpenGLRenderer {
             vertex_buffer: vertex_buffer,
             index_buffer: index_buffer,
             buffers: buffers,
-            start_time: ::time::now(),
             text_renderer: text_renderer,
-            fps_counter: FpsCounter::new(1.0),
         })
     }
 
-    fn render(&mut self, pointer: [f32; 4]) -> Result<()> {
+    fn render(&mut self, time: ::time::Duration, pointer: [f32; 4], fps: f32) -> Result<()> {
         let mut target = match self.backend {
             Backend::Display(ref facade) => facade.draw(),
             Backend::Headless(ref facade) => facade.draw(),
@@ -150,17 +145,15 @@ impl Renderer for OpenGLRenderer {
             self.backend.as_ref(),
             &self.vertex_buffer,
             &self.index_buffer,
-            ((::time::now() - self.start_time).num_nanoseconds().unwrap() as f32) / 1000_000_000.0 % 4096.0,
+            (time.num_nanoseconds().unwrap() as f32) / 1000_000_000.0 % 4096.0,
             pointer,
         )?;
 
         if self.config.fps {
-            self.fps_counter.next_frame();
-
             self.text_renderer.draw_text(
                 self.backend.as_ref(),
                 &mut target,
-                &format!("FPS: {:.1}", self.fps_counter.fps()),
+                &format!("FPS: {:.1}", fps),
                 0.0,
                 0.0,
                 [1.0, 1.0, 1.0],
@@ -192,12 +185,12 @@ impl Renderer for OpenGLRenderer {
         Ok(())
     }
 
-    fn render_to_file(&mut self, pointer: [f32; 4], path: &Path) -> Result<()> {
+    fn render_to_file(&mut self, time: ::time::Duration, pointer: [f32; 4], fps: f32, path: &Path) -> Result<()> {
         self.buffers["__default__"].borrow().render_to_self(
             self.backend.as_ref(),
             &self.vertex_buffer,
             &self.index_buffer,
-            ((::time::now() - self.start_time).num_nanoseconds().unwrap() as f32) / 1000_000_000.0 % 4096.0,
+            (time.num_nanoseconds().unwrap() as f32) / 1000_000_000.0 % 4096.0,
             pointer,
         )?;
 
