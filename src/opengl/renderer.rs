@@ -194,7 +194,22 @@ impl Renderer for OpenGLRenderer {
             pointer,
         )?;
 
-        let raw: RawImage2d<u8> = self.buffers["__default__"].borrow().get_texture().read();
+        let buffer = self.buffers["__default__"].borrow();
+        let texture = buffer.get_texture();
+        let mut target = texture.as_surface();
+
+        if self.config.fps {
+            self.text_renderer.draw_text(
+                self.backend.as_ref(),
+                &mut target,
+                &format!("FPS: {:.1}", fps),
+                0.0,
+                0.0,
+                [1.0, 1.0, 1.0],
+            )?;
+        }
+
+        let raw: RawImage2d<u8> = texture.read();
         let raw = RawImage2d::from_raw_rgba_reversed(&raw.data, (raw.width, raw.height));
 
         ::image::save_buffer(path, &raw.data, raw.width, raw.height, ::image::RGBA(8))?;
