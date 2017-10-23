@@ -1,4 +1,4 @@
-#version 130
+#version 140
 
 //// Output variables
 out vec4 color;
