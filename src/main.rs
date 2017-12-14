@@ -225,7 +225,7 @@ quick_main!(|| -> Result<()> {
                     _ => (),
                 },
 
-                WindowEvent::MouseMoved { position, .. } => {
+                WindowEvent::CursorMoved { position, .. } => {
                     pointer[0] = position.0 as f32;
                     pointer[1] = position.1 as f32;
                 }
@@ -250,17 +250,17 @@ quick_main!(|| -> Result<()> {
         });
 
         for action in &actions {
-            match action {
-                &RendererAction::Resize(width, height) => renderer.resize(width, height)?,
-                &RendererAction::Reload => {
+            match *action {
+                RendererAction::Resize(width, height) => renderer.resize(width, height)?,
+                RendererAction::Reload => {
                     config = Config::parse(&config_path)?;
                     renderer.reload(&config)?;
                 }
-                &RendererAction::Snapshot => {
+                RendererAction::Snapshot => {
                     let path = Path::new(&format!("{}.png", time::now().strftime("%F_%T")?)).to_path_buf();
                     renderer.render_to_file(time, pointer, fps_counter.fps(), &path)?
                 }
-                &RendererAction::Close => return Ok(()),
+                RendererAction::Close => return Ok(()),
             }
         }
     }

@@ -29,7 +29,7 @@ impl Image {
             JPEG => image::jpeg::JPEGDecoder::new(buf_reader).into_frames()?,
             GIF => image::gif::Decoder::new(buf_reader).into_frames()?,
             WEBP => image::webp::WebpDecoder::new(buf_reader).into_frames()?,
-            PPM => image::ppm::PPMDecoder::new(buf_reader)?.into_frames()?,
+            PNM => image::pnm::PNMDecoder::new(buf_reader)?.into_frames()?,
             TIFF => image::tiff::TIFFDecoder::new(buf_reader)?.into_frames()?,
             TGA => image::tga::TGADecoder::new(buf_reader).into_frames()?,
             BMP => image::bmp::BMPDecoder::new(buf_reader).into_frames()?,

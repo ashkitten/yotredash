@@ -42,7 +42,7 @@ pub trait GlyphLoader {
     fn load(&self, key: usize) -> Result<RenderedGlyph>;
 }
 
-/// A GlyphLoader implementation that uses the FreeType library to load and render glyphs
+/// A `GlyphLoader` implementation that uses the `FreeType` library to load and render glyphs
 pub struct FreeTypeRasterizer {
     face: OwningHandle<Rc<Vec<u8>>, DerefInner<Face<'static>>>,
 }

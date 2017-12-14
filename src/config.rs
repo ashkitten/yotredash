@@ -145,47 +145,47 @@ pub struct Config {
     pub platform_config: PlatformSpecificConfig,
 }
 
-/// A function that returns the default value of the "textures" field
+/// A function that returns the default value of the `textures` field
 fn default_textures() -> HashMap<String, TextureConfig> {
     HashMap::new()
 }
 
-/// A function that returns the default value of the "maximize" field
+/// A function that returns the default value of the `maximize` field
 fn default_maximize() -> bool {
     false
 }
 
-/// A function that returns the default value of the "fullscreen" field
+/// A function that returns the default value of the `fullscreen` field
 fn default_fullscreen() -> bool {
     false
 }
 
-/// A function that returns the default value of the "vsync" field
+/// A function that returns the default value of the `vsync` field
 fn default_vsync() -> bool {
     false
 }
 
-/// A function that returns the default value of the "fps" field
+/// A function that returns the default value of the `fps` field
 fn default_fps() -> bool {
     false
 }
 
-/// A function that returns the default value of the "font" field
+/// A function that returns the default value of the `font` field
 fn default_font() -> String {
     "".to_string()
 }
 
-/// A function that returns the default value of the "font" field
+/// A function that returns the default value of the `font` field
 fn default_font_size() -> f32 {
     20.0
 }
 
-/// A function that returns the default value of the "renderer" field
+/// A function that returns the default value of the `renderer` field
 fn default_renderer() -> String {
     "opengl".to_string()
 }
 
-/// A function that returns the default value of the "show_window" field
+/// A function that returns the default value of the `show_window` field
 fn default_show_window() -> bool {
     true
 }
@@ -306,7 +306,7 @@ impl Config {
         let mut config: Config = ::serde_yaml::from_str(&config_str)?;
 
         config._cwd = path.parent().unwrap().to_string_lossy().into_owned();
-        for (_, mut buffer) in &mut config.buffers {
+        for buffer in config.buffers.values_mut() {
             buffer._cwd = config._cwd.clone();
         }
 
@@ -335,7 +335,7 @@ impl Config {
             None => {
                 let result = nfd::open_file_dialog(
                     Some("yml,yaml,json"),
-                    ::std::env::current_dir().unwrap_or(PathBuf::new()).to_str(),
+                    ::std::env::current_dir().unwrap_or_default().to_str(),
                 )?;
                 match result {
                     Response::Okay(path) => Path::new(&path).to_path_buf(),

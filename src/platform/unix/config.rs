@@ -26,22 +26,22 @@ pub struct PlatformSpecificConfig {
     pub lower_window: bool,
 }
 
-/// A function that returns the default value of the "root" field
+/// A function that returns the default value of the `root` field
 fn default_root() -> bool {
     false
 }
 
-/// A function that returns the default value of the "override_redirect" field
+/// A function that returns the default value of the `override_redirect` field
 fn default_override_redirect() -> bool {
     false
 }
 
-/// A function that returns the default value of the "desktop" field
+/// A function that returns the default value of the `desktop` field
 fn default_desktop() -> bool {
     false
 }
 
-/// A function that returns the default value of the "lower_window" field
+/// A function that returns the default value of the `lower_window` field
 fn default_lower_window() -> bool {
     false
 }

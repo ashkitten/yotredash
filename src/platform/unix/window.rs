@@ -38,7 +38,7 @@ unsafe fn lower_window(x_connection: &Arc<XConnection>, x_display: *mut Display,
     (x_connection.xlib.XLowerWindow)(x_display, x_window);
 }
 
-/// Sets the _NET_WM_WINDOW_TYPE atom of a window to _NET_WM_WINDOW_TYPE_DESKTOP
+/// Sets the `_NET_WM_WINDOW_TYPE` atom of a window to `_NET_WM_WINDOW_TYPE_DESKTOP`
 unsafe fn desktop_window(x_connection: &Arc<XConnection>, x_display: *mut Display, x_window: XID) {
     let window_type_str = b"_NET_WM_WINDOW_TYPE\0".as_ptr();
     let window_type_desktop_str = b"_NET_WM_WINDOW_TYPE_DESKTOP\0".as_ptr();

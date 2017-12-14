@@ -82,7 +82,7 @@ impl GlyphCache {
 
     pub fn get(&mut self, key: usize, facade: &Facade) -> Result<&GlyphData> {
         if self.cache.contains_key(&key) {
-            Ok(self.cache.get(&key).unwrap())
+            Ok(&self.cache[&key])
         } else {
             Ok(self.insert(key, facade)?)
         }
@@ -108,7 +108,7 @@ impl GlyphCache {
                     advance: rendered.advance,
                 },
             );
-            return Ok(self.cache.get(&key).unwrap());
+            return Ok(&self.cache[&key]);
         }
 
         if !self.packer
@@ -187,7 +187,7 @@ impl GlyphCache {
                     advance: rendered.advance,
                 },
             );
-            Ok(self.cache.get(&key).unwrap())
+            Ok(&self.cache[&key])
         } else {
             bail!("Failed to pack texture");
         }

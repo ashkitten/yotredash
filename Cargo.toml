@@ -4,25 +4,25 @@ version = "0.1.0"
 authors = ["Ash Levy <ashy.of.ren@gmail.com>"]
 
 [dependencies]
-clap = "2.26.0"
+clap = "2.29.0"
 derive-error-chain = "0.11.0"
 env_logger = "0.4.3"
 error-chain = "0.11.0"
-font-loader = "0.4.2"
+font-loader = "0.5.0"
 freetype-rs = "0.16.0"
-image = "0.17.0"
+image = "0.18.0"
 log = "0.3.8"
 nfd = { git = "https://github.com/ashkitten/nfd-rs", branch = "dev" }
 owning_ref = "0.3.3"
 rect_packer = "0.2.1"
-serde = "1.0.11"
-serde_derive = "1.0.11"
-serde_yaml = "0.7.1"
+serde = "1.0.26"
+serde_derive = "1.0.26"
+serde_yaml = "0.7.3"
 time = "0.1.38"
-winit = "0.8.3"
+winit = "0.9.0"
 
 # Needed by opengl feature
-glium = { version = "0.18.0", optional = true }
+glium = { version = "0.19.0", optional = true }
 
 [target.'cfg(unix)'.dependencies]
 signal = "0.4.0"

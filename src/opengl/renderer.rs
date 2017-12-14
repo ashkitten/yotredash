@@ -91,12 +91,13 @@ impl Renderer for OpenGLRenderer {
             let window_builder = WindowBuilder::new()
                 .with_title("yotredash")
                 .with_maximized(config.maximize)
-                .with_fullscreen(match config.fullscreen {
-                    true => Some(events_loop.get_primary_monitor()),
-                    false => None,
+                .with_fullscreen(if config.fullscreen {
+                    Some(events_loop.get_primary_monitor())
+                } else {
+                    None
                 });
             let context_builder = ContextBuilder::new().with_vsync(config.vsync);
-            let display = Display::new(window_builder, context_builder, &events_loop)?;
+            let display = Display::new(window_builder, context_builder, events_loop)?;
             ::platform::window::init(display.gl_window().window(), &config);
 
             Backend::Display(display)
