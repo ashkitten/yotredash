@@ -10,7 +10,6 @@ env_logger = "0.4.3"
 error-chain = "0.11.0"
 font-loader = "0.5.0"
 freetype-rs = "0.16.0"
-image = "0.18.0"
 log = "0.3.8"
 nfd = { git = "https://github.com/ashkitten/nfd-rs", branch = "dev" }
 owning_ref = "0.3.3"
@@ -24,12 +23,17 @@ winit = "0.9.0"
 # Needed by opengl feature
 glium = { version = "0.19.0", optional = true }
 
+# Needed by image feature
+image = { version = "0.18.0", optional = true }
+num-rational = { version = "0.1.40", optional = true }
+
 [target.'cfg(unix)'.dependencies]
 signal = "0.4.0"
 
 [features]
-default = ["opengl"]
+default = ["opengl", "image-src"]
 opengl = ["glium"]
+image-src = ["image", "num-rational"]
 
 [replace]
 "servo-fontconfig-sys:4.0.4" = { git = "https://github.com/ashkitten/libfontconfig" }

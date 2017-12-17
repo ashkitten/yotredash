@@ -1,22 +1,23 @@
-use glium::backend::Facade;
-use glium::texture::{RawImage2d, Texture2d};
 use image::{self, ImageDecoder};
-use image::Frame;
 use image::ImageFormat::*;
 use std::fs::File;
 use std::io::{BufReader, SeekFrom};
 use std::io::prelude::*;
 use std::path::Path;
+use time::Duration;
+use num_rational::Ratio;
 
 use errors::*;
+use super::{Source, Frame};
 
-pub struct Image {
-    texture: Texture2d,
-    frames: Vec<Frame>,
+pub struct ImageSource {
+    time_to_frame: Duration,
+    current_frame: usize,
+    frames: Vec<image::Frame>,
 }
 
-impl Image {
-    pub fn new(path: &Path, facade: &Facade) -> Result<Self> {
+impl Source for ImageSource {
+    fn new(path: &Path) -> Result<Self> {
         let file = File::open(path).chain_err(|| "Could not open image file")?;
         let mut buf_reader = BufReader::new(file);
         let mut buf = Vec::new();
@@ -35,28 +36,47 @@ impl Image {
             BMP => image::bmp::BMPDecoder::new(buf_reader).into_frames()?,
             ICO => image::ico::ICODecoder::new(buf_reader)?.into_frames()?,
             _ => bail!("Image format not supported"),
-        }.collect::<Vec<Frame>>();
-
-        // Assume the dimensions can't change... can they?
-        let (width, height) = frames[0].buffer().dimensions();
+        }.collect::<Vec<image::Frame>>();
 
         Ok(Self {
-            texture: Texture2d::empty(facade, width, height)?,
+            time_to_frame: Duration::zero(),
+            current_frame: 0,
             frames: frames,
         })
     }
 
-    pub fn render_to_self(&mut self, facade: &Facade, time: f32) -> Result<()> {
-        let frame = &self.frames.iter().cycle().nth(time as usize).unwrap();
-        let buffer = frame.buffer().clone();
-        let dimensions = buffer.dimensions();
-        let image = RawImage2d::from_raw_rgba_reversed(&buffer.into_raw(), dimensions);
-        self.texture = Texture2d::new(facade, image)?;
-
-        Ok(())
+    fn width(&self) -> u32 {
+        self.frames[0].buffer().width()
     }
 
-    pub fn texture(&self) -> &Texture2d {
-        &self.texture
+    fn height(&self) -> u32 {
+        self.frames[0].buffer().height()
+    }
+
+    fn update(&mut self) -> bool {
+        if self.frames.len() == 1 {
+            return false;
+        }
+
+        // Delay in millis
+        let delay = (self.frames[self.current_frame].delay() * Ratio::from_integer(1000)).to_integer();
+
+        let mut ret = false;
+        while self.time_to_frame.num_milliseconds() as f32 / 1000.0 > delay as f32 {
+            self.time_to_frame = self.time_to_frame - Duration::milliseconds(delay as i64);
+            self.current_frame += 1;
+            ret = true;
+        }
+        ret
+    }
+
+    fn get_frame(&self) -> Frame {
+        let buffer = self.frames[self.current_frame].buffer().clone();
+
+        Frame {
+            width: buffer.width() as u32,
+            height: buffer.height() as u32,
+            buffer: buffer.into_raw(),
+        }
     }
 }

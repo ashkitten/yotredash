@@ -2,6 +2,8 @@
 
 // So we don't run into issues with the error_chain macro
 #![recursion_limit = "128"]
+// Experimental features
+#![feature(type_ascription, refcell_replace_swap)]
 
 #[cfg(unix)]
 extern crate signal;
@@ -19,7 +21,6 @@ extern crate clap;
 extern crate env_logger;
 extern crate font_loader;
 extern crate freetype;
-extern crate image;
 extern crate nfd;
 extern crate owning_ref;
 extern crate rect_packer;
@@ -31,10 +32,16 @@ extern crate winit;
 #[macro_use]
 extern crate glium;
 
+#[cfg(feature = "image")]
+extern crate image;
+#[cfg(feature = "image")]
+extern crate num_rational;
+
 pub mod config;
 pub mod font;
 pub mod platform;
 pub mod util;
+pub mod source;
 
 #[cfg(feature = "opengl")]
 pub mod opengl;

@@ -1,10 +1,12 @@
-/// The texture configuration contains all the information necessary to build a texture
-pub mod texture_config {
-    /// The texture configuration contains all the information necessary to build a texture
+/// The source configuration contains all the information necessary to build a texture
+pub mod source_config {
+    /// The source configuration contains all the information necessary to build a texture
     #[derive(Deserialize, Clone)]
-    pub struct TextureConfig {
-        /// The path to the texture file (relative to the configuration file, if there is one)
+    pub struct SourceConfig {
+        /// The path to the source file (relative to the configuration file, if there is one)
         pub path: String,
+        /// The kind of the source file (image, etc) if applicable
+        pub kind: String,
     }
 }
 
@@ -23,9 +25,9 @@ pub mod buffer_config {
         /// The path to the fragment shader (relative to the configuration file, if there is one)
         pub fragment: String,
 
-        /// The names of the texture configurations this buffer references
-        #[serde(default = "default_textures")]
-        pub textures: Vec<String>,
+        /// The names of the source configurations this buffer references
+        #[serde(default = "default_sources")]
+        pub sources: Vec<String>,
 
         /// The width of the buffer
         #[serde(default = "default_width")]
@@ -44,27 +46,27 @@ pub mod buffer_config {
         pub resizeable: bool,
     }
 
-    /// A function that returns the default value of the "textures" field
-    pub fn default_textures() -> Vec<String> {
+    /// A function that returns the default value of the `sources` field
+    pub fn default_sources() -> Vec<String> {
         Vec::new()
     }
 
-    /// A function that returns the default value of the "width" field
+    /// A function that returns the default value of the `width` field
     pub fn default_width() -> u32 {
         640
     }
 
-    /// A function that returns the default value of the "height" field
+    /// A function that returns the default value of the `height` field
     pub fn default_height() -> u32 {
         400
     }
 
-    /// A function that returns the default value of the "depends" field
+    /// A function that returns the default value of the `depends` field
     pub fn default_depends() -> Vec<String> {
         Vec::new()
     }
 
-    /// A function that returns the default value of the "resizeable" field
+    /// A function that returns the default value of the `resizeable` field
     pub fn default_resizeable() -> bool {
         true
     }
@@ -87,7 +89,7 @@ use std::io::prelude::*;
 use std::path::{Path, PathBuf};
 
 use self::buffer_config::BufferConfig;
-use self::texture_config::TextureConfig;
+use self::source_config::SourceConfig;
 use errors::*;
 use platform::config::PlatformSpecificConfig;
 
@@ -101,12 +103,12 @@ pub struct Config {
 
     /// The buffer configurations, keyed by name
     ///
-    /// The buffer called "__default__" must be specified, as this is the output buffer
+    /// The buffer called `__default__` must be specified, as this is the output buffer
     pub buffers: HashMap<String, BufferConfig>,
 
-    /// The texture configurations, keyed by name
-    #[serde(default = "default_textures")]
-    pub textures: HashMap<String, TextureConfig>,
+    /// The source configurations, keyed by name
+    #[serde(default = "default_sources")]
+    pub sources: HashMap<String, SourceConfig>,
 
     /// Whether or not to maximize the window
     #[serde(default = "default_maximize")]
@@ -145,8 +147,8 @@ pub struct Config {
     pub platform_config: PlatformSpecificConfig,
 }
 
-/// A function that returns the default value of the `textures` field
-fn default_textures() -> HashMap<String, TextureConfig> {
+/// A function that returns the default value of the `sources` field
+fn default_sources() -> HashMap<String, SourceConfig> {
     HashMap::new()
 }
 

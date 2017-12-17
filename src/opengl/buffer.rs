@@ -2,7 +2,7 @@ use glium::{Program, Surface, VertexBuffer};
 use glium::backend::Facade;
 use glium::index::NoIndices;
 use glium::program::ProgramCreationInput;
-use glium::texture::Texture2d;
+use glium::texture::{Texture2d, RawImage2d};
 use owning_ref::OwningHandle;
 use std::cell::RefCell;
 use std::fs::File;
@@ -11,22 +11,22 @@ use std::io::prelude::*;
 use std::rc::Rc;
 
 use super::{MapAsUniform, UniformsStorageVec};
-use super::image::Image;
 use super::renderer::Vertex;
 use config::buffer_config::BufferConfig;
 use errors::*;
 use util::DerefInner;
+use source::Source;
 
 pub struct Buffer {
     texture: Texture2d,
     program: Program,
-    attachments: Vec<Rc<RefCell<Image>>>,
+    sources: Vec<(Rc<RefCell<Source>>, RefCell<Texture2d>)>,
     depends: Vec<Rc<RefCell<Buffer>>>,
     resizeable: bool,
 }
 
 impl Buffer {
-    pub fn new(facade: &Facade, config: &BufferConfig, attachments: Vec<Rc<RefCell<Image>>>) -> Result<Self> {
+    pub fn new(facade: &Facade, config: &BufferConfig, sources: Vec<Rc<RefCell<Source>>>) -> Result<Self> {
         info!("Using vertex shader: {}", config.vertex);
         info!("Using fragment shader: {}", config.fragment);
 
@@ -58,10 +58,16 @@ impl Buffer {
 
         let texture = Texture2d::empty(facade, config.width, config.height)?;
 
+        let sources = sources.into_iter().map(|source| {
+            let frame = source.borrow().get_frame();
+            let raw = RawImage2d::from_raw_rgba(frame.buffer, (frame.width, frame.height));
+            (source.clone(), RefCell::new(Texture2d::new(facade, raw).unwrap()))
+        }).collect();
+
         Ok(Buffer {
             texture: texture,
             program: program,
-            attachments: attachments,
+            sources: sources,
             depends: Vec::new(),
             resizeable: config.resizeable,
         })
@@ -96,11 +102,15 @@ impl Buffer {
             ],
         );
 
-        for (i, attachment) in self.attachments.iter().enumerate() {
-            attachment.borrow_mut().render_to_self(facade, time)?;
+        for (i, source) in self.sources.iter().enumerate() {
+            if source.0.borrow_mut().update() {
+                let frame = source.0.borrow().get_frame();
+                let raw = RawImage2d::from_raw_rgba(frame.buffer, (frame.width, frame.height));
+                source.1.replace(Texture2d::new(facade, raw)?);
+            }
 
-            let attachment = OwningHandle::new(&**attachment);
-            let texture = OwningHandle::new_with_fn(attachment, |a| unsafe { DerefInner((*a).texture().sampled()) });
+            let texture = OwningHandle::new(&source.1);
+            let texture = OwningHandle::new_with_fn(texture, |t| unsafe { DerefInner((*t).sampled()) });
             let texture = MapAsUniform(texture, |t| &**t);
             uniforms.push(format!("texture{}", i), texture);
         }

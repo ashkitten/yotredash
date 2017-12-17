@@ -11,12 +11,12 @@ use std::path::Path;
 use std::rc::Rc;
 use winit::EventsLoop;
 
-use super::buffer::Buffer;
-use super::image::Image;
-use super::text_renderer::TextRenderer;
 use Renderer;
 use config::Config;
 use errors::*;
+use super::buffer::Buffer;
+use super::text_renderer::TextRenderer;
+use source::{Source, ImageSource};
 
 pub enum Backend {
     Display(Display),
@@ -49,10 +49,16 @@ pub struct OpenGLRenderer {
 }
 
 fn init_buffers(config: &Config, facade: &Facade) -> Result<HashMap<String, Rc<RefCell<Buffer>>>> {
-    let mut textures = HashMap::new();
+    let mut sources = HashMap::new();
 
-    for (name, tconfig) in &config.textures {
-        textures.insert(name.to_string(), Rc::new(RefCell::new(Image::new(&config.path_to(&tconfig.path), facade)?)));
+    for (name, sconfig) in &config.sources {
+        sources.insert(
+            name.to_string(),
+            match sconfig.kind.as_str() {
+                "image" => Rc::new(RefCell::new(ImageSource::new(&config.path_to(&sconfig.path))?)),
+                _ => bail!("Unsupported kind of source"),
+            }: Rc<RefCell<Source>>
+        );
     }
 
     let mut buffers = HashMap::new();
@@ -64,9 +70,9 @@ fn init_buffers(config: &Config, facade: &Facade) -> Result<HashMap<String, Rc<R
                 facade,
                 bconfig,
                 bconfig
-                    .textures
+                    .sources
                     .iter()
-                    .map(|name| Rc::clone(&textures[name]))
+                    .map(|name| sources[name].clone())
                     .collect(),
             )?)),
         );
