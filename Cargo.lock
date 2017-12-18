@@ -467,6 +467,11 @@ dependencies = [
 ]
 
 [[package]]
+name = "glob"
+version = "0.2.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
 name = "glutin"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1329,6 +1334,7 @@ dependencies = [
  "font-loader 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "freetype-rs 0.16.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "glium 0.19.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "glob 0.2.11 (registry+https://github.com/rust-lang/crates.io-index)",
  "image 0.18.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.3.9 (registry+https://github.com/rust-lang/crates.io-index)",
  "nfd 0.0.4 (git+https://github.com/ashkitten/nfd-rs?branch=dev)",
@@ -1400,6 +1406,7 @@ dependencies = [
 "checksum gl_generator 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)" = "04e3e0220a68b8875b5a311fe67ee3b76d3d9b719a92277aff0ec5bb5e7b0ec1"
 "checksum gleam 0.4.17 (registry+https://github.com/rust-lang/crates.io-index)" = "6f4f9148004bdc641f47173769e2625d8dec7aafd3f8d808309aab8f2d7c5ee0"
 "checksum glium 0.19.0 (registry+https://github.com/rust-lang/crates.io-index)" = "a9d76f3917e51f743c472abde1f8c0bbd289daffa1ada9f62f8deb02eacd558f"
+"checksum glob 0.2.11 (registry+https://github.com/rust-lang/crates.io-index)" = "8be18de09a56b60ed0edf84bc9df007e30040691af7acd1c41874faac5895bfb"
 "checksum glutin 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)" = "3069192081fef59b783f0fbf824a9d2320169cb435f31fb2c91df88dc18f11ae"
 "checksum image 0.18.0 (registry+https://github.com/rust-lang/crates.io-index)" = "545f000e8aa4e569e93f49c446987133452e0091c2494ac3efd3606aa3d309f2"
 "checksum inflate 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)" = "10ec05638adf7c5c788bc0cfa608cd479a13572beda20feb4898fe1d85d2c64b"
