@@ -72,8 +72,7 @@ impl GlyphCache {
         };
 
         // Prerender all visible ascii characters
-        // TODO: change to `32..=127` when inclusive ranges make it to stable Rust
-        for i in 32..128usize {
+        for i in 32..=127 {
             cache.insert(i, facade)?;
         }
 
@@ -116,8 +115,10 @@ impl GlyphCache {
         {
             let old_size = (self.packer.size().0 as u32, self.packer.size().1 as u32);
             // Let new size be at least 2x the old size so we're not resizing so much
-            let new_size =
-                (max(old_size.0 + rendered.width, old_size.0 * 2), max(old_size.1 + rendered.height, old_size.1 * 2));
+            let new_size = (
+                max(old_size.0 + rendered.width, old_size.0 * 2),
+                max(old_size.1 + rendered.height, old_size.1 * 2),
+            );
 
             self.packer.resize(new_size.0 as i32, new_size.1 as i32);
 
@@ -151,12 +152,15 @@ impl GlyphCache {
             };
         }
 
-        // TODO: can fail if texture is not big enough
         if let Some(rect) = self.packer
             .pack(rendered.width as i32, rendered.height as i32, false)
         {
-            let blit_source =
-                Texture2d::with_format(facade, &rendered, UncompressedFloatFormat::U8, MipmapsOption::NoMipmap)?;
+            let blit_source = Texture2d::with_format(
+                facade,
+                &rendered,
+                UncompressedFloatFormat::U8,
+                MipmapsOption::NoMipmap,
+            )?;
             let blit_rect = ::glium::Rect {
                 left: 0,
                 bottom: 0,
@@ -206,8 +210,7 @@ pub struct TextRenderer {
     program: Program,
 }
 
-impl TextRenderer // where
-{
+impl TextRenderer {
     pub fn new(facade: &Facade, font: &str, font_size: f32) -> Result<Self> {
         let glyph_cache = GlyphCache::new(facade, Rc::new(FreeTypeRasterizer::new(font, font_size)?))?;
 
@@ -307,7 +310,13 @@ impl TextRenderer // where
                     ..Default::default()
                 };
 
-                surface.draw(&vertex_buffer, &index_buffer, &self.program, &uniforms, &params)?;
+                surface.draw(
+                    &vertex_buffer,
+                    &index_buffer,
+                    &self.program,
+                    &uniforms,
+                    &params,
+                )?;
             }
 
             advance += glyph.advance as i32;

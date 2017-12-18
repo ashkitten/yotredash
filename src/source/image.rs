@@ -1,14 +1,14 @@
 use image::{self, ImageDecoder};
 use image::ImageFormat::*;
+use num_rational::Ratio;
 use std::fs::File;
 use std::io::{BufReader, SeekFrom};
 use std::io::prelude::*;
 use std::path::Path;
 use time::Duration;
-use num_rational::Ratio;
 
+use super::{Frame, Source};
 use errors::*;
-use super::{Source, Frame};
 
 pub struct ImageSource {
     time_to_frame: Duration,

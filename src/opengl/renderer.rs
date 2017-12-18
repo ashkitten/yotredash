@@ -11,12 +11,12 @@ use std::path::Path;
 use std::rc::Rc;
 use winit::EventsLoop;
 
+use super::buffer::Buffer;
+use super::text_renderer::TextRenderer;
 use Renderer;
 use config::Config;
 use errors::*;
-use super::buffer::Buffer;
-use super::text_renderer::TextRenderer;
-use source::{Source, ImageSource};
+use source::{ImageSource, Source};
 
 pub enum Backend {
     Display(Display),
@@ -55,9 +55,10 @@ fn init_buffers(config: &Config, facade: &Facade) -> Result<HashMap<String, Rc<R
         sources.insert(
             name.to_string(),
             match sconfig.kind.as_str() {
-                "image" => Rc::new(RefCell::new(ImageSource::new(&config.path_to(&sconfig.path))?)),
+                "image" => Rc::new(RefCell::new(ImageSource::new(&config
+                    .path_to(&sconfig.path))?)),
                 _ => bail!("Unsupported kind of source"),
-            }: Rc<RefCell<Source>>
+            }: Rc<RefCell<Source>>,
         );
     }
 
@@ -112,7 +113,10 @@ impl Renderer for OpenGLRenderer {
             Backend::Headless(Headless::new(context)?)
         };
 
-        debug!("{:?}", backend.as_ref().get_context().get_opengl_version_string());
+        debug!(
+            "{:?}",
+            backend.as_ref().get_context().get_opengl_version_string()
+        );
 
         #[cfg_attr(rustfmt, rustfmt_skip)]
         let vertices = [
@@ -128,7 +132,6 @@ impl Renderer for OpenGLRenderer {
         let index_buffer = NoIndices(PrimitiveType::TrianglesList);
         let buffers = init_buffers(&config, backend.as_ref())?;
 
-        // TODO: font should not be hardcoded
         let text_renderer = TextRenderer::new(backend.as_ref(), &config.font, config.font_size)?;
 
         Ok(Self {

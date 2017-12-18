@@ -2,7 +2,7 @@ use glium::{Program, Surface, VertexBuffer};
 use glium::backend::Facade;
 use glium::index::NoIndices;
 use glium::program::ProgramCreationInput;
-use glium::texture::{Texture2d, RawImage2d};
+use glium::texture::{RawImage2d, Texture2d};
 use owning_ref::OwningHandle;
 use std::cell::RefCell;
 use std::fs::File;
@@ -14,8 +14,8 @@ use super::{MapAsUniform, UniformsStorageVec};
 use super::renderer::Vertex;
 use config::buffer_config::BufferConfig;
 use errors::*;
-use util::DerefInner;
 use source::Source;
+use util::DerefInner;
 
 pub struct Buffer {
     texture: Texture2d,
@@ -58,11 +58,17 @@ impl Buffer {
 
         let texture = Texture2d::empty(facade, config.width, config.height)?;
 
-        let sources = sources.into_iter().map(|source| {
-            let frame = source.borrow().get_frame();
-            let raw = RawImage2d::from_raw_rgba(frame.buffer, (frame.width, frame.height));
-            (source.clone(), RefCell::new(Texture2d::new(facade, raw).unwrap()))
-        }).collect();
+        let sources = sources
+            .into_iter()
+            .map(|source| {
+                let frame = source.borrow().get_frame();
+                let raw = RawImage2d::from_raw_rgba(frame.buffer, (frame.width, frame.height));
+                (
+                    source.clone(),
+                    RefCell::new(Texture2d::new(facade, raw).unwrap()),
+                )
+            })
+            .collect();
 
         Ok(Buffer {
             texture: texture,
@@ -88,7 +94,13 @@ impl Buffer {
 
         let mut uniforms = UniformsStorageVec::new();
 
-        uniforms.push("resolution", (surface.get_dimensions().0 as f32, surface.get_dimensions().1 as f32));
+        uniforms.push(
+            "resolution",
+            (
+                surface.get_dimensions().0 as f32,
+                surface.get_dimensions().1 as f32,
+            ),
+        );
 
         uniforms.push("time", time);
 
@@ -121,12 +133,20 @@ impl Buffer {
                 .render_to_self(facade, vertex_buffer, index_buffer, time, pointer)?;
 
             let buffer = OwningHandle::new(&**buffer);
-            let texture = OwningHandle::new_with_fn(buffer, |b| unsafe { DerefInner((*b).texture.sampled()) });
+            let texture = OwningHandle::new_with_fn(buffer, |b| unsafe {
+                DerefInner((*b).texture.sampled())
+            });
             let texture = MapAsUniform(texture, |t| &**t);
             uniforms.push(format!("buffer{}", i), texture);
         }
 
-        surface.draw(vertex_buffer, index_buffer, &self.program, &uniforms, &Default::default())?;
+        surface.draw(
+            vertex_buffer,
+            index_buffer,
+            &self.program,
+            &uniforms,
+            &Default::default(),
+        )?;
 
         Ok(())
     }
@@ -135,7 +155,14 @@ impl Buffer {
         &self, facade: &Facade, vertex_buffer: &VertexBuffer<Vertex>, index_buffer: &NoIndices, time: f32,
         pointer: [f32; 4],
     ) -> Result<()> {
-        self.render_to(&mut self.texture.as_surface(), facade, vertex_buffer, index_buffer, time, pointer)?;
+        self.render_to(
+            &mut self.texture.as_surface(),
+            facade,
+            vertex_buffer,
+            index_buffer,
+            time,
+            pointer,
+        )?;
         Ok(())
     }
 

@@ -56,8 +56,9 @@ impl GlyphLoader for FreeTypeRasterizer {
             .build();
         if let Some((font_buf, _)) = ::font_loader::system_fonts::get(&property) {
             let font_buf = Rc::new(font_buf);
-            let face =
-                OwningHandle::try_new(font_buf, |fb| unsafe { library.new_memory_face(&*fb, 0).map(DerefInner) })?;
+            let face = OwningHandle::try_new(font_buf, |fb| unsafe {
+                library.new_memory_face(&*fb, 0).map(DerefInner)
+            })?;
 
             if let (Some(name), Some(style)) = (face.family_name(), face.style_name()) {
                 info!("Using font: {}, style: {}", name, style);
@@ -72,7 +73,8 @@ impl GlyphLoader for FreeTypeRasterizer {
     }
 
     fn load(&self, key: usize) -> Result<RenderedGlyph> {
-        self.face.load_char(key, ::freetype::face::LoadFlag::RENDER)?;
+        self.face
+            .load_char(key, ::freetype::face::LoadFlag::RENDER)?;
         let slot = self.face.glyph();
 
         Ok(RenderedGlyph {

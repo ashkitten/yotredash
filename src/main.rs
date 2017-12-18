@@ -3,7 +3,7 @@
 // So we don't run into issues with the error_chain macro
 #![recursion_limit = "128"]
 // Experimental features
-#![feature(type_ascription, refcell_replace_swap)]
+#![feature(type_ascription, refcell_replace_swap, inclusive_range_syntax)]
 
 #[cfg(unix)]
 extern crate signal;
@@ -52,8 +52,7 @@ mod errors {
     pub enum ErrorKind {
         Msg(String),
 
-        #[error_chain(foreign)]
-        FreeTypeError(::freetype::Error),
+        #[error_chain(foreign)] FreeTypeError(::freetype::Error),
 
         #[cfg(feature = "opengl")]
         #[error_chain(foreign)]
@@ -83,27 +82,19 @@ mod errors {
         #[error_chain(foreign)]
         GliumVertexCreationError(::glium::vertex::BufferCreationError),
 
-        #[error_chain(foreign)]
-        ImageError(::image::ImageError),
+        #[error_chain(foreign)] ImageError(::image::ImageError),
 
-        #[error_chain(foreign)]
-        LogSetLoggerError(::log::SetLoggerError),
+        #[error_chain(foreign)] LogSetLoggerError(::log::SetLoggerError),
 
-        #[error_chain(foreign)]
-        NFDError(::nfd::error::NFDError),
+        #[error_chain(foreign)] NFDError(::nfd::error::NFDError),
 
-        #[error_chain(foreign)]
-        SerdeYamlError(::serde_yaml::Error),
+        #[error_chain(foreign)] SerdeYamlError(::serde_yaml::Error),
 
-        #[error_chain(foreign)]
-        StdIoError(::std::io::Error),
-        #[error_chain(foreign)]
-        StdParseIntError(::std::num::ParseIntError),
-        #[error_chain(foreign)]
-        StdParseFloatError(::std::num::ParseFloatError),
+        #[error_chain(foreign)] StdIoError(::std::io::Error),
+        #[error_chain(foreign)] StdParseIntError(::std::num::ParseIntError),
+        #[error_chain(foreign)] StdParseFloatError(::std::num::ParseFloatError),
 
-        #[error_chain(foreign)]
-        TimeParseError(::time::ParseError),
+        #[error_chain(foreign)] TimeParseError(::time::ParseError),
     }
 }
 
@@ -208,51 +199,53 @@ quick_main!(|| -> Result<()> {
             }
         }
 
-        events_loop.poll_events(|event| if let winit::Event::WindowEvent { event, .. } = event {
-            use winit::WindowEvent;
+        events_loop.poll_events(|event| {
+            if let winit::Event::WindowEvent { event, .. } = event {
+                use winit::WindowEvent;
 
-            match event {
-                WindowEvent::Resized(width, height) => actions.push(RendererAction::Resize(width, height)),
+                match event {
+                    WindowEvent::Resized(width, height) => actions.push(RendererAction::Resize(width, height)),
 
-                WindowEvent::Closed => actions.push(RendererAction::Close),
+                    WindowEvent::Closed => actions.push(RendererAction::Close),
 
-                WindowEvent::KeyboardInput {
-                    input:
-                        winit::KeyboardInput {
-                            virtual_keycode: Some(keycode),
-                            state: winit::ElementState::Pressed,
-                            ..
-                        },
-                    ..
-                } => match keycode {
-                    winit::VirtualKeyCode::Escape => actions.push(RendererAction::Close),
-                    winit::VirtualKeyCode::F2 => actions.push(RendererAction::Snapshot),
-                    winit::VirtualKeyCode::F5 => actions.push(RendererAction::Reload),
-                    winit::VirtualKeyCode::F6 => paused = !paused,
+                    WindowEvent::KeyboardInput {
+                        input:
+                            winit::KeyboardInput {
+                                virtual_keycode: Some(keycode),
+                                state: winit::ElementState::Pressed,
+                                ..
+                            },
+                        ..
+                    } => match keycode {
+                        winit::VirtualKeyCode::Escape => actions.push(RendererAction::Close),
+                        winit::VirtualKeyCode::F2 => actions.push(RendererAction::Snapshot),
+                        winit::VirtualKeyCode::F5 => actions.push(RendererAction::Reload),
+                        winit::VirtualKeyCode::F6 => paused = !paused,
+                        _ => (),
+                    },
+
+                    WindowEvent::CursorMoved { position, .. } => {
+                        pointer[0] = position.0 as f32;
+                        pointer[1] = position.1 as f32;
+                    }
+
+                    WindowEvent::MouseInput {
+                        button: winit::MouseButton::Left,
+                        state,
+                        ..
+                    } => match state {
+                        winit::ElementState::Pressed => {
+                            pointer[2] = pointer[0];
+                            pointer[3] = pointer[1];
+                        }
+                        winit::ElementState::Released => {
+                            pointer[2] = 0.0;
+                            pointer[3] = 0.0;
+                        }
+                    },
+
                     _ => (),
-                },
-
-                WindowEvent::CursorMoved { position, .. } => {
-                    pointer[0] = position.0 as f32;
-                    pointer[1] = position.1 as f32;
                 }
-
-                WindowEvent::MouseInput {
-                    button: winit::MouseButton::Left,
-                    state,
-                    ..
-                } => match state {
-                    winit::ElementState::Pressed => {
-                        pointer[2] = pointer[0];
-                        pointer[3] = pointer[1];
-                    }
-                    winit::ElementState::Released => {
-                        pointer[2] = 0.0;
-                        pointer[3] = 0.0;
-                    }
-                },
-
-                _ => (),
             }
         });
 

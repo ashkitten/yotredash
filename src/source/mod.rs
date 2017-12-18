@@ -15,7 +15,9 @@ pub struct Frame {
 }
 
 pub trait Source {
-    fn new(path: &Path) -> Result<Self> where Self: Sized;
+    fn new(path: &Path) -> Result<Self>
+    where
+        Self: Sized;
     fn width(&self) -> u32;
     fn height(&self) -> u32;
     fn update(&mut self) -> bool;
