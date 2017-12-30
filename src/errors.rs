@@ -33,7 +33,15 @@ pub enum ErrorKind {
     #[error_chain(foreign)]
     GliumVertexCreationError(::glium::vertex::BufferCreationError),
 
-    #[error_chain(foreign)] ImageError(::image::ImageError),
+    #[cfg(feature = "image-src")]
+    #[error_chain(foreign)]
+    ImageError(::image::ImageError),
+    #[cfg(feature = "image-src")]
+    #[error_chain(foreign)]
+    GifDecodingError(::gif::DecodingError),
+    #[cfg(feature = "image-src")]
+    #[error_chain(foreign)]
+    GifDisposeError(::gif_dispose::Error),
 
     #[error_chain(foreign)] LogSetLoggerError(::log::SetLoggerError),
 

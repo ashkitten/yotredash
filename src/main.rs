@@ -32,10 +32,13 @@ extern crate winit;
 #[macro_use]
 extern crate glium;
 
-#[cfg(feature = "image")]
+
+#[cfg(feature = "image-src")]
+extern crate gif;
+#[cfg(feature = "image-src")]
+extern crate gif_dispose;
+#[cfg(feature = "image-src")]
 extern crate image;
-#[cfg(feature = "image")]
-extern crate num_rational;
 
 pub mod config;
 pub mod errors;

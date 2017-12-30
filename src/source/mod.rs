@@ -1,13 +1,14 @@
-#[cfg(feature = "image")]
+#[cfg(feature = "image-src")]
 pub mod image;
 
 use std::path::Path;
 
 use errors::*;
 
-#[cfg(feature = "image")]
+#[cfg(feature = "image-src")]
 pub use self::image::ImageSource;
 
+#[derive(Clone)]
 pub struct Frame {
     pub width: u32,
     pub height: u32,

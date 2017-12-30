@@ -1,19 +1,20 @@
+use gif::{self, SetParameter};
+use gif_dispose;
 use image::{self, ImageDecoder};
 use image::ImageFormat::*;
-use num_rational::Ratio;
 use std::fs::File;
 use std::io::{BufReader, SeekFrom};
 use std::io::prelude::*;
 use std::path::Path;
-use time::Duration;
+use time::{self, Duration, Tm};
 
 use super::{Frame, Source};
 use errors::*;
 
 pub struct ImageSource {
-    time_to_frame: Duration,
+    frame_start: Tm,
     current_frame: usize,
-    frames: Vec<image::Frame>,
+    frames: Vec<(Frame, Duration)>,
 }
 
 impl Source for ImageSource {
@@ -24,33 +25,77 @@ impl Source for ImageSource {
         buf_reader.read_to_end(&mut buf)?;
         buf_reader.seek(SeekFrom::Start(0))?;
 
+        fn decode_frame<D>(decoder: D) -> Result<(Frame, Duration)>
+        where
+            D: ImageDecoder,
+        {
+            let buffer = decoder.into_frames()?.nth(0).unwrap().into_buffer();
+            let (width, height) = buffer.dimensions();
+            let buffer = buffer.into_raw();
+            Ok((
+                Frame {
+                    width,
+                    height,
+                    buffer,
+                },
+                Duration::zero(),
+            ))
+        }
+
         let format = image::guess_format(&buf)?;
         let frames = match format {
-            PNG => image::png::PNGDecoder::new(buf_reader).into_frames()?,
-            JPEG => image::jpeg::JPEGDecoder::new(buf_reader).into_frames()?,
-            GIF => image::gif::Decoder::new(buf_reader).into_frames()?,
-            WEBP => image::webp::WebpDecoder::new(buf_reader).into_frames()?,
-            PNM => image::pnm::PNMDecoder::new(buf_reader)?.into_frames()?,
-            TIFF => image::tiff::TIFFDecoder::new(buf_reader)?.into_frames()?,
-            TGA => image::tga::TGADecoder::new(buf_reader).into_frames()?,
-            BMP => image::bmp::BMPDecoder::new(buf_reader).into_frames()?,
-            ICO => image::ico::ICODecoder::new(buf_reader)?.into_frames()?,
+            BMP => vec![decode_frame(image::bmp::BMPDecoder::new(buf_reader))?],
+            ICO => vec![decode_frame(image::ico::ICODecoder::new(buf_reader)?)?],
+            JPEG => vec![decode_frame(image::jpeg::JPEGDecoder::new(buf_reader))?],
+            PNG => vec![decode_frame(image::png::PNGDecoder::new(buf_reader))?],
+            PNM => vec![decode_frame(image::pnm::PNMDecoder::new(buf_reader)?)?],
+            TGA => vec![decode_frame(image::tga::TGADecoder::new(buf_reader))?],
+            TIFF => vec![decode_frame(image::tiff::TIFFDecoder::new(buf_reader)?)?],
+            WEBP => vec![decode_frame(image::webp::WebpDecoder::new(buf_reader))?],
+            GIF => {
+                let mut decoder = gif::Decoder::new(buf_reader);
+                decoder.set(gif::ColorOutput::Indexed);
+                let mut reader = decoder.read_info()?;
+                let mut screen = gif_dispose::Screen::new_reader(&reader);
+
+                let mut frames = Vec::new();
+                while let Some(frame) = reader.read_next_frame()? {
+                    screen.blit_frame(&frame)?;
+
+                    let mut buffer = Vec::new();
+                    for rgba in screen.pixels.pixels() {
+                        buffer.extend(rgba.iter());
+                    }
+
+                    frames.push((
+                        Frame {
+                            width: screen.pixels.width() as u32,
+                            height: screen.pixels.height() as u32,
+                            buffer,
+                        },
+                        Duration::milliseconds(frame.delay as i64),
+                    ));
+                }
+                frames
+            }
             _ => bail!("Image format not supported"),
-        }.collect::<Vec<image::Frame>>();
+        };
+
+        debug!("Frame count: {}", frames.len());
 
         Ok(Self {
-            time_to_frame: Duration::zero(),
+            frame_start: time::now(),
             current_frame: 0,
             frames: frames,
         })
     }
 
     fn width(&self) -> u32 {
-        self.frames[0].buffer().width()
+        self.frames[0].0.width
     }
 
     fn height(&self) -> u32 {
-        self.frames[0].buffer().height()
+        self.frames[0].0.height
     }
 
     fn update(&mut self) -> bool {
@@ -58,25 +103,19 @@ impl Source for ImageSource {
             return false;
         }
 
-        // Delay in millis
-        let delay = (self.frames[self.current_frame].delay() * Ratio::from_integer(1000)).to_integer();
-
-        let mut ret = false;
-        while self.time_to_frame.num_milliseconds() as f32 / 1000.0 > delay as f32 {
-            self.time_to_frame = self.time_to_frame - Duration::milliseconds(delay as i64);
+        if time::now() - self.frame_start > self.frames[self.current_frame].1 {
             self.current_frame += 1;
-            ret = true;
+            if self.current_frame == self.frames.len() {
+                self.current_frame = 0;
+            }
+            self.frame_start = time::now();
+            return true;
         }
-        ret
+
+        false
     }
 
     fn get_frame(&self) -> Frame {
-        let buffer = self.frames[self.current_frame].buffer().clone();
-
-        Frame {
-            width: buffer.width() as u32,
-            height: buffer.height() as u32,
-            buffer: buffer.into_raw(),
-        }
+        self.frames[self.current_frame].0.clone()
     }
 }

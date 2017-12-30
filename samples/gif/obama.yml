@@ -1,0 +1,11 @@
+buffers:
+  __default__:
+    vertex: default.vert
+    fragment: obama.frag
+    sources:
+      - obama
+
+sources:
+  obama:
+    path: obama.gif
+    kind: image

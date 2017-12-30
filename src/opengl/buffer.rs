@@ -62,7 +62,7 @@ impl Buffer {
             .into_iter()
             .map(|source| {
                 let frame = source.borrow().get_frame();
-                let raw = RawImage2d::from_raw_rgba(frame.buffer, (frame.width, frame.height));
+                let raw = RawImage2d::from_raw_rgba_reversed(&frame.buffer, (frame.width, frame.height));
                 (
                     source.clone(),
                     RefCell::new(Texture2d::new(facade, raw).unwrap()),
@@ -117,7 +117,7 @@ impl Buffer {
         for (i, source) in self.sources.iter().enumerate() {
             if source.0.borrow_mut().update() {
                 let frame = source.0.borrow().get_frame();
-                let raw = RawImage2d::from_raw_rgba(frame.buffer, (frame.width, frame.height));
+                let raw = RawImage2d::from_raw_rgba_reversed(&frame.buffer, (frame.width, frame.height));
                 source.1.replace(Texture2d::new(facade, raw)?);
             }
 
