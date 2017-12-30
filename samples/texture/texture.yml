@@ -1,6 +1,6 @@
 buffers:
   __default__:
-    vertex: default.vert
+    vertex: ../default.vert
     fragment: texture.frag
     sources:
       - texture

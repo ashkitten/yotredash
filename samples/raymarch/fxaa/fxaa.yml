@@ -1,12 +1,12 @@
 buffers:
   __default__:
-    vertex: default.vert
+    vertex: ../../default.vert
     fragment: fxaa.frag
     depends:
       - raymarch
 
   raymarch:
-    vertex: default.vert
-    fragment: raymarch.frag
+    vertex: ../../default.vert
+    fragment: ../raymarch.frag
 
 fps: true
