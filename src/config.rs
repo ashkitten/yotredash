@@ -69,6 +69,7 @@ pub struct Config {
     #[serde(default = "config_default_vsync")] pub vsync: bool,
     #[serde(default = "config_default_fps")] pub fps: bool,
     #[serde(default = "config_default_font")] pub font: String,
+    #[serde(default = "config_default_renderer")] pub renderer: String,
     #[serde(default)] pub platform_config: PlatformSpecificConfig,
 }
 
@@ -95,6 +96,10 @@ fn config_default_fps() -> bool {
 
 fn config_default_font() -> String {
     "".to_string()
+}
+
+fn config_default_renderer() -> String {
+    "opengl".to_string()
 }
 
 impl Config {
@@ -144,6 +149,10 @@ impl Config {
                 Arg::with_name("font")
                     .long("font")
                     .help("Specify font for FPS counter")
+                    .takes_value(true),
+                Arg::with_name("renderer")
+                    .long("renderer")
+                    .help("Specify renderer to use")
                     .takes_value(true),
                 Arg::with_name("config")
                     .short("c")
@@ -212,6 +221,10 @@ impl Config {
                 Some(value) => value.to_string(),
                 None => config_default_font(),
             },
+            renderer: match args.value_of("renderer") {
+                Some(value) => value.to_string(),
+                None => config_default_renderer(),
+            },
             platform_config: PlatformSpecificConfig::from_args(args),
         }
     }
@@ -234,7 +247,7 @@ impl Config {
             }
         };
         // TODO: handle this value
-        let _ = std::env::set_current_dir(Path::new(path).parent().unwrap());
+        std::env::set_current_dir(Path::new(path).parent().unwrap()).unwrap();
         serde_yaml::from_str(&config_str).unwrap()
     }
 

@@ -1,5 +1,3 @@
-extern crate clap;
-
 use clap::ArgMatches;
 
 #[derive(Deserialize, Default)]
