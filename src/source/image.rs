@@ -73,7 +73,7 @@ impl Source for ImageSource {
                             height: screen.pixels.height() as u32,
                             buffer,
                         },
-                        Duration::milliseconds(frame.delay as i64),
+                        Duration::milliseconds(frame.delay as i64 * 10),
                     ));
                 }
                 frames
