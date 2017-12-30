@@ -2,7 +2,7 @@ extern crate serde_yaml;
 
 use clap::{App, Arg, ArgMatches};
 use std;
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::BufReader;
 use std::io::prelude::*;
@@ -63,8 +63,8 @@ fn buffer_config_default_resizeable() -> bool {
 
 #[derive(Deserialize)]
 pub struct Config {
-    #[serde(default = "config_error_no_buffers")] pub buffers: BTreeMap<String, BufferConfig>,
-    #[serde(default = "config_default_textures")] pub textures: BTreeMap<String, TextureConfig>,
+    #[serde(default = "config_error_no_buffers")] pub buffers: HashMap<String, BufferConfig>,
+    #[serde(default = "config_default_textures")] pub textures: HashMap<String, TextureConfig>,
     #[serde(default = "config_default_maximize")] pub maximize: bool,
     #[serde(default = "config_default_vsync")] pub vsync: bool,
     #[serde(default = "config_default_fps")] pub fps: bool,
@@ -73,13 +73,13 @@ pub struct Config {
     #[serde(default)] pub platform_config: PlatformSpecificConfig,
 }
 
-fn config_error_no_buffers() -> BTreeMap<String, BufferConfig> {
+fn config_error_no_buffers() -> HashMap<String, BufferConfig> {
     error!("Must provide buffer configuration");
     std::process::exit(1);
 }
 
-fn config_default_textures() -> BTreeMap<String, TextureConfig> {
-    BTreeMap::new()
+fn config_default_textures() -> HashMap<String, TextureConfig> {
+    HashMap::new()
 }
 
 fn config_default_maximize() -> bool {
@@ -170,7 +170,7 @@ impl Config {
     }
 
     fn from_args(args: &ArgMatches) -> Self {
-        let mut textures = BTreeMap::new();
+        let mut textures = HashMap::new();
         if let Some(values) = args.values_of("textures") {
             for path in values {
                 textures.insert(
@@ -182,7 +182,7 @@ impl Config {
             }
         };
 
-        let mut buffers = BTreeMap::new();
+        let mut buffers = HashMap::new();
         buffers.insert(
             "__default__".to_string(),
             BufferConfig {
@@ -246,7 +246,6 @@ impl Config {
                 std::process::exit(1);
             }
         };
-        // TODO: handle this value
         std::env::set_current_dir(Path::new(path).parent().unwrap()).unwrap();
         serde_yaml::from_str(&config_str).unwrap()
     }

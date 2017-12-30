@@ -6,15 +6,14 @@ use glium::index::NoIndices;
 use glium::program::ProgramCreationInput;
 use glium::texture::Texture2d;
 use owning_ref::OwningHandle;
-use std;
 use std::cell::RefCell;
 use std::fs::File;
 use std::io::BufReader;
 use std::io::prelude::*;
 use std::rc::Rc;
 
+use super::{DerefInner, MapAsUniform, UniformsStorageVec};
 use super::renderer::Vertex;
-use super::util::{DerefInner, MapAsUniform, UniformsStorageVec};
 use config::BufferConfig;
 
 pub struct Buffer {
@@ -31,7 +30,7 @@ impl Buffer {
             Ok(file) => file,
             Err(error) => {
                 error!("Could not open vertex shader file: {}", error);
-                std::process::exit(1);
+                ::std::process::exit(1);
             }
         };
         let mut buf_reader = BufReader::new(file);
@@ -40,7 +39,7 @@ impl Buffer {
             Ok(_) => info!("Using vertex shader: {}", config.vertex),
             Err(error) => {
                 error!("Could not read vertex shader file: {}", error);
-                std::process::exit(1);
+                ::std::process::exit(1);
             }
         };
 
@@ -48,7 +47,7 @@ impl Buffer {
             Ok(file) => file,
             Err(error) => {
                 error!("Could not open fragment shader file: {}", error);
-                std::process::exit(1);
+                ::std::process::exit(1);
             }
         };
         let mut buf_reader = BufReader::new(file);
@@ -57,7 +56,7 @@ impl Buffer {
             Ok(_) => info!("Using fragment shader: {}", config.fragment),
             Err(error) => {
                 error!("Could not read fragment shader file: {}", error);
-                std::process::exit(1);
+                ::std::process::exit(1);
             }
         };
 
@@ -76,7 +75,7 @@ impl Buffer {
             Ok(program) => program,
             Err(error) => {
                 error!("{}", error);
-                std::process::exit(1);
+                ::std::process::exit(1);
             }
         };
 

@@ -17,12 +17,18 @@ extern crate winit;
 #[macro_use]
 extern crate glium;
 
+#[cfg(feature = "font-rendering")]
+extern crate freetype;
+
 mod config;
 mod platform;
 mod renderer;
 
 #[cfg(feature = "opengl")]
 mod opengl;
+
+#[cfg(feature = "font-rendering")]
+mod font;
 
 #[cfg(unix)]
 use signal::Signal;
@@ -54,20 +60,15 @@ fn main() {
         }
     };
 
-    let mut start_time = time::now();
     let mut pointer = [0.0; 4];
 
     let mut closed = false;
     let mut paused = false;
-    let mut last_frame = time::now();
-    let mut frames = 0.0;
     while !closed {
         if !paused {
-            let time =
-                (((time::now() - start_time).num_nanoseconds().unwrap() as f64) / 1000_000_000.0 % 4096.0) as f32;
-            renderer.render(time, pointer);
+            renderer.render(pointer);
         } else {
-            // TODO: swap buffers when paused
+            renderer.swap_buffers();
         }
 
         #[cfg(unix)]
@@ -79,23 +80,11 @@ fn main() {
                     Signal::SIGUSR1 => paused = true,
                     Signal::SIGUSR2 => paused = false,
                     Signal::SIGHUP => {
-                        info!("Restarting!");
                         config = Config::parse();
                         renderer.reload(&config);
-                        start_time = time::now();
                     }
                     _ => (),
                 }
-            }
-        }
-
-        if config.fps {
-            let delta = time::now() - last_frame;
-            frames += 1.0;
-            if delta > time::Duration::seconds(5) {
-                println!("FPS: {}", frames / (delta.num_nanoseconds().unwrap() as f64 / 1_000_000_000.0));
-                last_frame = time::now();
-                frames = 0.0;
             }
         }
 
@@ -103,21 +92,31 @@ fn main() {
             use winit::WindowEvent;
 
             match event {
-                WindowEvent::Resized(width, height) => {
-                    renderer.resize(width, height);
-                }
-                WindowEvent::Closed |
+                WindowEvent::Resized(width, height) => renderer.resize(width, height),
+
+                WindowEvent::Closed => closed = true,
+
                 WindowEvent::KeyboardInput {
                     input: winit::KeyboardInput {
-                        virtual_keycode: Some(winit::VirtualKeyCode::Escape),
+                        virtual_keycode: Some(keycode),
+                        state: winit::ElementState::Pressed,
                         ..
                     },
                     ..
-                } => closed = true,
+                } => match keycode {
+                    winit::VirtualKeyCode::Escape => closed = true,
+                    winit::VirtualKeyCode::F5 => {
+                        config = Config::parse();
+                        renderer.reload(&config);
+                    }
+                    _ => (),
+                },
+
                 WindowEvent::MouseMoved { position, .. } => {
                     pointer[0] = position.0 as f32;
                     pointer[1] = position.1 as f32;
                 }
+
                 WindowEvent::MouseInput {
                     button: winit::MouseButton::Left,
                     state,
@@ -132,6 +131,7 @@ fn main() {
                         pointer[3] = 0.0;
                     }
                 },
+
                 _ => (),
             }
         });

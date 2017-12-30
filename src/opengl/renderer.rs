@@ -3,17 +3,17 @@ use glium::backend::glutin::Display;
 use glium::glutin::{ContextBuilder, WindowBuilder};
 use glium::index::{NoIndices, PrimitiveType};
 use glium::texture::{RawImage2d, Texture2d};
-use image;
 use std::cell::RefCell;
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 use std::path::Path;
 use std::rc::Rc;
+use time::Tm;
 use winit::EventsLoop;
 
-use config::Config;
-use platform;
-use renderer::Renderer;
 use super::buffer::Buffer;
+use super::text_renderer::TextRenderer;
+use config::Config;
+use renderer::Renderer;
 
 #[derive(Copy, Clone)]
 pub struct Vertex {
@@ -25,22 +25,26 @@ pub struct OpenGLRenderer {
     display: Display,
     vertex_buffer: VertexBuffer<Vertex>,
     index_buffer: NoIndices,
-    buffers: BTreeMap<String, Rc<RefCell<Buffer>>>,
+    buffers: HashMap<String, Rc<RefCell<Buffer>>>,
+    text_renderer: TextRenderer,
+    show_fps: bool,
+    start_time: Tm,
+    last_frame: Tm,
 }
 
-fn init_buffers(config: &Config, display: &Display) -> BTreeMap<String, Rc<RefCell<Buffer>>> {
-    let mut textures = BTreeMap::new();
+fn init_buffers(config: &Config, display: &Display) -> HashMap<String, Rc<RefCell<Buffer>>> {
+    let mut textures = HashMap::new();
 
     for (name, tconfig) in &config.textures {
         textures.insert(name.to_string(), {
-            let image = image::open(Path::new(&tconfig.path)).unwrap().to_rgba();
+            let image = ::image::open(Path::new(&tconfig.path)).unwrap().to_rgba();
             let image_dimensions = image.dimensions();
             let image = RawImage2d::from_raw_rgba_reversed(&image.into_raw(), image_dimensions);
             Rc::new(Texture2d::new(display, image).unwrap())
         });
     }
 
-    let mut buffers = BTreeMap::new();
+    let mut buffers = HashMap::new();
 
     for (name, bconfig) in &config.buffers {
         buffers.insert(
@@ -73,7 +77,7 @@ impl Renderer for OpenGLRenderer {
         let window_builder = WindowBuilder::new().with_title("yotredash");
         let context_builder = ContextBuilder::new().with_vsync(config.vsync);
         let display = Display::new(window_builder, context_builder, &events_loop).unwrap();
-        platform::window::init(display.gl_window().window(), config);
+        ::platform::window::init(display.gl_window().window(), config);
 
         #[cfg_attr(rustfmt, rustfmt_skip)]
         let vertices = [
@@ -87,30 +91,61 @@ impl Renderer for OpenGLRenderer {
 
         let vertex_buffer = VertexBuffer::new(&display, &vertices).unwrap();
         let index_buffer = NoIndices(PrimitiveType::TrianglesList);
-
         let buffers = init_buffers(config, &display);
+        // TODO: font should not be hardcoded
+        let text_renderer =
+            TextRenderer::new(&display, "/usr/share/fonts/adobe-source-code-pro/SourceCodePro-Regular.otf", 64);
 
         Self {
             display: display,
             vertex_buffer: vertex_buffer,
             index_buffer: index_buffer,
             buffers: buffers,
+            text_renderer: text_renderer,
+            show_fps: config.fps,
+            start_time: ::time::now(),
+            last_frame: ::time::now(),
         }
     }
 
-    fn render(&self, time: f32, pointer: [f32; 4]) {
+    fn render(&mut self, pointer: [f32; 4]) {
         let mut target = self.display.draw();
+
         self.buffers["__default__"].borrow().render_to(
             &mut target,
             &self.vertex_buffer,
             &self.index_buffer,
-            time,
+            ((::time::now() - self.start_time).num_nanoseconds().unwrap() as f32) / 1000_000_000.0 % 4096.0,
             pointer,
         );
+
+        if self.show_fps {
+            // TODO: set update interval for fps counter
+
+            let delta = ::time::now() - self.last_frame;
+            let fps = 1.0 / (delta.num_nanoseconds().unwrap() as f64 / 1_000_000_000.0);
+
+            self.text_renderer.draw_text(
+                &self.display,
+                &mut target,
+                &("FPS: ".to_string() + &(fps as i32).to_string()),
+                0.0,
+                0.0,
+                [1.0, 1.0, 1.0],
+            );
+
+            self.last_frame = ::time::now();
+        }
+
         target.finish().unwrap();
     }
 
+    fn swap_buffers(&self) {
+        self.display.draw().finish().unwrap();
+    }
+
     fn reload(&mut self, config: &Config) {
+        info!("Reloading config");
         self.buffers = init_buffers(config, &self.display);
     }
 
