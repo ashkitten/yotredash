@@ -19,6 +19,8 @@ pub struct ImageSource {
 
 impl Source for ImageSource {
     fn new(path: &Path) -> Result<Self> {
+        debug!("New image source: {}", path.to_str().unwrap());
+
         let file = File::open(path).chain_err(|| "Could not open image file")?;
         let mut buf_reader = BufReader::new(file);
         let mut buf = Vec::new();

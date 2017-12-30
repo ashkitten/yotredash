@@ -27,17 +27,20 @@ pub struct Buffer {
 
 impl Buffer {
     pub fn new(facade: &Facade, config: &BufferConfig, sources: Vec<Rc<RefCell<Source>>>) -> Result<Self> {
-        info!("Using vertex shader: {}", config.vertex);
-        info!("Using fragment shader: {}", config.fragment);
+        let vertex = config.path_to(&config.vertex);
+        let fragment = config.path_to(&config.fragment);
 
-        let file = File::open(config.path_to(&config.vertex)).chain_err(|| "Could not open vertex shader file")?;
+        info!("Using vertex shader: {}", vertex.to_str().unwrap());
+        info!("Using fragment shader: {}", fragment.to_str().unwrap());
+
+        let file = File::open(vertex).chain_err(|| "Could not open vertex shader file")?;
         let mut buf_reader = BufReader::new(file);
         let mut vertex_source = String::new();
         buf_reader
             .read_to_string(&mut vertex_source)
             .chain_err(|| "Could not read vertex shader file")?;
 
-        let file = File::open(config.path_to(&config.fragment)).chain_err(|| "Could not open fragment shader file")?;
+        let file = File::open(fragment).chain_err(|| "Could not open fragment shader file")?;
         let mut buf_reader = BufReader::new(file);
         let mut fragment_source = String::new();
         buf_reader

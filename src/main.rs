@@ -99,7 +99,7 @@ quick_main!(|| -> Result<()> {
     let trap = Trap::trap(&[Signal::SIGUSR1, Signal::SIGUSR2, Signal::SIGHUP]);
 
     // Get configuration
-    let config_path = Config::get_path()?.canonicalize().unwrap();
+    let config_path = Config::get_path()?;
     let mut config = Config::parse(&config_path)?;
 
     // Creates an appropriate renderer for the configuration, exits with an error if that fails

@@ -1,10 +1,12 @@
 /// The source configuration contains all the information necessary to build a texture
 pub mod source_config {
+    use std::path::PathBuf;
+
     /// The source configuration contains all the information necessary to build a texture
     #[derive(Deserialize, Clone)]
     pub struct SourceConfig {
         /// The path to the source file (relative to the configuration file, if there is one)
-        pub path: String,
+        pub path: PathBuf,
         /// The kind of the source file (image, etc) if applicable
         pub kind: String,
     }
@@ -12,18 +14,20 @@ pub mod source_config {
 
 /// The buffer configuration contains all the information necessary to build a buffer
 pub mod buffer_config {
+    use std::path::{Path, PathBuf};
+
     /// The buffer configuration contains all the information necessary to build a buffer
     #[derive(Deserialize, Clone)]
     pub struct BufferConfig {
         /// The current working directory relative to the main config file
         #[serde(default)]
-        pub _cwd: String,
+        pub _cwd: PathBuf,
 
         /// The path to the vertex shader (relative to the configuration file, if there is one)
-        pub vertex: String,
+        pub vertex: PathBuf,
 
         /// The path to the fragment shader (relative to the configuration file, if there is one)
-        pub fragment: String,
+        pub fragment: PathBuf,
 
         /// The names of the source configurations this buffer references
         #[serde(default = "default_sources")]
@@ -71,11 +75,9 @@ pub mod buffer_config {
         true
     }
 
-    use std::path::{Path, PathBuf};
-
     impl BufferConfig {
-        pub fn path_to(&self, path: &str) -> PathBuf {
-            Path::new(&self._cwd).join(Path::new(path))
+        pub fn path_to(&self, path: &Path) -> PathBuf {
+            self._cwd.join(path)
         }
     }
 }
@@ -99,7 +101,7 @@ pub struct Config {
     /// The current working directory
     /// Not meant to actually be specified in yaml, but can be
     #[serde(default)]
-    pub _cwd: String,
+    pub _cwd: PathBuf,
 
     /// The buffer configurations, keyed by name
     ///
@@ -298,7 +300,7 @@ impl Config {
 
     /// Parses the configuration from a specified file
     fn from_file(path: &Path) -> Result<Self> {
-        info!("Using config file: {:?}", path);
+        info!("Using config file: {}", path.to_str().unwrap());
         let file = File::open(path).chain_err(|| "Unable to open config file")?;
         let mut reader = BufReader::new(file);
         let mut config_str = String::new();
@@ -307,7 +309,7 @@ impl Config {
             .chain_err(|| "Could not read config file")?;
         let mut config: Config = ::serde_yaml::from_str(&config_str)?;
 
-        config._cwd = path.parent().unwrap().to_string_lossy().into_owned();
+        config._cwd = path.parent().unwrap().to_path_buf();
         for buffer in config.buffers.values_mut() {
             buffer._cwd = config._cwd.clone();
         }
@@ -350,7 +352,7 @@ impl Config {
         Ok(path)
     }
 
-    pub fn path_to(&self, path: &str) -> PathBuf {
-        Path::new(&self._cwd).join(Path::new(path))
+    pub fn path_to(&self, path: &Path) -> PathBuf {
+        self._cwd.join(path)
     }
 }
