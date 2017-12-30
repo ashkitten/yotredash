@@ -54,4 +54,36 @@ pub enum ErrorKind {
     #[error_chain(foreign)] StdParseFloatError(::std::num::ParseFloatError),
 
     #[error_chain(foreign)] TimeParseError(::time::ParseError),
+
+    #[cfg(feature = "vulkan")]
+    #[error_chain(foreign)]
+    VulkanoAutoCommandBufferBuilderContextError(::vulkano::command_buffer::AutoCommandBufferBuilderContextError),
+    #[cfg(feature = "vulkan")]
+    #[error_chain(foreign)]
+    VulkanoBeginRenderPassError(::vulkano::command_buffer::BeginRenderPassError),
+    #[cfg(feature = "vulkan")]
+    #[error_chain(foreign)]
+    VulkanoBuildError(::vulkano::command_buffer::BuildError),
+    #[cfg(feature = "vulkan")]
+    #[error_chain(foreign)]
+    VulkanoCommandBufferExecError(::vulkano::command_buffer::CommandBufferExecError),
+    #[cfg(feature = "vulkan")]
+    #[error_chain(foreign)]
+    VulkanoDrawError(::vulkano::command_buffer::DrawError),
+    #[cfg(feature = "vulkan")]
+    #[error_chain(foreign)]
+    VulkanoFlushError(::vulkano::sync::FlushError),
+    #[cfg(feature = "vulkan")]
+    #[error_chain(foreign)]
+    VulkanoGraphicsPipelineCreationError(::vulkano::pipeline::GraphicsPipelineCreationError),
+    #[cfg(feature = "vulkan")]
+    #[error_chain(foreign)]
+    VulkanoOomError(::vulkano::OomError),
+    #[cfg(feature = "vulkan")]
+    #[error_chain(foreign)]
+    VulkanoRenderPassCreationError(::vulkano::framebuffer::RenderPassCreationError),
+
+    #[cfg(feature = "vulkan")]
+    #[error_chain(foreign)]
+    VulkanoWinCreationError(::vulkano_win::CreationError),
 }

@@ -32,6 +32,19 @@ extern crate winit;
 #[macro_use]
 extern crate glium;
 
+#[cfg(feature = "vulkan")]
+#[macro_use]
+extern crate vulkano;
+#[cfg(feature = "vulkan")]
+#[macro_use]
+extern crate vulkano_shader_derive;
+
+#[cfg(feature = "vulkan")]
+extern crate glsl_to_spirv;
+#[cfg(feature = "vulkan")]
+extern crate vulkano_shaders;
+#[cfg(feature = "vulkan")]
+extern crate vulkano_win;
 
 #[cfg(feature = "image-src")]
 extern crate gif;
@@ -47,6 +60,8 @@ pub mod platform;
 pub mod source;
 pub mod util;
 
+#[cfg(feature = "vulkan")]
+pub mod vulkan;
 #[cfg(feature = "opengl")]
 pub mod opengl;
 
@@ -60,6 +75,8 @@ use winit::EventsLoop;
 
 #[cfg(feature = "opengl")]
 use opengl::renderer::OpenGLRenderer;
+#[cfg(feature = "vulkan")]
+use vulkan::renderer::VulkanRenderer;
 
 use config::Config;
 use errors::*;
@@ -107,10 +124,9 @@ quick_main!(|| -> Result<()> {
     let mut renderer: Box<Renderer> = match config.renderer.as_ref() as &str {
         #[cfg(feature = "opengl")]
         "opengl" => Box::new(OpenGLRenderer::new(config.clone(), &events_loop)?),
-        other => {
-            error!("Renderer {} does not exist", other);
-            std::process::exit(1);
-        }
+        #[cfg(feature = "vulkan")]
+        "vulkan" => Box::new(VulkanRenderer::new(config.clone(), &events_loop)?),
+        other => bail!("Renderer {} is not built-in", other),
     };
 
     let mut time = time::Duration::zero();

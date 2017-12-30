@@ -1,0 +1,6 @@
+buffers:
+  __default__:
+    vertex: default.vert
+    fragment: default.frag
+renderer: vulkan
+fps: true

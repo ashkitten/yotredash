@@ -136,7 +136,7 @@ pub struct Config {
     #[serde(default = "default_font_size")]
     pub font_size: f32,
 
-    /// Specifies which renderer to use (current options: opengl)
+    /// Specifies which renderer to use (current options: opengl, vulkan)
     #[serde(default = "default_renderer")]
     pub renderer: String,
 
