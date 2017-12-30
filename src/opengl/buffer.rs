@@ -2,7 +2,6 @@ use glium::Program;
 use glium::Surface;
 use glium::VertexBuffer;
 use glium::backend::Facade;
-use glium::framebuffer::SimpleFrameBuffer;
 use glium::index::NoIndices;
 use glium::program::ProgramCreationInput;
 use glium::texture::Texture2d;
@@ -12,11 +11,10 @@ use std::cell::RefCell;
 use std::fs::File;
 use std::io::BufReader;
 use std::io::prelude::*;
-use std::path::Path;
 use std::rc::Rc;
 
-use super::util::{UniformsStorageVec,DerefInner,MapAsUniform};
 use super::renderer::Vertex;
+use super::util::{DerefInner, MapAsUniform, UniformsStorageVec};
 use config::BufferConfig;
 
 pub struct Buffer {
@@ -24,12 +22,11 @@ pub struct Buffer {
     program: Program,
     attachments: Vec<Rc<Texture2d>>,
     depends: Vec<Rc<RefCell<Buffer>>>,
+    resizeable: bool,
 }
 
 impl Buffer {
-    pub fn new(
-        facade: &Facade, config: &BufferConfig, attachments: Vec<Rc<Texture2d>>
-    ) -> Self {
+    pub fn new(facade: &Facade, config: &BufferConfig, attachments: Vec<Rc<Texture2d>>) -> Self {
         let file = match File::open(config.vertex.to_string()) {
             Ok(file) => file,
             Err(error) => {
@@ -90,6 +87,7 @@ impl Buffer {
             program: program,
             attachments: attachments,
             depends: Vec::new(),
+            resizeable: config.resizeable,
         }
     }
 
@@ -98,7 +96,8 @@ impl Buffer {
     }
 
     pub fn render_to<'buf, S>(
-        &self, surface: &mut S, vertex_buffer: &VertexBuffer<Vertex>, index_buffer: &NoIndices, time: f32, pointer: [f32; 4]
+        &self, surface: &mut S, vertex_buffer: &VertexBuffer<Vertex>, index_buffer: &NoIndices, time: f32,
+        pointer: [f32; 4],
     ) where
         S: Surface,
     {
@@ -125,7 +124,9 @@ impl Buffer {
         }
 
         for (i, buffer) in self.depends.iter().enumerate() {
-            buffer.borrow().render_to_self(vertex_buffer, index_buffer, time, pointer);
+            buffer
+                .borrow()
+                .render_to_self(vertex_buffer, index_buffer, time, pointer);
 
             let buffer = OwningHandle::new(&**buffer);
             let texture = OwningHandle::new_with_fn(buffer, |b| unsafe { DerefInner((*b).texture.sampled()) });
@@ -145,6 +146,8 @@ impl Buffer {
     }
 
     pub fn resize(&mut self, facade: &Facade, width: u32, height: u32) {
-        self.texture = Texture2d::empty(facade, width, height).unwrap();
+        if self.resizeable {
+            self.texture = Texture2d::empty(facade, width, height).unwrap();
+        }
     }
 }

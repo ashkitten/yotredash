@@ -28,7 +28,7 @@ pub struct BufferConfig {
     #[serde(default = "buffer_config_default_width")] pub width: u32,
     #[serde(default = "buffer_config_default_height")] pub height: u32,
     #[serde(default = "buffer_config_default_depends")] pub depends: Vec<String>,
-    #[serde(default = "buffer_config_default_render_interval")] pub render_interval: u64,
+    #[serde(default = "buffer_config_default_resizeable")] pub resizeable: bool,
 }
 
 fn buffer_config_error_no_vertex() -> String {
@@ -57,8 +57,8 @@ fn buffer_config_default_depends() -> Vec<String> {
     Vec::new()
 }
 
-fn buffer_config_default_render_interval() -> u64 {
-    1
+fn buffer_config_default_resizeable() -> bool {
+    true
 }
 
 #[derive(Deserialize)]
@@ -206,8 +206,8 @@ impl Config {
                     Some(value) => value.parse::<u32>().unwrap(),
                     None => buffer_config_default_height(),
                 },
+                resizeable: !(args.is_present("width") || args.is_present("height")),
                 depends: buffer_config_default_depends(),
-                render_interval: buffer_config_default_render_interval(),
             },
         );
 
