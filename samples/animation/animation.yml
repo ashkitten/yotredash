@@ -1,11 +1,11 @@
 buffers:
   __default__:
     vertex: ../default.vert
-    fragment: obama.frag
+    fragment: animation.frag
     sources:
-      - obama
+      - animation
 
 sources:
-  obama:
-    path: obama.gif
+  animation:
+    path: animation.gif
     kind: image

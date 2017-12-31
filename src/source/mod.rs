@@ -16,11 +16,10 @@ pub struct Frame {
 }
 
 pub trait Source {
-    fn new(path: &Path) -> Result<Self>
+    fn new(name: &str, path: &Path) -> Result<Self>
     where
         Self: Sized;
-    fn width(&self) -> u32;
-    fn height(&self) -> u32;
+    fn get_name(&self) -> &str;
     fn update(&mut self) -> bool;
     fn get_frame(&self) -> Frame;
 }

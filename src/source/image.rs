@@ -12,13 +12,14 @@ use super::{Frame, Source};
 use errors::*;
 
 pub struct ImageSource {
+    name: String,
     frame_start: Tm,
     current_frame: usize,
     frames: Vec<(Frame, Duration)>,
 }
 
 impl Source for ImageSource {
-    fn new(path: &Path) -> Result<Self> {
+    fn new(name: &str, path: &Path) -> Result<Self> {
         debug!("New image source: {}", path.to_str().unwrap());
 
         let file = File::open(path).chain_err(|| "Could not open image file")?;
@@ -86,18 +87,15 @@ impl Source for ImageSource {
         debug!("Frame count: {}", frames.len());
 
         Ok(Self {
+            name: name.to_string(),
             frame_start: time::now(),
             current_frame: 0,
             frames: frames,
         })
     }
 
-    fn width(&self) -> u32 {
-        self.frames[0].0.width
-    }
-
-    fn height(&self) -> u32 {
-        self.frames[0].0.height
+    fn get_name(&self) -> &str {
+        &self.name
     }
 
     fn update(&mut self) -> bool {

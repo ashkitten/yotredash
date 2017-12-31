@@ -3,9 +3,9 @@ buffers:
     vertex: ../default.vert
     fragment: texture.frag
     sources:
-      - texture
+      - tex
 
 sources:
-  texture:
+  tex:
     path: texture.png
     kind: image

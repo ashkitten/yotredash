@@ -18,6 +18,7 @@ use source::Source;
 use util::DerefInner;
 
 pub struct Buffer {
+    name: String,
     texture: Texture2d,
     program: Program,
     sources: Vec<(Rc<RefCell<Source>>, RefCell<Texture2d>)>,
@@ -26,7 +27,7 @@ pub struct Buffer {
 }
 
 impl Buffer {
-    pub fn new(facade: &Facade, config: &BufferConfig, sources: Vec<Rc<RefCell<Source>>>) -> Result<Self> {
+    pub fn new(name: &str, facade: &Facade, config: &BufferConfig, sources: Vec<Rc<RefCell<Source>>>) -> Result<Self> {
         let vertex = config.path_to(&config.vertex);
         let fragment = config.path_to(&config.fragment);
 
@@ -74,12 +75,17 @@ impl Buffer {
             .collect();
 
         Ok(Buffer {
+            name: name.to_string(),
             texture: texture,
             program: program,
             sources: sources,
             depends: Vec::new(),
             resizeable: config.resizeable,
         })
+    }
+
+    pub fn get_name(&self) -> &str {
+        &self.name
     }
 
     pub fn link_depends(&mut self, depends: &mut Vec<Rc<RefCell<Buffer>>>) {
@@ -117,7 +123,7 @@ impl Buffer {
             ],
         );
 
-        for (i, source) in self.sources.iter().enumerate() {
+        for source in self.sources.iter() {
             if source.0.borrow_mut().update() {
                 let frame = source.0.borrow().get_frame();
                 let raw = RawImage2d::from_raw_rgba_reversed(&frame.buffer, (frame.width, frame.height));
@@ -127,20 +133,22 @@ impl Buffer {
             let texture = OwningHandle::new(&source.1);
             let texture = OwningHandle::new_with_fn(texture, |t| unsafe { DerefInner((*t).sampled()) });
             let texture = MapAsUniform(texture, |t| &**t);
-            uniforms.push(format!("texture{}", i), texture);
+            uniforms.push(source.0.borrow().get_name().to_string(), texture);
         }
 
-        for (i, buffer) in self.depends.iter().enumerate() {
+        for buffer in self.depends.iter() {
             buffer
                 .borrow()
                 .render_to_self(facade, vertex_buffer, index_buffer, time, pointer)?;
+
+            let name = buffer.borrow().get_name().to_string();
 
             let buffer = OwningHandle::new(&**buffer);
             let texture = OwningHandle::new_with_fn(buffer, |b| unsafe {
                 DerefInner((*b).texture.sampled())
             });
             let texture = MapAsUniform(texture, |t| &**t);
-            uniforms.push(format!("buffer{}", i), texture);
+            uniforms.push(name, texture);
         }
 
         surface.draw(

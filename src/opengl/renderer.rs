@@ -55,7 +55,7 @@ fn init_buffers(config: &Config, facade: &Facade) -> Result<HashMap<String, Rc<R
         sources.insert(
             name.to_string(),
             match sconfig.kind.as_str() {
-                "image" => Rc::new(RefCell::new(ImageSource::new(&config
+                "image" => Rc::new(RefCell::new(ImageSource::new(&name, &config
                     .path_to(&sconfig.path))?)),
                 _ => bail!("Unsupported kind of source"),
             }: Rc<RefCell<Source>>,
@@ -68,6 +68,7 @@ fn init_buffers(config: &Config, facade: &Facade) -> Result<HashMap<String, Rc<R
         buffers.insert(
             name.to_string(),
             Rc::new(RefCell::new(Buffer::new(
+                name,
                 facade,
                 bconfig,
                 bconfig
