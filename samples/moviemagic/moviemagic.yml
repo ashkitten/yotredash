@@ -1,0 +1,31 @@
+buffers:
+  __default__:
+    vertex: ../default.vert
+    fragment: fxaa.frag
+    depends:
+      - compositing
+
+  compositing:
+    vertex: ../default.vert
+    fragment: compositing.frag
+    depends:
+      - vbloom
+      - render
+
+  vbloom:
+    vertex: ../default.vert
+    fragment: vbloom.frag
+    depends:
+      - hbloom  
+
+  hbloom:
+    vertex: ../default.vert
+    fragment: hbloom.frag
+    depends:
+      - render
+
+  render:
+    vertex: ../default.vert
+    fragment: render.frag
+
+fps: true
