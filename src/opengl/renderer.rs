@@ -2,7 +2,7 @@ use glium::VertexBuffer;
 use glium::backend::Facade;
 use glium::backend::glutin::Display;
 use glium::backend::glutin::headless::Headless;
-use glium::glutin::{ContextBuilder, HeadlessRendererBuilder, WindowBuilder};
+use glium::glutin::{ContextBuilder, GlProfile, HeadlessRendererBuilder, WindowBuilder};
 use glium::index::{NoIndices, PrimitiveType};
 use glium::texture::RawImage2d;
 use std::cell::RefCell;
@@ -112,7 +112,9 @@ impl Renderer for OpenGLRenderer {
 
             Backend::Display(display)
         } else {
-            let context = HeadlessRendererBuilder::new(width, height).build()?;
+            let context = HeadlessRendererBuilder::new(width, height)
+                .with_gl_profile(GlProfile::Core)
+                .build()?;
             Backend::Headless(Headless::new(context)?)
         };
 
