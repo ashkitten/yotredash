@@ -6,6 +6,10 @@ uniform vec2 resolution;
 uniform sampler2D animation;
 
 void main() {
+    vec2 size = textureSize(animation, 0);
     vec2 uv = gl_FragCoord.xy / resolution;
-    color = texture(animation, uv);
+    uv.x /= size.x / size.y;
+    uv.x *= resolution.x / resolution.y;
+    uv.x -= ((resolution.x * size.y) / (resolution.y * size.x) - 1.0) / 2;
+    color = (uv.x < 0 || uv.x > 1 || uv.y < 0 || uv.y > 1) ? vec4(0.0, 0.0, 0.0, 1.0) : texture(animation, uv);
 }
