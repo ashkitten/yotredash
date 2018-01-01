@@ -22,6 +22,7 @@ extern crate env_logger;
 extern crate font_loader;
 extern crate freetype;
 extern crate nfd;
+extern crate notify;
 extern crate owning_ref;
 extern crate rect_packer;
 extern crate serde_yaml;
@@ -31,7 +32,6 @@ extern crate winit;
 #[cfg(feature = "opengl")]
 #[macro_use]
 extern crate glium;
-
 
 #[cfg(feature = "image-src")]
 extern crate gif;
@@ -50,13 +50,15 @@ pub mod util;
 #[cfg(feature = "opengl")]
 pub mod opengl;
 
+use notify::Watcher;
+use std::path::Path;
+use std::sync::mpsc;
+use winit::EventsLoop;
+
 #[cfg(unix)]
 use signal::Signal;
 #[cfg(unix)]
 use signal::trap::Trap;
-
-use std::path::Path;
-use winit::EventsLoop;
 
 #[cfg(feature = "opengl")]
 use opengl::renderer::OpenGLRenderer;
@@ -91,6 +93,44 @@ enum RendererAction {
     Close,
 }
 
+fn setup_watches(
+    config_path: &Path, config: &Config
+) -> Result<(notify::RecommendedWatcher, mpsc::Receiver<notify::RawEvent>)> {
+    // Create a watcher to receive filesystem events
+    let (sender, receiver) = mpsc::channel();
+    let mut watcher = notify::RecommendedWatcher::new_raw(sender)?;
+
+    // We still create the watcher, anyway, but if we're not watching anything then does it really
+    // matter?
+    if config.autoreload {
+        // Watch the config file for changes
+        watcher.watch(config_path, notify::RecursiveMode::NonRecursive)?;
+
+        for buffer in config.buffers.values() {
+            watcher.watch(
+                config.path_to(&buffer.vertex),
+                notify::RecursiveMode::NonRecursive,
+            )?;
+            watcher.watch(
+                config.path_to(&buffer.fragment),
+                notify::RecursiveMode::NonRecursive,
+            )?;
+        }
+
+        for source in config.sources.values() {
+            match source.kind.as_str() {
+                "image" => watcher.watch(
+                    config.path_to(&source.path),
+                    notify::RecursiveMode::NonRecursive,
+                )?,
+                _ => (),
+            }
+        }
+    }
+
+    Ok((watcher, receiver))
+}
+
 quick_main!(|| -> Result<()> {
     env_logger::init()?;
 
@@ -101,6 +141,9 @@ quick_main!(|| -> Result<()> {
     // Get configuration
     let config_path = Config::get_path()?;
     let mut config = Config::parse(&config_path)?;
+
+    // Setup filesystem watches
+    let (mut _watcher, mut receiver) = setup_watches(&config_path, &config)?;
 
     // Creates an appropriate renderer for the configuration, exits with an error if that fails
     let mut events_loop = winit::EventsLoop::new();
@@ -201,11 +244,43 @@ quick_main!(|| -> Result<()> {
             }
         });
 
+        match receiver.try_recv() {
+            Ok(notify::RawEvent {
+                path,
+                op: Ok(op),
+                cookie: _,
+            }) => {
+                // We listen for both WRITE and REMOVE events because some editors (like vim) will
+                // remove the file and write a new one in its place, and on Linux this will also
+                // remove the watch, so we won't ever receive a WRITE event in this case
+                if op.intersects(notify::op::WRITE | notify::op::REMOVE) {
+                    if let Some(path) = path {
+                        info!(
+                            "Detected file change for {}, reloading...",
+                            path.to_str().unwrap()
+                        );
+                    } else {
+                        info!("Detected file change, reloading...");
+                    }
+
+                    actions.push(RendererAction::Reload);
+                }
+            }
+            Err(mpsc::TryRecvError::Disconnected) => error!("Filesystem watcher disconnected"),
+            _ => (),
+        }
+
         for action in &actions {
             match *action {
                 RendererAction::Resize(width, height) => renderer.resize(width, height)?,
                 RendererAction::Reload => {
                     config = Config::parse(&config_path)?;
+
+                    // TODO: When destructuring assignment is added, change this
+                    let (watcher_, receiver_) = setup_watches(&config_path, &config)?;
+                    _watcher = watcher_;
+                    receiver = receiver_;
+
                     renderer.reload(&config)?;
                 }
                 RendererAction::Snapshot => {

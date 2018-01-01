@@ -55,8 +55,10 @@ fn init_buffers(config: &Config, facade: &Facade) -> Result<HashMap<String, Rc<R
         sources.insert(
             name.to_string(),
             match sconfig.kind.as_str() {
-                "image" => Rc::new(RefCell::new(ImageSource::new(&name, &config
-                    .path_to(&sconfig.path))?)),
+                "image" => Rc::new(RefCell::new(ImageSource::new(
+                    &name,
+                    &config.path_to(&sconfig.path),
+                )?)),
                 _ => bail!("Unsupported kind of source"),
             }: Rc<RefCell<Source>>,
         );
@@ -95,7 +97,7 @@ impl Renderer for OpenGLRenderer {
     fn new(config: Config, events_loop: &EventsLoop) -> Result<Self> {
         let width = config.buffers["__default__"].width;
         let height = config.buffers["__default__"].height;
-        let backend = if config.show_window {
+        let backend = if !config.headless {
             let window_builder = WindowBuilder::new()
                 .with_title("yotredash")
                 .with_maximized(config.maximize)
@@ -114,7 +116,7 @@ impl Renderer for OpenGLRenderer {
             Backend::Headless(Headless::new(context)?)
         };
 
-        debug!(
+        info!(
             "{:?}",
             backend.as_ref().get_context().get_opengl_version_string()
         );

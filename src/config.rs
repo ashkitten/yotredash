@@ -140,9 +140,13 @@ pub struct Config {
     #[serde(default = "default_renderer")]
     pub renderer: String,
 
-    /// Whether to show the window at all
-    #[serde(default = "default_show_window")]
-    pub show_window: bool,
+    /// Use a headless renderer
+    #[serde(default = "default_headless")]
+    pub headless: bool,
+
+    /// Reload automatically when file changes are detected
+    #[serde(default = "default_autoreload")]
+    pub autoreload: bool,
 
     /// Extra platform-specific configurations
     #[serde(default)]
@@ -189,9 +193,14 @@ fn default_renderer() -> String {
     "opengl".to_string()
 }
 
-/// A function that returns the default value of the `show_window` field
-fn default_show_window() -> bool {
-    true
+/// A function that returns the default value of the `headless` field
+fn default_headless() -> bool {
+    false
+}
+
+/// A function that returns the default value of the `autoreload` field
+fn default_autoreload() -> bool {
+    false
 }
 
 impl Config {
@@ -235,9 +244,12 @@ impl Config {
                     .long("renderer")
                     .help("Specify renderer to use")
                     .takes_value(true),
-                Arg::with_name("no_window")
-                    .long("no-window")
-                    .help("Don't show a window"),
+                Arg::with_name("headless")
+                    .long("headless")
+                    .help("Use a headless renderer - note that this will force the use of the Mesa OpenGL driver"),
+                Arg::with_name("autoreload")
+                    .long("autoreload")
+                    .help("Automatically reload when changes to the shaders are detected"),
                 Arg::with_name("config")
                     .short("c")
                     .long("config")
@@ -291,8 +303,12 @@ impl Config {
             self.renderer = value.to_string();
         }
 
-        if args.is_present("no_window") {
-            self.show_window = false;
+        if args.is_present("headless") {
+            self.headless = true;
+        }
+
+        if args.is_present("autoreload") {
+            self.autoreload = true;
         }
 
         Ok(())

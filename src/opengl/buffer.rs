@@ -144,9 +144,7 @@ impl Buffer {
             let name = buffer.borrow().get_name().to_string();
 
             let buffer = OwningHandle::new(&**buffer);
-            let texture = OwningHandle::new_with_fn(buffer, |b| unsafe {
-                DerefInner((*b).texture.sampled())
-            });
+            let texture = OwningHandle::new_with_fn(buffer, |b| unsafe { DerefInner((*b).texture.sampled()) });
             let texture = MapAsUniform(texture, |t| &**t);
             uniforms.push(name, texture);
         }

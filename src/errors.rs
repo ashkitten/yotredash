@@ -47,11 +47,14 @@ pub enum ErrorKind {
 
     #[error_chain(foreign)] NFDError(::nfd::error::NFDError),
 
+    #[error_chain(foreign)] NotifyError(::notify::Error),
+
     #[error_chain(foreign)] SerdeYamlError(::serde_yaml::Error),
 
     #[error_chain(foreign)] StdIoError(::std::io::Error),
-    #[error_chain(foreign)] StdParseIntError(::std::num::ParseIntError),
     #[error_chain(foreign)] StdParseFloatError(::std::num::ParseFloatError),
+    #[error_chain(foreign)] StdParseIntError(::std::num::ParseIntError),
+    #[error_chain(foreign)] StdSyncMpscTryRecvError(::std::sync::mpsc::TryRecvError),
 
     #[error_chain(foreign)] TimeParseError(::time::ParseError),
 }
