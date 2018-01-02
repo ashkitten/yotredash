@@ -1,3 +1,5 @@
+//! Unix-specific methods and structs
+
 #![cfg(unix)]
 
 pub mod config;

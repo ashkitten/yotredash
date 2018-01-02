@@ -1,3 +1,5 @@
+//! A `Source` that reads an image from file and returns frames from that image
+
 use gif::{self, SetParameter};
 use gif_dispose;
 use image::{self, ImageDecoder};
@@ -11,10 +13,16 @@ use time::{self, Duration, Tm};
 use super::{Frame, Source};
 use errors::*;
 
+/// A `Source` that reads an image from file and returns frames from that image
 pub struct ImageSource {
+    /// The name of the source
     name: String,
+    /// The time that the current frame started rendering - we need to keep track of this so we can
+    /// increment the frame number when the delay is done
     frame_start: Tm,
+    /// The current frame of an animated image
     current_frame: usize,
+    /// A `Vec` of `Frame`s and their corresponding `Duration`s
     frames: Vec<(Frame, Duration)>,
 }
 

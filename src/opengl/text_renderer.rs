@@ -1,3 +1,6 @@
+//! Contains a GPU cache implementation and methods for rendering strings on the screen using
+//! OpenGL
+
 use glium::{Blend, DrawParameters, Program, Surface, Texture2d, VertexBuffer};
 use glium::backend::Facade;
 use glium::index::{NoIndices, PrimitiveType};
@@ -13,6 +16,7 @@ use super::UniformsStorageVec;
 use errors::*;
 use font::{FreeTypeRasterizer, GlyphLoader, RenderedGlyph};
 
+/// Data about a glyph stored in the texture cache
 #[derive(Clone)]
 pub struct GlyphData {
     /// Rectangle containing the glyph within the cache texture
@@ -54,6 +58,7 @@ impl<'a> Texture2dDataSource<'a> for &'a RenderedGlyph {
 }
 
 impl GlyphCache {
+    /// Create a new instance
     pub fn new<L>(facade: &Facade, loader: Rc<L>) -> Result<Self>
     where
         L: GlyphLoader + 'static,
@@ -79,6 +84,7 @@ impl GlyphCache {
         Ok(cache)
     }
 
+    /// Get a `&GlyphData` corresponding to the char code
     pub fn get(&mut self, key: usize, facade: &Facade) -> Result<&GlyphData> {
         if self.cache.contains_key(&key) {
             Ok(&self.cache[&key])
@@ -87,6 +93,7 @@ impl GlyphCache {
         }
     }
 
+    /// Insert a new glyph into the cache texture from the loader, and return a reference to it
     pub fn insert(&mut self, key: usize, facade: &Facade) -> Result<&GlyphData> {
         let rendered = self.loader.load(key)?;
 
@@ -198,6 +205,7 @@ impl GlyphCache {
     }
 }
 
+/// An implementation of vertex attributes needed for rendering text
 #[derive(Copy, Clone)]
 pub struct Vertex {
     position: [f32; 2],
@@ -205,12 +213,17 @@ pub struct Vertex {
 }
 implement_vertex!(Vertex, position, tex_coords);
 
+/// The actual `TextRenderer` which uses a `Program` and a `GlyphCache` to render glyphs on a
+/// given surface
 pub struct TextRenderer {
+    /// The `GlyphCache` which it uses to store rendered glyphs
     glyph_cache: GlyphCache,
+    /// The shader program it uses for drawing
     program: Program,
 }
 
 impl TextRenderer {
+    /// Create a new instance using a specified font and size
     pub fn new(facade: &Facade, font: &str, font_size: f32) -> Result<Self> {
         let glyph_cache = GlyphCache::new(facade, Rc::new(FreeTypeRasterizer::new(font, font_size)?))?;
 
@@ -253,6 +266,7 @@ impl TextRenderer {
         })
     }
 
+    /// Draw text on the surface at specified XY coordinates and with a specified color
     pub fn draw_text<S>(
         &mut self, facade: &Facade, surface: &mut S, text: &str, x: f32, y: f32, color: [f32; 3]
     ) -> Result<()>

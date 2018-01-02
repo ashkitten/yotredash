@@ -1,3 +1,6 @@
+//! A `Buffer` contains a `Program` and renders it to an inner texture with input uniforms from
+//! `Source`s and other `Buffer` dependencies
+
 use glium::{Program, Surface, VertexBuffer};
 use glium::backend::Facade;
 use glium::index::NoIndices;
@@ -17,16 +20,25 @@ use errors::*;
 use source::Source;
 use util::DerefInner;
 
+/// The `Buffer` struct, containing most things it needs to render
 pub struct Buffer {
+    /// The name of the buffer, from the configuration
     name: String,
+    /// The inner texture which it renders to
     texture: Texture2d,
+    /// A shader program which it uses for rendering
     program: Program,
+    /// An array of `Source`s which it uses as input
     sources: Vec<(Rc<RefCell<Source>>, RefCell<Texture2d>)>,
+    /// An array of dependency buffers which must render themselves before this
     depends: Vec<Rc<RefCell<Buffer>>>,
+    /// Whether or not the buffer should resize from its original dimensions
     resizeable: bool,
 }
 
 impl Buffer {
+    /// Create a new instance using a `Facade` from the renderer, a configuration specific to that
+    /// buffer, and an array of shared references to `Source`s
     pub fn new(name: &str, facade: &Facade, config: &BufferConfig, sources: Vec<Rc<RefCell<Source>>>) -> Result<Self> {
         let vertex = config.path_to(&config.vertex);
         let fragment = config.path_to(&config.fragment);
@@ -84,14 +96,17 @@ impl Buffer {
         })
     }
 
+    /// Get the name of the buffer from the configuration
     pub fn get_name(&self) -> &str {
         &self.name
     }
 
+    /// Link dependency buffers
     pub fn link_depends(&mut self, depends: &mut Vec<Rc<RefCell<Buffer>>>) {
         self.depends.append(depends);
     }
 
+    /// Render to a provided `Surface`
     pub fn render_to<S>(
         &self, surface: &mut S, facade: &Facade, vertex_buffer: &VertexBuffer<Vertex>, index_buffer: &NoIndices,
         time: f32, pointer: [f32; 4],
@@ -160,6 +175,7 @@ impl Buffer {
         Ok(())
     }
 
+    /// Render to the internal texture
     pub fn render_to_self(
         &self, facade: &Facade, vertex_buffer: &VertexBuffer<Vertex>, index_buffer: &NoIndices, time: f32,
         pointer: [f32; 4],
@@ -175,6 +191,7 @@ impl Buffer {
         Ok(())
     }
 
+    /// Resize the internal texture
     pub fn resize(&mut self, facade: &Facade, width: u32, height: u32) -> Result<()> {
         if self.resizeable {
             self.texture = Texture2d::empty(facade, width, height)?
@@ -182,6 +199,7 @@ impl Buffer {
         Ok(())
     }
 
+    /// Get a reference to the internal texture
     pub fn get_texture(&self) -> &Texture2d {
         &self.texture
     }

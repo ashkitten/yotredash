@@ -1,3 +1,5 @@
+//! Contains functions to apply Unix-specific window attributes and properties
+
 use std::sync::Arc;
 use winit::Window;
 use winit::os::unix::WindowExt;

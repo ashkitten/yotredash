@@ -1,3 +1,5 @@
+//! Contains everything for the OpenGL renderer pipeline
+
 pub mod buffer;
 pub mod renderer;
 pub mod text_renderer;
@@ -5,13 +7,16 @@ pub mod text_renderer;
 use glium::uniforms::{AsUniformValue, UniformValue, Uniforms};
 use std::borrow::Cow;
 
+/// A `UniformsStorage` which has a `push` method for appending new uniforms
 pub struct UniformsStorageVec<'name, 'uniform>(Vec<(Cow<'name, str>, Box<AsUniformValue + 'uniform>)>);
 
 impl<'name, 'uniform> UniformsStorageVec<'name, 'uniform> {
+    /// Create a new instance
     pub fn new() -> Self {
         UniformsStorageVec(Vec::new())
     }
 
+    /// Push a new uniform onto the array
     pub fn push<S, U>(&mut self, name: S, uniform: U)
     where
         S: Into<Cow<'name, str>>,
@@ -30,6 +35,7 @@ impl<'name, 'uniform> Uniforms for UniformsStorageVec<'name, 'uniform> {
     }
 }
 
+/// Implements AsUniformValue for a closure
 pub struct MapAsUniform<T, U: AsUniformValue>(pub T, pub fn(&T) -> &U);
 
 impl<T, U: AsUniformValue> AsUniformValue for MapAsUniform<T, U> {

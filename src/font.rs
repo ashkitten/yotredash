@@ -1,3 +1,5 @@
+//! Provides methods and structs for loading fonts.
+
 use freetype::Library;
 use freetype::face::Face;
 use owning_ref::OwningHandle;
@@ -6,16 +8,20 @@ use util::DerefInner;
 
 use errors::*;
 
+/// Convert from pixels to 26.6 fractional points
 #[inline]
 pub fn to_freetype_26_6(f: f32) -> isize {
     ((1i32 << 6) as f32 * f) as isize
 }
 
+/// Convert from 26.6 fractional points to pixels
 #[inline]
 pub fn from_freetype_26_6(i: isize) -> f32 {
     (i >> 6) as f32
 }
 
+/// Contains information about a rendered glyph, including a buffer of pixel data to load into a
+/// texture
 #[derive(Clone)]
 pub struct RenderedGlyph {
     /// Bitmap buffer (format: U8)

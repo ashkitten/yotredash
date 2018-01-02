@@ -1,3 +1,5 @@
+//! An implementation of `Renderer` using OpenGL
+
 use glium::VertexBuffer;
 use glium::backend::Facade;
 use glium::backend::glutin::Display;
@@ -18,8 +20,11 @@ use config::Config;
 use errors::*;
 use source::{ImageSource, Source};
 
+/// An enumeration of possible backends for the renderer
 pub enum Backend {
+    /// Display backend (a window)
     Display(Display),
+    /// A headless renderer
     Headless(Headless),
 }
 
@@ -33,18 +38,27 @@ impl AsRef<Facade> for Backend {
     }
 }
 
+/// Implementation of the vertex attributes for the vertex buffer
 #[derive(Copy, Clone)]
 pub struct Vertex {
+    /// Position of the vertex in 2D space
     position: [f32; 2],
 }
 implement_vertex!(Vertex, position);
 
+/// An implementation of a `Renderer` which uses OpenGL
 pub struct OpenGLRenderer {
+    /// The configuration from file
     config: Config,
+    /// The backend it uses to render
     backend: Backend,
+    /// The vertex buffer, so we don't have to recreate it
     vertex_buffer: VertexBuffer<Vertex>,
+    /// The index buffer, so we don't have to recreate it
     index_buffer: NoIndices,
+    /// A map of names to Buffer references
     buffers: HashMap<String, Rc<RefCell<Buffer>>>,
+    /// An instance of the text renderer
     text_renderer: TextRenderer,
 }
 

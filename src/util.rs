@@ -1,6 +1,9 @@
+//! Various utilities that don't really have a place elsewhere
+
 use std::ops::Deref;
 use time::Duration;
 
+/// A struct that derefs to its contents
 pub struct DerefInner<T>(pub T);
 
 impl<T> Deref for DerefInner<T> {
@@ -24,6 +27,7 @@ pub struct FpsCounter {
 }
 
 impl FpsCounter {
+    /// Create a new instance with the specified update interval
     pub fn new(interval: f32) -> Self {
         Self {
             counter: Duration::zero(),
@@ -33,6 +37,7 @@ impl FpsCounter {
         }
     }
 
+    /// Increment the frame count and update the timer
     pub fn next_frame(&mut self, delta: Duration) {
         self.frames += 1;
         self.counter = self.counter + delta;
@@ -43,6 +48,7 @@ impl FpsCounter {
         }
     }
 
+    /// Get the current FPS count
     pub fn fps(&self) -> f32 {
         self.fps
     }

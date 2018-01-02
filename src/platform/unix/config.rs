@@ -1,3 +1,5 @@
+//! Contains extra Unix-specific configurations
+
 use clap::{App, Arg, ArgMatches};
 
 use Config;

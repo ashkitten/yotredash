@@ -1,5 +1,32 @@
-//! yotredash is a an application for executing demoscene shaders
+//! An application for executing demoscene shaders.
+//!
+//! Yotredash is entirely separate from [Shadertoy](https://shadertoy.com), and does not intend to
+//! be directly compatible with shaders created for Shadertoy. However, it does intend to reach at
+//! least feature parity with Shadertoy, so that shaders might be easily ported to Yotredash.
+//!
+//! # Configuration
+//! Yotredash provides a simple yaml configuration from which a user can configure nearly all
+//! behaviors of the application.
+//!
+//! ```yaml
+//! buffers:
+//!     __default__:
+//!         vertex: vertex_shader.vert
+//!         fragment: fragment_shader.frag
+//! ```
+//!
+//! It also provides command line options which can be used to quickly override options in the
+//! configuration.
+//!
+//! ```text
+//! yotredash --config path/to/config.yml --fullscreen
+//! ```
+//!
+//! The above example will run yotredash in fullscreen mode, regardless of whether or not the
+//! `fullscreen` option is specified in the configuration file.
 
+// Warn if things are missing documentation
+#![warn(missing_docs)]
 // So we don't run into issues with the error_chain macro
 #![recursion_limit = "128"]
 // Experimental features

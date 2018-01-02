@@ -1,3 +1,6 @@
+//! The `config` module provides definitions for all configuration structs as well as methods
+//! necessary for configuration via yaml and command line.
+
 /// The source configuration contains all the information necessary to build a texture
 pub mod source_config {
     use std::path::PathBuf;
@@ -76,6 +79,7 @@ pub mod buffer_config {
     }
 
     impl BufferConfig {
+        /// Provides a way to get the complete path to a file referenced in a configuration
         pub fn path_to(&self, path: &Path) -> PathBuf {
             self._cwd.join(path)
         }
@@ -368,6 +372,7 @@ impl Config {
         Ok(path)
     }
 
+    /// Provides a way to get the complete path to a file referenced in a configuration
     pub fn path_to(&self, path: &Path) -> PathBuf {
         self._cwd.join(path)
     }

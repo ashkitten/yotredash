@@ -1,3 +1,5 @@
+//! Contains platform-specific functionality
+
 pub use self::platform::*;
 
 #[cfg(windows)]

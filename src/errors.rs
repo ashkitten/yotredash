@@ -1,4 +1,8 @@
-// Create the Error, ErrorKind, ResultExt, and Result types
+//! Contains an enum of all possible errors in the crate
+
+// TODO: move some errors into their own modules
+
+#[allow(missing_docs)]
 #[derive(Debug, ErrorChain)]
 pub enum ErrorKind {
     Msg(String),
