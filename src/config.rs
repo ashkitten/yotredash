@@ -1,11 +1,11 @@
 //! The `config` module provides definitions for all configuration structs as well as methods
 //! necessary for configuration via yaml and command line.
 
-/// The source configuration contains all the information necessary to build a texture
+/// The source configuration contains all the information necessary to build a source
 pub mod source_config {
     use std::path::PathBuf;
 
-    /// The source configuration contains all the information necessary to build a texture
+    /// The source configuration contains all the information necessary to build a source
     #[derive(Deserialize, Clone)]
     pub struct SourceConfig {
         /// The path to the source file (relative to the configuration file, if there is one)

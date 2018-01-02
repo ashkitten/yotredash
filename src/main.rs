@@ -18,7 +18,7 @@
 //! It also provides command line options which can be used to quickly override options in the
 //! configuration.
 //!
-//! ```text
+//! ```shell
 //! yotredash --config path/to/config.yml --fullscreen
 //! ```
 //!
