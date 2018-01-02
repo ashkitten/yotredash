@@ -39,7 +39,7 @@ pub struct Buffer {
 impl Buffer {
     /// Create a new instance using a `Facade` from the renderer, a configuration specific to that
     /// buffer, and an array of shared references to `Source`s
-    pub fn new(name: &str, facade: &Facade, config: &BufferConfig, sources: Vec<Rc<RefCell<Source>>>) -> Result<Self> {
+    pub fn new(name: &str, facade: Rc<Facade>, config: &BufferConfig, sources: Vec<Rc<RefCell<Source>>>) -> Result<Self> {
         let vertex = config.path_to(&config.vertex);
         let fragment = config.path_to(&config.fragment);
 
@@ -70,9 +70,9 @@ impl Buffer {
             outputs_srgb: true,
             uses_point_size: false,
         };
-        let program = Program::new(facade, input)?;
+        let program = Program::new(&*facade, input)?;
 
-        let texture = Texture2d::empty(facade, config.width, config.height)?;
+        let texture = Texture2d::empty(&*facade, config.width, config.height)?;
 
         let sources = sources
             .into_iter()
@@ -81,7 +81,7 @@ impl Buffer {
                 let raw = RawImage2d::from_raw_rgba_reversed(&frame.buffer, (frame.width, frame.height));
                 (
                     source.clone(),
-                    RefCell::new(Texture2d::new(facade, raw).unwrap()),
+                    RefCell::new(Texture2d::new(&*facade, raw).unwrap()),
                 )
             })
             .collect();
@@ -108,7 +108,7 @@ impl Buffer {
 
     /// Render to a provided `Surface`
     pub fn render_to<S>(
-        &self, surface: &mut S, facade: &Facade, vertex_buffer: &VertexBuffer<Vertex>, index_buffer: &NoIndices,
+        &self, surface: &mut S, facade: Rc<Facade>, vertex_buffer: &VertexBuffer<Vertex>, index_buffer: &NoIndices,
         time: f32, pointer: [f32; 4],
     ) -> Result<()>
     where
@@ -142,7 +142,7 @@ impl Buffer {
             if source.0.borrow_mut().update() {
                 let frame = source.0.borrow().get_frame();
                 let raw = RawImage2d::from_raw_rgba_reversed(&frame.buffer, (frame.width, frame.height));
-                source.1.replace(Texture2d::new(facade, raw)?);
+                source.1.replace(Texture2d::new(&*facade, raw)?);
             }
 
             let texture = OwningHandle::new(&source.1);
@@ -154,7 +154,7 @@ impl Buffer {
         for buffer in self.depends.iter() {
             buffer
                 .borrow()
-                .render_to_self(facade, vertex_buffer, index_buffer, time, pointer)?;
+                .render_to_self(facade.clone(), vertex_buffer, index_buffer, time, pointer)?;
 
             let name = buffer.borrow().get_name().to_string();
 
@@ -177,7 +177,7 @@ impl Buffer {
 
     /// Render to the internal texture
     pub fn render_to_self(
-        &self, facade: &Facade, vertex_buffer: &VertexBuffer<Vertex>, index_buffer: &NoIndices, time: f32,
+        &self, facade: Rc<Facade>, vertex_buffer: &VertexBuffer<Vertex>, index_buffer: &NoIndices, time: f32,
         pointer: [f32; 4],
     ) -> Result<()> {
         self.render_to(
@@ -192,9 +192,9 @@ impl Buffer {
     }
 
     /// Resize the internal texture
-    pub fn resize(&mut self, facade: &Facade, width: u32, height: u32) -> Result<()> {
+    pub fn resize(&mut self, facade: Rc<Facade>, width: u32, height: u32) -> Result<()> {
         if self.resizeable {
-            self.texture = Texture2d::empty(facade, width, height)?
+            self.texture = Texture2d::empty(&*facade, width, height)?
         }
         Ok(())
     }

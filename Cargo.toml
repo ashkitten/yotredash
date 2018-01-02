@@ -22,7 +22,7 @@ time = "0.1.38"
 winit = "0.9.0"
 
 # Needed by opengl feature
-glium = { version = "0.19.0", optional = true }
+glium = { git = "https://github.com/ashkitten/glium", optional = true }
 
 # Needed by image feature
 image = { version = "0.18.0", optional = true }

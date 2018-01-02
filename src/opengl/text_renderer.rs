@@ -59,7 +59,7 @@ impl<'a> Texture2dDataSource<'a> for &'a RenderedGlyph {
 
 impl GlyphCache {
     /// Create a new instance
-    pub fn new<L>(facade: &Facade, loader: Rc<L>) -> Result<Self>
+    pub fn new<L>(facade: Rc<Facade>, loader: Rc<L>) -> Result<Self>
     where
         L: GlyphLoader + 'static,
     {
@@ -68,7 +68,7 @@ impl GlyphCache {
             loader: loader,
             packer: DensePacker::new(512, 512),
             texture: Texture2d::empty_with_format(
-                facade,
+                &*facade,
                 UncompressedFloatFormat::U8,
                 MipmapsOption::NoMipmap,
                 512,
@@ -78,14 +78,14 @@ impl GlyphCache {
 
         // Prerender all visible ascii characters
         for i in 32..=127 {
-            cache.insert(i, facade)?;
+            cache.insert(i, facade.clone())?;
         }
 
         Ok(cache)
     }
 
     /// Get a `&GlyphData` corresponding to the char code
-    pub fn get(&mut self, key: usize, facade: &Facade) -> Result<&GlyphData> {
+    pub fn get(&mut self, key: usize, facade: Rc<Facade>) -> Result<&GlyphData> {
         if self.cache.contains_key(&key) {
             Ok(&self.cache[&key])
         } else {
@@ -94,7 +94,7 @@ impl GlyphCache {
     }
 
     /// Insert a new glyph into the cache texture from the loader, and return a reference to it
-    pub fn insert(&mut self, key: usize, facade: &Facade) -> Result<&GlyphData> {
+    pub fn insert(&mut self, key: usize, facade: Rc<Facade>) -> Result<&GlyphData> {
         let rendered = self.loader.load(key)?;
 
         if rendered.width == 0 || rendered.height == 0 {
@@ -131,7 +131,7 @@ impl GlyphCache {
 
             self.texture = {
                 let new_texture = Texture2d::empty_with_format(
-                    facade,
+                    &*facade,
                     UncompressedFloatFormat::U8,
                     MipmapsOption::NoMipmap,
                     new_size.0,
@@ -163,7 +163,7 @@ impl GlyphCache {
             .pack(rendered.width as i32, rendered.height as i32, false)
         {
             let blit_source = Texture2d::with_format(
-                facade,
+                &*facade,
                 &rendered,
                 UncompressedFloatFormat::U8,
                 MipmapsOption::NoMipmap,
@@ -224,10 +224,10 @@ pub struct TextRenderer {
 
 impl TextRenderer {
     /// Create a new instance using a specified font and size
-    pub fn new(facade: &Facade, font: &str, font_size: f32) -> Result<Self> {
-        let glyph_cache = GlyphCache::new(facade, Rc::new(FreeTypeRasterizer::new(font, font_size)?))?;
+    pub fn new(facade: Rc<Facade>, font: &str, font_size: f32) -> Result<Self> {
+        let glyph_cache = GlyphCache::new(facade.clone(), Rc::new(FreeTypeRasterizer::new(font, font_size)?))?;
 
-        let program = program!(facade,
+        let program = program!(&*facade,
             140 => {
                 vertex: "
                     #version 140
@@ -268,14 +268,14 @@ impl TextRenderer {
 
     /// Draw text on the surface at specified XY coordinates and with a specified color
     pub fn draw_text<S>(
-        &mut self, facade: &Facade, surface: &mut S, text: &str, x: f32, y: f32, color: [f32; 3]
+        &mut self, facade: Rc<Facade>, surface: &mut S, text: &str, x: f32, y: f32, color: [f32; 3]
     ) -> Result<()>
     where
         S: Surface,
     {
         let mut advance = 0;
         for c in text.chars() {
-            let glyph = self.glyph_cache.get(c as usize, facade)?.clone();
+            let glyph = self.glyph_cache.get(c as usize, facade.clone())?.clone();
 
             if glyph.width != 0 && glyph.height != 0 {
                 let (win_width, win_height) = surface.get_dimensions();
@@ -316,7 +316,7 @@ impl TextRenderer {
                     Vertex { position: [x + w, y + h], tex_coords: [t_x2, t_y1] },
                 ];
 
-                let vertex_buffer = VertexBuffer::new(facade, &vertices)?;
+                let vertex_buffer = VertexBuffer::new(&*facade.clone(), &vertices)?;
                 let index_buffer = NoIndices(PrimitiveType::TrianglesList);
 
                 let params = DrawParameters {

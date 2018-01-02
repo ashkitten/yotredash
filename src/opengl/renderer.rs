@@ -20,24 +20,6 @@ use config::Config;
 use errors::*;
 use source::{ImageSource, Source};
 
-/// An enumeration of possible backends for the renderer
-pub enum Backend {
-    /// Display backend (a window)
-    Display(Display),
-    /// A headless renderer
-    Headless(Headless),
-}
-
-impl AsRef<Facade> for Backend {
-    fn as_ref(&self) -> &(Facade + 'static) {
-        use self::Backend::*;
-        match *self {
-            Display(ref facade) => facade,
-            Headless(ref facade) => facade,
-        }
-    }
-}
-
 /// Implementation of the vertex attributes for the vertex buffer
 #[derive(Copy, Clone)]
 pub struct Vertex {
@@ -50,8 +32,8 @@ implement_vertex!(Vertex, position);
 pub struct OpenGLRenderer {
     /// The configuration from file
     config: Config,
-    /// The backend it uses to render
-    backend: Backend,
+    /// The facade it uses to render
+    facade: Rc<Facade>,
     /// The vertex buffer, so we don't have to recreate it
     vertex_buffer: VertexBuffer<Vertex>,
     /// The index buffer, so we don't have to recreate it
@@ -62,7 +44,7 @@ pub struct OpenGLRenderer {
     text_renderer: TextRenderer,
 }
 
-fn init_buffers(config: &Config, facade: &Facade) -> Result<HashMap<String, Rc<RefCell<Buffer>>>> {
+fn init_buffers(config: &Config, facade: Rc<Facade>) -> Result<HashMap<String, Rc<RefCell<Buffer>>>> {
     let mut sources = HashMap::new();
 
     for (name, sconfig) in &config.sources {
@@ -85,7 +67,7 @@ fn init_buffers(config: &Config, facade: &Facade) -> Result<HashMap<String, Rc<R
             name.to_string(),
             Rc::new(RefCell::new(Buffer::new(
                 name,
-                facade,
+                facade.clone(),
                 bconfig,
                 bconfig
                     .sources
@@ -111,7 +93,7 @@ impl Renderer for OpenGLRenderer {
     fn new(config: Config, events_loop: &EventsLoop) -> Result<Self> {
         let width = config.buffers["__default__"].width;
         let height = config.buffers["__default__"].height;
-        let backend = if !config.headless {
+        let facade: Rc<Facade> = if !config.headless {
             let window_builder = WindowBuilder::new()
                 .with_title("yotredash")
                 .with_maximized(config.maximize)
@@ -124,17 +106,17 @@ impl Renderer for OpenGLRenderer {
             let display = Display::new(window_builder, context_builder, events_loop)?;
             ::platform::window::init(display.gl_window().window(), &config);
 
-            Backend::Display(display)
+            Rc::new(display)
         } else {
             let context = HeadlessRendererBuilder::new(width, height)
                 .with_gl_profile(GlProfile::Core)
                 .build()?;
-            Backend::Headless(Headless::new(context)?)
+            Rc::new(Headless::new(context)?)
         };
 
         info!(
             "{:?}",
-            backend.as_ref().get_context().get_opengl_version_string()
+            facade.get_context().get_opengl_version_string()
         );
 
         #[cfg_attr(rustfmt, rustfmt_skip)]
@@ -147,15 +129,16 @@ impl Renderer for OpenGLRenderer {
             Vertex { position: [-1.0,  1.0] },
         ];
 
-        let vertex_buffer = VertexBuffer::new(backend.as_ref(), &vertices)?;
+        let vertex_buffer = VertexBuffer::new(&*facade, &vertices)?;
         let index_buffer = NoIndices(PrimitiveType::TrianglesList);
-        let buffers = init_buffers(&config, backend.as_ref())?;
 
-        let text_renderer = TextRenderer::new(backend.as_ref(), &config.font, config.font_size)?;
+        let buffers = init_buffers(&config, facade.clone())?;
+
+        let text_renderer = TextRenderer::new(facade.clone(), &config.font, config.font_size)?;
 
         Ok(Self {
             config: config,
-            backend: backend,
+            facade: facade,
             vertex_buffer: vertex_buffer,
             index_buffer: index_buffer,
             buffers: buffers,
@@ -164,14 +147,11 @@ impl Renderer for OpenGLRenderer {
     }
 
     fn render(&mut self, time: ::time::Duration, pointer: [f32; 4], fps: f32) -> Result<()> {
-        let mut target = match self.backend {
-            Backend::Display(ref facade) => facade.draw(),
-            Backend::Headless(ref facade) => facade.draw(),
-        };
+        let mut target = self.facade.draw();
 
         self.buffers["__default__"].borrow().render_to(
             &mut target,
-            self.backend.as_ref(),
+            self.facade.clone(),
             &self.vertex_buffer,
             &self.index_buffer,
             (time.num_nanoseconds().unwrap() as f32) / 1000_000_000.0 % 4096.0,
@@ -180,7 +160,7 @@ impl Renderer for OpenGLRenderer {
 
         if self.config.fps {
             self.text_renderer.draw_text(
-                self.backend.as_ref(),
+                self.facade.clone(),
                 &mut target,
                 &format!("FPS: {:.1}", fps),
                 0.0,
@@ -195,13 +175,13 @@ impl Renderer for OpenGLRenderer {
     }
 
     fn swap_buffers(&self) -> Result<()> {
-        self.backend.as_ref().get_context().swap_buffers()?;
+        self.facade.get_context().swap_buffers()?;
         Ok(())
     }
 
     fn reload(&mut self, config: &Config) -> Result<()> {
         info!("Reloading config");
-        self.buffers = init_buffers(config, self.backend.as_ref())?;
+        self.buffers = init_buffers(config, self.facade.clone())?;
         Ok(())
     }
 
@@ -209,14 +189,14 @@ impl Renderer for OpenGLRenderer {
         for buffer in self.buffers.values() {
             buffer
                 .borrow_mut()
-                .resize(self.backend.as_ref(), width, height)?;
+                .resize(self.facade.clone(), width, height)?;
         }
         Ok(())
     }
 
     fn render_to_file(&mut self, time: ::time::Duration, pointer: [f32; 4], fps: f32, path: &Path) -> Result<()> {
         self.buffers["__default__"].borrow().render_to_self(
-            self.backend.as_ref(),
+            self.facade.clone(),
             &self.vertex_buffer,
             &self.index_buffer,
             (time.num_nanoseconds().unwrap() as f32) / 1000_000_000.0 % 4096.0,
@@ -229,7 +209,7 @@ impl Renderer for OpenGLRenderer {
 
         if self.config.fps {
             self.text_renderer.draw_text(
-                self.backend.as_ref(),
+                self.facade.clone(),
                 &mut target,
                 &format!("FPS: {:.1}", fps),
                 0.0,
