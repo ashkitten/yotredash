@@ -9,6 +9,7 @@ pub mod image;
 use std::path::Path;
 
 use errors::*;
+use surface::Surface;
 
 #[cfg(feature = "image-src")]
 pub use self::image::ImageSource;
@@ -38,4 +39,6 @@ pub trait Source {
     fn update(&mut self) -> bool;
     /// Gets the `Frame` for rendering
     fn get_frame(&self) -> Frame;
+    /// Writes the current `Frame` to a `Surface`.
+    fn write_frame(&self, surface: &mut Surface) -> Result<()>;
 }
