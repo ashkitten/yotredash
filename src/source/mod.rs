@@ -25,6 +25,14 @@ pub struct Frame {
     pub buffer: Vec<u8>,
 }
 
+impl Frame {
+    /// Returns the dimensions of this frame.
+    #[inline(always)]
+    pub fn dimensions(&self) -> (u32, u32) {
+        (self.width, self.height)
+    }
+}
+
 /// A `Source` is something that provides data to the renderer in the form of a `Frame` of RGBA
 /// image data
 pub trait Source {
