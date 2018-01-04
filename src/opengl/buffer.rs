@@ -84,12 +84,10 @@ impl Buffer {
             .into_iter()
             .map(|source| {
                 let frame = source.borrow().get_frame();
-                let raw = RawImage2d::from_raw_rgba_reversed(&frame.buffer, (frame.width, frame.height));
-                (
-                    source.clone(),
-                    RefCell::new(surface),
-                )
+                let raw =
+                    RawImage2d::from_raw_rgba_reversed(&frame.buffer, (frame.width, frame.height));
                 let surface = OpenGLSurface::new(facade.clone(), raw).unwrap();
+                (source.clone(), RefCell::new(surface))
             })
             .collect();
 
