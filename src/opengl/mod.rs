@@ -1,5 +1,6 @@
 //! Contains everything for the OpenGL renderer pipeline
 
+pub mod surface;
 pub mod buffer;
 pub mod renderer;
 pub mod text_renderer;

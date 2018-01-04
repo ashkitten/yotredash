@@ -15,12 +15,11 @@ use std::rc::Rc;
 
 use super::{MapAsUniform, UniformsStorageVec};
 use super::renderer::Vertex;
+use super::surface::OpenGLSurface;
 use config::buffer_config::BufferConfig;
 use errors::*;
 use source::Source;
 use util::DerefInner;
-use surface::Surface as RenderSurface;
-use surface::OpenGLSurface;
 
 /// The `Buffer` struct, containing most things it needs to render
 pub struct Buffer {
@@ -86,11 +85,11 @@ impl Buffer {
             .map(|source| {
                 let frame = source.borrow().get_frame();
                 let raw = RawImage2d::from_raw_rgba_reversed(&frame.buffer, (frame.width, frame.height));
-                let mut surface = OpenGLSurface::new(facade.clone(), raw).unwrap();
                 (
                     source.clone(),
                     RefCell::new(surface),
                 )
+                let surface = OpenGLSurface::new(facade.clone(), raw).unwrap();
             })
             .collect();
 
@@ -159,7 +158,12 @@ impl Buffer {
                 source.0.borrow().write_frame((*surface_ref).borrow_mut())?;
             }
 
-            uniforms.push(source.0.borrow().get_name().to_string(), &source.1.borrow_mut().texture);
+            let surface = OwningHandle::new(&source.1);
+            let texture = OwningHandle::new_with_fn(surface, |s| unsafe {
+                DerefInner((*s).ref_texture().sampled())
+            });
+            let sampled = MapAsUniform(texture, |t| &**t);
+            uniforms.push(source.0.borrow().get_name().to_string(), sampled);
         }
 
         for buffer in self.depends.iter() {
