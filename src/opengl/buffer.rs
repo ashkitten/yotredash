@@ -15,6 +15,7 @@ use std::rc::Rc;
 
 use super::{MapAsUniform, UniformsStorageVec};
 use super::renderer::Vertex;
+use super::surface::OpenGLSurface;
 use config::buffer_config::BufferConfig;
 use errors::*;
 use source::Source;
@@ -29,7 +30,7 @@ pub struct Buffer {
     /// A shader program which it uses for rendering
     program: Program,
     /// An array of `Source`s which it uses as input
-    sources: Vec<(Rc<RefCell<Source>>, RefCell<Texture2d>)>,
+    sources: Vec<(Rc<RefCell<Source>>, RefCell<OpenGLSurface>)>,
     /// An array of dependency buffers which must render themselves before this
     depends: Vec<Rc<RefCell<Buffer>>>,
     /// Whether or not the buffer should resize from its original dimensions
@@ -85,10 +86,8 @@ impl Buffer {
                 let frame = source.borrow().get_frame();
                 let raw =
                     RawImage2d::from_raw_rgba_reversed(&frame.buffer, (frame.width, frame.height));
-                (
-                    source.clone(),
-                    RefCell::new(Texture2d::new(&*facade, raw).unwrap()),
-                )
+                let surface = OpenGLSurface::new(facade.clone(), raw).unwrap();
+                (source.clone(), RefCell::new(surface))
             })
             .collect();
 
@@ -151,17 +150,18 @@ impl Buffer {
 
         for source in self.sources.iter() {
             if source.0.borrow_mut().update() {
-                let frame = source.0.borrow().get_frame();
-                let raw =
-                    RawImage2d::from_raw_rgba_reversed(&frame.buffer, (frame.width, frame.height));
-                source.1.replace(Texture2d::new(&*facade, raw)?);
+                use std::borrow::BorrowMut;
+
+                let mut surface_ref = source.1.borrow_mut();
+                source.0.borrow().write_frame((*surface_ref).borrow_mut())?;
             }
 
-            let texture = OwningHandle::new(&source.1);
-            let texture =
-                OwningHandle::new_with_fn(texture, |t| unsafe { DerefInner((*t).sampled()) });
-            let texture = MapAsUniform(texture, |t| &**t);
-            uniforms.push(source.0.borrow().get_name().to_string(), texture);
+            let surface = OwningHandle::new(&source.1);
+            let texture = OwningHandle::new_with_fn(surface, |s| unsafe {
+                DerefInner((*s).ref_texture().sampled())
+            });
+            let sampled = MapAsUniform(texture, |t| &**t);
+            uniforms.push(source.0.borrow().get_name().to_string(), sampled);
         }
 
         for buffer in self.depends.iter() {

@@ -9,6 +9,7 @@ pub mod image;
 use std::path::Path;
 
 use errors::*;
+use surface::Surface;
 
 #[cfg(feature = "image-src")]
 pub use self::image::ImageSource;
@@ -22,6 +23,14 @@ pub struct Frame {
     pub height: u32,
     /// A buffer of RGBA bytes
     pub buffer: Vec<u8>,
+}
+
+impl Frame {
+    /// Returns the dimensions of this frame.
+    #[inline(always)]
+    pub fn dimensions(&self) -> (u32, u32) {
+        (self.width, self.height)
+    }
 }
 
 /// A `Source` is something that provides data to the renderer in the form of a `Frame` of RGBA
@@ -38,4 +47,6 @@ pub trait Source {
     fn update(&mut self) -> bool;
     /// Gets the `Frame` for rendering
     fn get_frame(&self) -> Frame;
+    /// Writes the current `Frame` to a `Surface`.
+    fn write_frame(&self, surface: &mut Surface) -> Result<()>;
 }

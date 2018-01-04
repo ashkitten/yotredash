@@ -71,6 +71,7 @@ pub mod config;
 pub mod errors;
 pub mod font;
 pub mod platform;
+pub mod surface;
 pub mod source;
 pub mod util;
 

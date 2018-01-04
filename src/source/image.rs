@@ -12,6 +12,7 @@ use time::{self, Duration, Tm};
 
 use super::{Frame, Source};
 use errors::*;
+use surface::Surface;
 
 /// A `Source` that reads an image from file and returns frames from that image
 pub struct ImageSource {
@@ -125,5 +126,12 @@ impl Source for ImageSource {
 
     fn get_frame(&self) -> Frame {
         self.frames[self.current_frame].0.clone()
+    }
+
+    fn write_frame(&self, surface: &mut Surface) -> Result<()> {
+        let ref frame = self.frames[self.current_frame].0;
+        surface.write_buffer(&frame.buffer, frame.dimensions())?;
+
+        Ok(())
     }
 }
