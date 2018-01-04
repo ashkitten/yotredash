@@ -103,7 +103,13 @@ pub trait Renderer {
     /// Render the current frame
     fn render(&mut self, time: time::Duration, pointer: [f32; 4], fps: f32) -> Result<()>;
     /// Render the current frame to a file
-    fn render_to_file(&mut self, time: time::Duration, pointer: [f32; 4], fps: f32, path: &Path) -> Result<()>;
+    fn render_to_file(
+        &mut self,
+        time: time::Duration,
+        pointer: [f32; 4],
+        fps: f32,
+        path: &Path,
+    ) -> Result<()>;
     /// Tells the renderer to swap buffers (only applicable to buffered renderers)
     fn swap_buffers(&self) -> Result<()>;
     /// Reload the renderer from a new configuration
@@ -121,7 +127,8 @@ enum RendererAction {
 }
 
 fn setup_watches(
-    config_path: &Path, config: &Config
+    config_path: &Path,
+    config: &Config,
 ) -> Result<(notify::RecommendedWatcher, mpsc::Receiver<notify::RawEvent>)> {
     // Create a watcher to receive filesystem events
     let (sender, receiver) = mpsc::channel();
@@ -226,7 +233,9 @@ quick_main!(|| -> Result<()> {
                 use winit::WindowEvent;
 
                 match event {
-                    WindowEvent::Resized(width, height) => actions.push(RendererAction::Resize(width, height)),
+                    WindowEvent::Resized(width, height) => {
+                        actions.push(RendererAction::Resize(width, height))
+                    }
 
                     WindowEvent::Closed => actions.push(RendererAction::Close),
 
@@ -311,7 +320,8 @@ quick_main!(|| -> Result<()> {
                     renderer.reload(&config)?;
                 }
                 RendererAction::Snapshot => {
-                    let path = Path::new(&format!("{}.png", time::now().strftime("%F_%T")?)).to_path_buf();
+                    let path =
+                        Path::new(&format!("{}.png", time::now().strftime("%F_%T")?)).to_path_buf();
                     renderer.render_to_file(time, pointer, fps_counter.fps(), &path)?
                 }
                 RendererAction::Close => return Ok(()),
@@ -319,62 +329,3 @@ quick_main!(|| -> Result<()> {
         }
     }
 });
-
-// Yeah I know integration tests are supposed to go in their own directory...
-// This is a binary project though, so I can't just use `extern crate yotredash` from the
-// integration test
-#[cfg(test)]
-extern crate glob;
-#[cfg(test)]
-mod test {
-    use glob::glob;
-    use std::path::Path;
-    use time::Duration;
-
-    use Renderer;
-    use config::Config;
-    #[cfg(feature = "opengl")]
-    use opengl::renderer::OpenGLRenderer;
-
-    #[test]
-    fn test_samples() {
-        ::env_logger::init().expect("Failed to init env_logger");
-
-        ::std::fs::create_dir_all(Path::new("target/test")).expect("Failed to create test images directory");
-
-        for path in glob("samples/**/*.yml").expect("Failed to read glob pattern") {
-            let path = path.unwrap();
-            let config = Config::parse(&path).expect("Failed to parse config");
-
-            let mut events_loop = ::winit::EventsLoop::new();
-            let mut renderer: Box<Renderer> = match config.renderer.as_ref() as &str {
-                #[cfg(feature = "opengl")]
-                "opengl" => Box::new(
-                    OpenGLRenderer::new(config.clone(), &events_loop).expect("Failed to create OpenGL renderer"),
-                ),
-                // Skip anything with a renderer we don't have built in
-                _ => continue,
-            };
-
-            renderer
-                .render(Duration::zero(), [0.0; 4], 0.0)
-                .expect("Failed to render");
-            renderer
-                .render_to_file(
-                    Duration::zero(),
-                    [0.0; 4],
-                    0.0,
-                    Path::new(&format!(
-                        "target/test/{}.png",
-                        path.file_name().unwrap().to_str().unwrap()
-                    )),
-                )
-                .expect("Failed to render to file");
-            renderer.swap_buffers().expect("Failed to swap buffers");
-            renderer.reload(&config).expect("Failed to reload config");
-            renderer
-                .resize(100, 100)
-                .expect("Failed to resize renderer");
-        }
-    }
-}

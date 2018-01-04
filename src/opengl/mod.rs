@@ -8,7 +8,9 @@ use glium::uniforms::{AsUniformValue, UniformValue, Uniforms};
 use std::borrow::Cow;
 
 /// A `UniformsStorage` which has a `push` method for appending new uniforms
-pub struct UniformsStorageVec<'name, 'uniform>(Vec<(Cow<'name, str>, Box<AsUniformValue + 'uniform>)>);
+pub struct UniformsStorageVec<'name, 'uniform>(
+    Vec<(Cow<'name, str>, Box<AsUniformValue + 'uniform>)>,
+);
 
 impl<'name, 'uniform> UniformsStorageVec<'name, 'uniform> {
     /// Create a new instance

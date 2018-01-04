@@ -44,7 +44,10 @@ pub struct OpenGLRenderer {
     text_renderer: TextRenderer,
 }
 
-fn init_buffers(config: &Config, facade: Rc<Facade>) -> Result<HashMap<String, Rc<RefCell<Buffer>>>> {
+fn init_buffers(
+    config: &Config,
+    facade: Rc<Facade>,
+) -> Result<HashMap<String, Rc<RefCell<Buffer>>>> {
     let mut sources = HashMap::new();
 
     for (name, sconfig) in &config.sources {
@@ -114,10 +117,7 @@ impl Renderer for OpenGLRenderer {
             Rc::new(Headless::new(context)?)
         };
 
-        info!(
-            "{:?}",
-            facade.get_context().get_opengl_version_string()
-        );
+        info!("{:?}", facade.get_context().get_opengl_version_string());
 
         #[cfg_attr(rustfmt, rustfmt_skip)]
         let vertices = [
@@ -194,7 +194,13 @@ impl Renderer for OpenGLRenderer {
         Ok(())
     }
 
-    fn render_to_file(&mut self, time: ::time::Duration, pointer: [f32; 4], fps: f32, path: &Path) -> Result<()> {
+    fn render_to_file(
+        &mut self,
+        time: ::time::Duration,
+        pointer: [f32; 4],
+        fps: f32,
+        path: &Path,
+    ) -> Result<()> {
         self.buffers["__default__"].borrow().render_to_self(
             self.facade.clone(),
             &self.vertex_buffer,

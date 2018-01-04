@@ -4,7 +4,8 @@
 use glium::{Blend, DrawParameters, Program, Surface, Texture2d, VertexBuffer};
 use glium::backend::Facade;
 use glium::index::{NoIndices, PrimitiveType};
-use glium::texture::{MipmapsOption, PixelValue, RawImage2d, Texture2dDataSource, UncompressedFloatFormat};
+use glium::texture::{MipmapsOption, PixelValue, RawImage2d, Texture2dDataSource,
+                     UncompressedFloatFormat};
 use glium::uniforms::MagnifySamplerFilter;
 use rect_packer::DensePacker;
 use std::borrow::Cow;
@@ -225,7 +226,10 @@ pub struct TextRenderer {
 impl TextRenderer {
     /// Create a new instance using a specified font and size
     pub fn new(facade: Rc<Facade>, font: &str, font_size: f32) -> Result<Self> {
-        let glyph_cache = GlyphCache::new(facade.clone(), Rc::new(FreeTypeRasterizer::new(font, font_size)?))?;
+        let glyph_cache = GlyphCache::new(
+            facade.clone(),
+            Rc::new(FreeTypeRasterizer::new(font, font_size)?),
+        )?;
 
         let program = program!(&*facade,
             140 => {
@@ -268,7 +272,13 @@ impl TextRenderer {
 
     /// Draw text on the surface at specified XY coordinates and with a specified color
     pub fn draw_text<S>(
-        &mut self, facade: Rc<Facade>, surface: &mut S, text: &str, x: f32, y: f32, color: [f32; 3]
+        &mut self,
+        facade: Rc<Facade>,
+        surface: &mut S,
+        text: &str,
+        x: f32,
+        y: f32,
+        color: [f32; 3],
     ) -> Result<()>
     where
         S: Surface,
@@ -302,9 +312,11 @@ impl TextRenderer {
                 let h = glyph.height as f32;
 
                 let t_x1 = glyph.rect.x as f32 / self.glyph_cache.texture.width() as f32;
-                let t_x2 = (glyph.rect.x as f32 + glyph.rect.width as f32) / self.glyph_cache.texture.width() as f32;
+                let t_x2 = (glyph.rect.x as f32 + glyph.rect.width as f32)
+                    / self.glyph_cache.texture.width() as f32;
                 let t_y1 = glyph.rect.y as f32 / self.glyph_cache.texture.height() as f32;
-                let t_y2 = (glyph.rect.y as f32 + glyph.rect.height as f32) / self.glyph_cache.texture.height() as f32;
+                let t_y2 = (glyph.rect.y as f32 + glyph.rect.height as f32)
+                    / self.glyph_cache.texture.height() as f32;
 
                 #[cfg_attr(rustfmt, rustfmt_skip)]
                 let vertices = [

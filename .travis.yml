@@ -1,0 +1,15 @@
+language: rust
+rust:
+  - nightly
+cache: cargo
+before_script:
+  - cargo install cargo-update || true
+  - cargo install-update -i cargo-update rustfmt-nightly
+script:
+  - cargo build --verbose --all
+  - cargo test --verbose --all
+  - cargo fmt -- --write-mode=diff
+addons:
+  apt:
+    packages:
+      - libgtk-3-dev

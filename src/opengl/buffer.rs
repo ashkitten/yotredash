@@ -39,7 +39,12 @@ pub struct Buffer {
 impl Buffer {
     /// Create a new instance using a `Facade` from the renderer, a configuration specific to that
     /// buffer, and an array of shared references to `Source`s
-    pub fn new(name: &str, facade: Rc<Facade>, config: &BufferConfig, sources: Vec<Rc<RefCell<Source>>>) -> Result<Self> {
+    pub fn new(
+        name: &str,
+        facade: Rc<Facade>,
+        config: &BufferConfig,
+        sources: Vec<Rc<RefCell<Source>>>,
+    ) -> Result<Self> {
         let vertex = config.path_to(&config.vertex);
         let fragment = config.path_to(&config.fragment);
 
@@ -78,7 +83,8 @@ impl Buffer {
             .into_iter()
             .map(|source| {
                 let frame = source.borrow().get_frame();
-                let raw = RawImage2d::from_raw_rgba_reversed(&frame.buffer, (frame.width, frame.height));
+                let raw =
+                    RawImage2d::from_raw_rgba_reversed(&frame.buffer, (frame.width, frame.height));
                 (
                     source.clone(),
                     RefCell::new(Texture2d::new(&*facade, raw).unwrap()),
@@ -108,8 +114,13 @@ impl Buffer {
 
     /// Render to a provided `Surface`
     pub fn render_to<S>(
-        &self, surface: &mut S, facade: Rc<Facade>, vertex_buffer: &VertexBuffer<Vertex>, index_buffer: &NoIndices,
-        time: f32, pointer: [f32; 4],
+        &self,
+        surface: &mut S,
+        facade: Rc<Facade>,
+        vertex_buffer: &VertexBuffer<Vertex>,
+        index_buffer: &NoIndices,
+        time: f32,
+        pointer: [f32; 4],
     ) -> Result<()>
     where
         S: Surface,
@@ -141,25 +152,33 @@ impl Buffer {
         for source in self.sources.iter() {
             if source.0.borrow_mut().update() {
                 let frame = source.0.borrow().get_frame();
-                let raw = RawImage2d::from_raw_rgba_reversed(&frame.buffer, (frame.width, frame.height));
+                let raw =
+                    RawImage2d::from_raw_rgba_reversed(&frame.buffer, (frame.width, frame.height));
                 source.1.replace(Texture2d::new(&*facade, raw)?);
             }
 
             let texture = OwningHandle::new(&source.1);
-            let texture = OwningHandle::new_with_fn(texture, |t| unsafe { DerefInner((*t).sampled()) });
+            let texture =
+                OwningHandle::new_with_fn(texture, |t| unsafe { DerefInner((*t).sampled()) });
             let texture = MapAsUniform(texture, |t| &**t);
             uniforms.push(source.0.borrow().get_name().to_string(), texture);
         }
 
         for buffer in self.depends.iter() {
-            buffer
-                .borrow()
-                .render_to_self(facade.clone(), vertex_buffer, index_buffer, time, pointer)?;
+            buffer.borrow().render_to_self(
+                facade.clone(),
+                vertex_buffer,
+                index_buffer,
+                time,
+                pointer,
+            )?;
 
             let name = buffer.borrow().get_name().to_string();
 
             let buffer = OwningHandle::new(&**buffer);
-            let texture = OwningHandle::new_with_fn(buffer, |b| unsafe { DerefInner((*b).texture.sampled()) });
+            let texture = OwningHandle::new_with_fn(buffer, |b| unsafe {
+                DerefInner((*b).texture.sampled())
+            });
             let texture = MapAsUniform(texture, |t| &**t);
             uniforms.push(name, texture);
         }
@@ -177,7 +196,11 @@ impl Buffer {
 
     /// Render to the internal texture
     pub fn render_to_self(
-        &self, facade: Rc<Facade>, vertex_buffer: &VertexBuffer<Vertex>, index_buffer: &NoIndices, time: f32,
+        &self,
+        facade: Rc<Facade>,
+        vertex_buffer: &VertexBuffer<Vertex>,
+        index_buffer: &NoIndices,
+        time: f32,
         pointer: [f32; 4],
     ) -> Result<()> {
         self.render_to(

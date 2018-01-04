@@ -4,12 +4,17 @@ use std::sync::Arc;
 use winit::Window;
 use winit::os::unix::WindowExt;
 use winit::os::unix::x11::XConnection;
-use winit::os::unix::x11::ffi::{CWOverrideRedirect, Display, PropModeReplace, XSetWindowAttributes, XA_ATOM, XID};
+use winit::os::unix::x11::ffi::{CWOverrideRedirect, Display, PropModeReplace,
+                                XSetWindowAttributes, XA_ATOM, XID};
 
 use config::Config;
 
 /// Sets the override-redirect flag of a window
-unsafe fn override_redirect(x_connection: &Arc<XConnection>, x_display: *mut Display, x_window: XID) {
+unsafe fn override_redirect(
+    x_connection: &Arc<XConnection>,
+    x_display: *mut Display,
+    x_window: XID,
+) {
     // Change the override-redirect attribute
     (x_connection.xlib.XChangeWindowAttributes)(
         x_display,
@@ -46,7 +51,8 @@ unsafe fn desktop_window(x_connection: &Arc<XConnection>, x_display: *mut Displa
     let window_type_desktop_str = b"_NET_WM_WINDOW_TYPE_DESKTOP\0".as_ptr();
 
     let window_type = (x_connection.xlib.XInternAtom)(x_display, window_type_str as *const i8, 0);
-    let window_type_desktop = (x_connection.xlib.XInternAtom)(x_display, window_type_desktop_str as *const i8, 0);
+    let window_type_desktop =
+        (x_connection.xlib.XInternAtom)(x_display, window_type_desktop_str as *const i8, 0);
     (x_connection.xlib.XChangeProperty)(
         x_display,
         x_window,

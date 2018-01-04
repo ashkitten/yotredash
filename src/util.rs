@@ -42,7 +42,8 @@ impl FpsCounter {
         self.frames += 1;
         self.counter = self.counter + delta;
         if self.counter > self.interval {
-            self.fps = self.frames as f32 / (self.counter.num_nanoseconds().unwrap() as f32 / 1_000_000_000.0);
+            self.fps = self.frames as f32
+                / (self.counter.num_nanoseconds().unwrap() as f32 / 1_000_000_000.0);
             self.frames = 0;
             self.counter = self.counter - self.interval
         }
