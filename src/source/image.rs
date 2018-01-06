@@ -72,7 +72,7 @@ impl Source for ImageSource {
 
                 let mut frames = Vec::new();
                 while let Some(frame) = reader.read_next_frame()? {
-                    screen.blit_frame(&frame)?;
+                    screen.blit_frame(frame)?;
 
                     let mut buffer = Vec::new();
                     for rgba in screen.pixels.pixels() {
@@ -85,7 +85,7 @@ impl Source for ImageSource {
                             height: screen.pixels.height() as u32,
                             buffer,
                         },
-                        Duration::milliseconds(frame.delay as i64 * 10),
+                        Duration::milliseconds(i64::from(frame.delay) * 10),
                     ));
                 }
                 frames
@@ -129,7 +129,7 @@ impl Source for ImageSource {
     }
 
     fn write_frame(&self, surface: &mut Surface) -> Result<()> {
-        let ref frame = self.frames[self.current_frame].0;
+        let frame = &self.frames[self.current_frame].0;
         surface.write_buffer(&frame.buffer, frame.dimensions())?;
 
         Ok(())

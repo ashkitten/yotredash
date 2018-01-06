@@ -46,7 +46,7 @@ pub struct OpenGLRenderer {
 
 fn init_buffers(
     config: &Config,
-    facade: Rc<Facade>,
+    facade: &Rc<Facade>,
 ) -> Result<HashMap<String, Rc<RefCell<Buffer>>>> {
     let mut sources = HashMap::new();
 
@@ -55,7 +55,7 @@ fn init_buffers(
             name.to_string(),
             match sconfig.kind.as_str() {
                 "image" => Rc::new(RefCell::new(ImageSource::new(
-                    &name,
+                    name,
                     &config.path_to(&sconfig.path),
                 )?)),
                 _ => bail!("Unsupported kind of source"),
@@ -70,12 +70,12 @@ fn init_buffers(
             name.to_string(),
             Rc::new(RefCell::new(Buffer::new(
                 name,
-                facade.clone(),
+                Rc::clone(facade),
                 bconfig,
                 bconfig
                     .sources
                     .iter()
-                    .map(|name| sources[name].clone())
+                    .map(|name| Rc::clone(&sources[name]))
                     .collect(),
             )?)),
         );
@@ -132,9 +132,9 @@ impl Renderer for OpenGLRenderer {
         let vertex_buffer = VertexBuffer::new(&*facade, &vertices)?;
         let index_buffer = NoIndices(PrimitiveType::TrianglesList);
 
-        let buffers = init_buffers(&config, facade.clone())?;
+        let buffers = init_buffers(&config, &facade)?;
 
-        let text_renderer = TextRenderer::new(facade.clone(), &config.font, config.font_size)?;
+        let text_renderer = TextRenderer::new(Rc::clone(&facade), &config.font, config.font_size)?;
 
         Ok(Self {
             config: config,
@@ -151,7 +151,6 @@ impl Renderer for OpenGLRenderer {
 
         self.buffers["__default__"].borrow().render_to(
             &mut target,
-            self.facade.clone(),
             &self.vertex_buffer,
             &self.index_buffer,
             (time.num_nanoseconds().unwrap() as f32) / 1000_000_000.0 % 4096.0,
@@ -160,7 +159,6 @@ impl Renderer for OpenGLRenderer {
 
         if self.config.fps {
             self.text_renderer.draw_text(
-                self.facade.clone(),
                 &mut target,
                 &format!("FPS: {:.1}", fps),
                 0.0,
@@ -181,15 +179,13 @@ impl Renderer for OpenGLRenderer {
 
     fn reload(&mut self, config: &Config) -> Result<()> {
         info!("Reloading config");
-        self.buffers = init_buffers(config, self.facade.clone())?;
+        self.buffers = init_buffers(config, &self.facade)?;
         Ok(())
     }
 
     fn resize(&mut self, width: u32, height: u32) -> Result<()> {
         for buffer in self.buffers.values() {
-            buffer
-                .borrow_mut()
-                .resize(self.facade.clone(), width, height)?;
+            buffer.borrow_mut().resize(width, height)?;
         }
         Ok(())
     }
@@ -202,7 +198,6 @@ impl Renderer for OpenGLRenderer {
         path: &Path,
     ) -> Result<()> {
         self.buffers["__default__"].borrow().render_to_self(
-            self.facade.clone(),
             &self.vertex_buffer,
             &self.index_buffer,
             (time.num_nanoseconds().unwrap() as f32) / 1000_000_000.0 % 4096.0,
@@ -215,7 +210,6 @@ impl Renderer for OpenGLRenderer {
 
         if self.config.fps {
             self.text_renderer.draw_text(
-                self.facade.clone(),
                 &mut target,
                 &format!("FPS: {:.1}", fps),
                 0.0,

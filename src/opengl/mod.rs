@@ -9,6 +9,7 @@ use glium::uniforms::{AsUniformValue, UniformValue, Uniforms};
 use std::borrow::Cow;
 
 /// A `UniformsStorage` which has a `push` method for appending new uniforms
+#[derive(Default)]
 pub struct UniformsStorageVec<'name, 'uniform>(
     Vec<(Cow<'name, str>, Box<AsUniformValue + 'uniform>)>,
 );
@@ -16,7 +17,7 @@ pub struct UniformsStorageVec<'name, 'uniform>(
 impl<'name, 'uniform> UniformsStorageVec<'name, 'uniform> {
     /// Create a new instance
     pub fn new() -> Self {
-        UniformsStorageVec(Vec::new())
+        Default::default()
     }
 
     /// Push a new uniform onto the array
@@ -38,7 +39,7 @@ impl<'name, 'uniform> Uniforms for UniformsStorageVec<'name, 'uniform> {
     }
 }
 
-/// Implements AsUniformValue for a closure
+/// Implements `AsUniformValue` for a closure
 pub struct MapAsUniform<T, U: AsUniformValue>(pub T, pub fn(&T) -> &U);
 
 impl<T, U: AsUniformValue> AsUniformValue for MapAsUniform<T, U> {

@@ -27,7 +27,7 @@ pub struct Frame {
 
 impl Frame {
     /// Returns the dimensions of this frame.
-    #[inline(always)]
+    #[inline]
     pub fn dimensions(&self) -> (u32, u32) {
         (self.width, self.height)
     }

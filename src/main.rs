@@ -153,6 +153,8 @@ fn setup_watches(
         }
 
         for source in config.sources.values() {
+            // Allow single match for future expansion
+            #[cfg_attr(feature = "cargo-clippy", allow(single_match))]
             match source.kind.as_str() {
                 "image" => watcher.watch(
                     config.path_to(&source.path),
@@ -283,9 +285,7 @@ quick_main!(|| -> Result<()> {
 
         match receiver.try_recv() {
             Ok(notify::RawEvent {
-                path,
-                op: Ok(op),
-                cookie: _,
+                path, op: Ok(op), ..
             }) => {
                 // We listen for both WRITE and REMOVE events because some editors (like vim) will
                 // remove the file and write a new one in its place, and on Linux this will also

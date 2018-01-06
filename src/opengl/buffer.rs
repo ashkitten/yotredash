@@ -25,6 +25,8 @@ use util::DerefInner;
 pub struct Buffer {
     /// The name of the buffer, from the configuration
     name: String,
+    /// The Facade it uses to work with the OpenGL context
+    facade: Rc<Facade>,
     /// The inner texture which it renders to
     texture: Texture2d,
     /// A shader program which it uses for rendering
@@ -86,13 +88,14 @@ impl Buffer {
                 let frame = source.borrow().get_frame();
                 let raw =
                     RawImage2d::from_raw_rgba_reversed(&frame.buffer, (frame.width, frame.height));
-                let surface = OpenGLSurface::new(facade.clone(), raw).unwrap();
-                (source.clone(), RefCell::new(surface))
+                let surface = OpenGLSurface::new(Rc::clone(&facade), raw).unwrap();
+                (Rc::clone(&source), RefCell::new(surface))
             })
             .collect();
 
         Ok(Buffer {
             name: name.to_string(),
+            facade: facade,
             texture: texture,
             program: program,
             sources: sources,
@@ -115,7 +118,6 @@ impl Buffer {
     pub fn render_to<S>(
         &self,
         surface: &mut S,
-        facade: Rc<Facade>,
         vertex_buffer: &VertexBuffer<Vertex>,
         index_buffer: &NoIndices,
         time: f32,
@@ -148,7 +150,7 @@ impl Buffer {
             ],
         );
 
-        for source in self.sources.iter() {
+        for source in &self.sources {
             if source.0.borrow_mut().update() {
                 use std::borrow::BorrowMut;
 
@@ -164,14 +166,10 @@ impl Buffer {
             uniforms.push(source.0.borrow().get_name().to_string(), sampled);
         }
 
-        for buffer in self.depends.iter() {
-            buffer.borrow().render_to_self(
-                facade.clone(),
-                vertex_buffer,
-                index_buffer,
-                time,
-                pointer,
-            )?;
+        for buffer in &self.depends {
+            buffer
+                .borrow()
+                .render_to_self(vertex_buffer, index_buffer, time, pointer)?;
 
             let name = buffer.borrow().get_name().to_string();
 
@@ -179,8 +177,8 @@ impl Buffer {
             let texture = OwningHandle::new_with_fn(buffer, |b| unsafe {
                 DerefInner((*b).texture.sampled())
             });
-            let texture = MapAsUniform(texture, |t| &**t);
-            uniforms.push(name, texture);
+            let sampled = MapAsUniform(texture, |t| &**t);
+            uniforms.push(name, sampled);
         }
 
         surface.draw(
@@ -197,7 +195,6 @@ impl Buffer {
     /// Render to the internal texture
     pub fn render_to_self(
         &self,
-        facade: Rc<Facade>,
         vertex_buffer: &VertexBuffer<Vertex>,
         index_buffer: &NoIndices,
         time: f32,
@@ -205,7 +202,6 @@ impl Buffer {
     ) -> Result<()> {
         self.render_to(
             &mut self.texture.as_surface(),
-            facade,
             vertex_buffer,
             index_buffer,
             time,
@@ -215,9 +211,9 @@ impl Buffer {
     }
 
     /// Resize the internal texture
-    pub fn resize(&mut self, facade: Rc<Facade>, width: u32, height: u32) -> Result<()> {
+    pub fn resize(&mut self, width: u32, height: u32) -> Result<()> {
         if self.resizeable {
-            self.texture = Texture2d::empty(&*facade, width, height)?
+            self.texture = Texture2d::empty(&*self.facade, width, height)?
         }
         Ok(())
     }

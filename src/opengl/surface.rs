@@ -31,7 +31,7 @@ impl OpenGLSurface {
 }
 
 impl Surface for OpenGLSurface {
-    fn write_buffer(&mut self, buffer: &Vec<u8>, dimensions: (u32, u32)) -> Result<()> {
+    fn write_buffer(&mut self, buffer: &[u8], dimensions: (u32, u32)) -> Result<()> {
         let raw = RawImage2d::from_raw_rgba_reversed(buffer, dimensions);
         self.texture = Texture2d::new(&*self.facade, raw)?;
 
