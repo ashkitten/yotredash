@@ -3,8 +3,7 @@ rust:
   - nightly
 cache: cargo
 before_script:
-  - cargo install cargo-update || true
-  - cargo install-update -i cargo-update rustfmt-nightly
+  - cargo install --force rustfmt-nightly
 script:
   - cargo build --verbose --all
   - cargo test --verbose --all
