@@ -9,7 +9,7 @@ env_logger = "0.4.3"
 failure = "0.1.1"
 font-loader = "0.5.0"
 freetype-rs = "0.16.0"
-log = "0.3.8"
+log = "0.3.9"
 nfd = { git = "https://github.com/ashkitten/nfd-rs", branch = "dev" }
 notify = "4.0.3"
 owning_ref = "0.3.3"
