@@ -333,8 +333,30 @@ fn main() {
 
     ::std::process::exit(match run() {
         Ok(()) => 0,
-        Err(ref e) => {
-            write!(&mut ::std::io::stderr(), "{}", e).expect("Error writing to stderr");
+        Err(ref error) => {
+            let mut causes = error.causes();
+
+            error!(
+                "{}",
+                causes
+                    .next()
+                    .expect("`causes` should contain at least one error")
+            );
+            for cause in causes {
+                error!("Caused by: {}", cause);
+            }
+
+            let backtrace = format!("{}", error.backtrace());
+            if backtrace.is_empty() {
+                writeln!(
+                    ::std::io::stderr(),
+                    "Set RUST_BACKTRACE=1 to see a backtrace"
+                ).expect("Could not write to stderr");
+            } else {
+                writeln!(::std::io::stderr(), "{}", error.backtrace())
+                    .expect("Could not write to stderr");
+            }
+
             1
         }
     });
