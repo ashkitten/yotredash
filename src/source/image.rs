@@ -30,7 +30,7 @@ pub struct ImageSource {
 
 impl Source for ImageSource {
     fn new(name: &str, path: &Path) -> Result<Self, Error> {
-        info!("New image source: {}", path.to_str().unwrap());
+        debug!("New image source: {}", path.to_str().unwrap());
 
         let file = File::open(path).context("Could not open image file")?;
         let mut buf_reader = BufReader::new(file);
@@ -94,7 +94,7 @@ impl Source for ImageSource {
             _ => bail!("Image format not supported"),
         };
 
-        info!("Frame count: {}", frames.len());
+        debug!("Frame count: {}", frames.len());
 
         Ok(Self {
             name: name.to_string(),

@@ -52,8 +52,8 @@ impl Buffer {
         let vertex = config.path_to(&config.vertex);
         let fragment = config.path_to(&config.fragment);
 
-        info!("Using vertex shader: {}", vertex.to_str().unwrap());
-        info!("Using fragment shader: {}", fragment.to_str().unwrap());
+        debug!("Using vertex shader: {}", vertex.to_str().unwrap());
+        debug!("Using fragment shader: {}", fragment.to_str().unwrap());
 
         let file = File::open(vertex).context("Could not open vertex shader file")?;
         let mut buf_reader = BufReader::new(file);

@@ -67,7 +67,7 @@ impl GlyphLoader for FreeTypeRasterizer {
             })?;
 
             if let (Some(name), Some(style)) = (face.family_name(), face.style_name()) {
-                info!("Using font: {}, style: {}", name, style);
+                debug!("Using font: {}, style: {}", name, style);
             }
 
             (*face).set_char_size(to_freetype_26_6(size), 0, 0, 0)?;

@@ -120,7 +120,10 @@ impl Renderer for OpenGLRenderer {
             Rc::new(Headless::new(context)?)
         };
 
-        info!("{:?}", facade.get_context().get_opengl_version_string());
+        debug!(
+            "OpenGL backend: {}",
+            facade.get_context().get_opengl_version_string()
+        );
 
         #[cfg_attr(rustfmt, rustfmt_skip)]
         let vertices = [

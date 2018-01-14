@@ -321,7 +321,7 @@ impl Config {
 
     /// Parses the configuration from a specified file
     fn from_file(path: &Path) -> Result<Self, Error> {
-        info!("Using config file: {}", path.to_str().unwrap());
+        debug!("Using config file: {}", path.to_str().unwrap());
         let file = File::open(path).context("Unable to open config file")?;
         let mut reader = BufReader::new(file);
         let mut config_str = String::new();
