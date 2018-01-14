@@ -2,8 +2,8 @@
 use glium::backend::Facade;
 use glium::texture::{RawImage2d, Texture2d, Texture2dDataSource};
 use std::rc::Rc;
+use failure::Error;
 
-use errors::*;
 use surface::Surface;
 
 /// A `Surface` backed by a Glium `Texture2d`.
@@ -14,7 +14,7 @@ pub struct OpenGLSurface {
 
 impl OpenGLSurface {
     /// Returns a new `OpenGLSurface`, initialized with the specified `Texture2dDataSource`.
-    pub fn new<'a, T>(facade: Rc<Facade>, data: T) -> Result<OpenGLSurface>
+    pub fn new<'a, T>(facade: Rc<Facade>, data: T) -> Result<OpenGLSurface, Error>
     where
         T: Texture2dDataSource<'a>,
     {
@@ -31,7 +31,7 @@ impl OpenGLSurface {
 }
 
 impl Surface for OpenGLSurface {
-    fn write_buffer(&mut self, buffer: &[u8], dimensions: (u32, u32)) -> Result<()> {
+    fn write_buffer(&mut self, buffer: &[u8], dimensions: (u32, u32)) -> Result<(), Error> {
         let raw = RawImage2d::from_raw_rgba_reversed(buffer, dimensions);
         self.texture = Texture2d::new(&*self.facade, raw)?;
 

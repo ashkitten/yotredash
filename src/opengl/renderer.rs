@@ -12,12 +12,13 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::rc::Rc;
 use winit::EventsLoop;
+use failure::Error;
+use failure::SyncFailure;
 
 use super::buffer::Buffer;
 use super::text_renderer::TextRenderer;
 use Renderer;
 use config::Config;
-use errors::*;
 use source::{ImageSource, Source};
 
 /// Implementation of the vertex attributes for the vertex buffer
@@ -47,7 +48,7 @@ pub struct OpenGLRenderer {
 fn init_buffers(
     config: &Config,
     facade: &Rc<Facade>,
-) -> Result<HashMap<String, Rc<RefCell<Buffer>>>> {
+) -> Result<HashMap<String, Rc<RefCell<Buffer>>>, Error> {
     let mut sources = HashMap::new();
 
     for (name, sconfig) in &config.sources {
@@ -93,7 +94,7 @@ fn init_buffers(
 }
 
 impl Renderer for OpenGLRenderer {
-    fn new(config: Config, events_loop: &EventsLoop) -> Result<Self> {
+    fn new(config: Config, events_loop: &EventsLoop) -> Result<Self, Error> {
         let width = config.buffers["__default__"].width;
         let height = config.buffers["__default__"].height;
         let facade: Rc<Facade> = if !config.headless {
@@ -106,14 +107,16 @@ impl Renderer for OpenGLRenderer {
                     None
                 });
             let context_builder = ContextBuilder::new().with_vsync(config.vsync);
-            let display = Display::new(window_builder, context_builder, events_loop)?;
+            let display = Display::new(window_builder, context_builder, events_loop)
+                .map_err(SyncFailure::new)?;
             ::platform::window::init(display.gl_window().window(), &config);
 
             Rc::new(display)
         } else {
             let context = HeadlessRendererBuilder::new(width, height)
                 .with_gl_profile(GlProfile::Core)
-                .build()?;
+                .build()
+                .map_err(SyncFailure::new)?;
             Rc::new(Headless::new(context)?)
         };
 
@@ -146,7 +149,7 @@ impl Renderer for OpenGLRenderer {
         })
     }
 
-    fn render(&mut self, time: ::time::Duration, pointer: [f32; 4], fps: f32) -> Result<()> {
+    fn render(&mut self, time: ::time::Duration, pointer: [f32; 4], fps: f32) -> Result<(), Error> {
         let mut target = self.facade.draw();
 
         self.buffers["__default__"].borrow().render_to(
@@ -172,18 +175,18 @@ impl Renderer for OpenGLRenderer {
         Ok(())
     }
 
-    fn swap_buffers(&self) -> Result<()> {
+    fn swap_buffers(&self) -> Result<(), Error> {
         self.facade.get_context().swap_buffers()?;
         Ok(())
     }
 
-    fn reload(&mut self, config: &Config) -> Result<()> {
+    fn reload(&mut self, config: &Config) -> Result<(), Error> {
         info!("Reloading config");
         self.buffers = init_buffers(config, &self.facade)?;
         Ok(())
     }
 
-    fn resize(&mut self, width: u32, height: u32) -> Result<()> {
+    fn resize(&mut self, width: u32, height: u32) -> Result<(), Error> {
         for buffer in self.buffers.values() {
             buffer.borrow_mut().resize(width, height)?;
         }
@@ -196,7 +199,7 @@ impl Renderer for OpenGLRenderer {
         pointer: [f32; 4],
         fps: f32,
         path: &Path,
-    ) -> Result<()> {
+    ) -> Result<(), Error> {
         self.buffers["__default__"].borrow().render_to_self(
             &self.vertex_buffer,
             &self.index_buffer,

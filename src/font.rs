@@ -4,9 +4,9 @@ use freetype::Library;
 use freetype::face::Face;
 use owning_ref::OwningHandle;
 use std::rc::Rc;
-use util::DerefInner;
+use failure::Error;
 
-use errors::*;
+use util::DerefInner;
 
 /// Convert from pixels to 26.6 fractional points
 #[inline]
@@ -41,11 +41,11 @@ pub struct RenderedGlyph {
 /// Generic loader for glyphs
 pub trait GlyphLoader {
     /// Creates a new instance of the GlyphCache
-    fn new(path: &str, size: f32) -> Result<Self>
+    fn new(path: &str, size: f32) -> Result<Self, Error>
     where
         Self: Sized;
     /// Loads a glyph and renders it
-    fn load(&self, key: usize) -> Result<RenderedGlyph>;
+    fn load(&self, key: usize) -> Result<RenderedGlyph, Error>;
 }
 
 /// A `GlyphLoader` implementation that uses the `FreeType` library to load and render glyphs
@@ -54,7 +54,7 @@ pub struct FreeTypeRasterizer {
 }
 
 impl GlyphLoader for FreeTypeRasterizer {
-    fn new(font: &str, size: f32) -> Result<Self> {
+    fn new(font: &str, size: f32) -> Result<Self, Error> {
         let library = Library::init()?;
 
         let property = ::font_loader::system_fonts::FontPropertyBuilder::new()
@@ -78,7 +78,7 @@ impl GlyphLoader for FreeTypeRasterizer {
         }
     }
 
-    fn load(&self, key: usize) -> Result<RenderedGlyph> {
+    fn load(&self, key: usize) -> Result<RenderedGlyph, Error> {
         self.face
             .load_char(key, ::freetype::face::LoadFlag::RENDER)?;
         let slot = self.face.glyph();

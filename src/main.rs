@@ -36,9 +36,7 @@
 extern crate signal;
 
 #[macro_use]
-extern crate derive_error_chain;
-#[macro_use]
-extern crate error_chain;
+extern crate failure;
 #[macro_use]
 extern crate log;
 #[macro_use]
@@ -68,7 +66,6 @@ extern crate gif_dispose;
 extern crate image;
 
 pub mod config;
-pub mod errors;
 pub mod font;
 pub mod platform;
 pub mod surface;
@@ -82,6 +79,7 @@ use notify::Watcher;
 use std::path::Path;
 use std::sync::mpsc;
 use winit::EventsLoop;
+use failure::Error;
 
 #[cfg(unix)]
 use signal::Signal;
@@ -92,17 +90,16 @@ use signal::trap::Trap;
 use opengl::renderer::OpenGLRenderer;
 
 use config::Config;
-use errors::*;
 use util::FpsCounter;
 
 /// Renders a configured shader
 pub trait Renderer {
     /// Create a new renderer
-    fn new(config: Config, events_loop: &EventsLoop) -> Result<Self>
+    fn new(config: Config, events_loop: &EventsLoop) -> Result<Self, Error>
     where
         Self: Sized;
     /// Render the current frame
-    fn render(&mut self, time: time::Duration, pointer: [f32; 4], fps: f32) -> Result<()>;
+    fn render(&mut self, time: time::Duration, pointer: [f32; 4], fps: f32) -> Result<(), Error>;
     /// Render the current frame to a file
     fn render_to_file(
         &mut self,
@@ -110,13 +107,13 @@ pub trait Renderer {
         pointer: [f32; 4],
         fps: f32,
         path: &Path,
-    ) -> Result<()>;
+    ) -> Result<(), Error>;
     /// Tells the renderer to swap buffers (only applicable to buffered renderers)
-    fn swap_buffers(&self) -> Result<()>;
+    fn swap_buffers(&self) -> Result<(), Error>;
     /// Reload the renderer from a new configuration
-    fn reload(&mut self, config: &Config) -> Result<()>;
+    fn reload(&mut self, config: &Config) -> Result<(), Error>;
     /// Resize the renderer's output without reloading
-    fn resize(&mut self, width: u32, height: u32) -> Result<()>;
+    fn resize(&mut self, width: u32, height: u32) -> Result<(), Error>;
 }
 
 #[derive(PartialEq)]
@@ -130,7 +127,7 @@ enum RendererAction {
 fn setup_watches(
     config_path: &Path,
     config: &Config,
-) -> Result<(notify::RecommendedWatcher, mpsc::Receiver<notify::RawEvent>)> {
+) -> Result<(notify::RecommendedWatcher, mpsc::Receiver<notify::RawEvent>), Error> {
     // Create a watcher to receive filesystem events
     let (sender, receiver) = mpsc::channel();
     let mut watcher = notify::RecommendedWatcher::new_raw(sender)?;
@@ -168,7 +165,7 @@ fn setup_watches(
     Ok((watcher, receiver))
 }
 
-quick_main!(|| -> Result<()> {
+fn run() -> Result<(), Error> {
     env_logger::init()?;
 
     // Register signal handler (unix only)
@@ -329,4 +326,16 @@ quick_main!(|| -> Result<()> {
             }
         }
     }
-});
+}
+
+fn main() {
+    use std::io::Write;
+
+    ::std::process::exit(match run() {
+        Ok(()) => 0,
+        Err(ref e) => {
+            write!(&mut ::std::io::stderr(), "{}", e).expect("Error writing to stderr");
+            1
+        }
+    });
+}

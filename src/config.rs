@@ -93,10 +93,11 @@ use std::fs::File;
 use std::io::BufReader;
 use std::io::prelude::*;
 use std::path::{Path, PathBuf};
+use failure::Error;
+use failure::ResultExt;
 
 use self::buffer_config::BufferConfig;
 use self::source_config::SourceConfig;
-use errors::*;
 use platform::config::PlatformSpecificConfig;
 
 /// The main configuration contains all the information necessary to build a renderer
@@ -270,7 +271,7 @@ impl Config {
     }
 
     /// Parses the configuration from command-line arguments
-    fn merge_args(&mut self, args: &ArgMatches) -> Result<()> {
+    fn merge_args(&mut self, args: &ArgMatches) -> Result<(), Error> {
         if let Some(value) = args.value_of("width") {
             self.buffers.get_mut("__default__").unwrap().width = value.parse::<u32>()?;
         }
@@ -319,14 +320,14 @@ impl Config {
     }
 
     /// Parses the configuration from a specified file
-    fn from_file(path: &Path) -> Result<Self> {
+    fn from_file(path: &Path) -> Result<Self, Error> {
         info!("Using config file: {}", path.to_str().unwrap());
-        let file = File::open(path).chain_err(|| "Unable to open config file")?;
+        let file = File::open(path).context("Unable to open config file")?;
         let mut reader = BufReader::new(file);
         let mut config_str = String::new();
         reader
             .read_to_string(&mut config_str)
-            .chain_err(|| "Could not read config file")?;
+            .context("Could not read config file")?;
         let mut config: Config = ::serde_yaml::from_str(&config_str)?;
 
         config._cwd = path.parent().unwrap().to_path_buf();
@@ -339,7 +340,7 @@ impl Config {
 
     /// Returns the configuration, appropriately sourced from both command-line arguments and the
     /// config file
-    pub fn parse(path: &Path) -> Result<Self> {
+    pub fn parse(path: &Path) -> Result<Self, Error> {
         let app = PlatformSpecificConfig::build_cli();
         let args = app.get_matches();
 
@@ -350,7 +351,7 @@ impl Config {
     }
 
     /// Returns the chosen config file path
-    pub fn get_path() -> Result<PathBuf> {
+    pub fn get_path() -> Result<PathBuf, Error> {
         let app = PlatformSpecificConfig::build_cli();
         let args = app.get_matches();
 

@@ -12,9 +12,9 @@ use std::borrow::Cow;
 use std::cmp::max;
 use std::collections::HashMap;
 use std::rc::Rc;
+use failure::Error;
 
 use super::UniformsStorageVec;
-use errors::*;
 use font::{FreeTypeRasterizer, GlyphLoader, RenderedGlyph};
 
 /// Data about a glyph stored in the texture cache
@@ -62,7 +62,7 @@ impl<'a> Texture2dDataSource<'a> for &'a RenderedGlyph {
 
 impl GlyphCache {
     /// Create a new instance
-    pub fn new<L>(facade: &Rc<Facade>, loader: Rc<L>) -> Result<Self>
+    pub fn new<L>(facade: &Rc<Facade>, loader: Rc<L>) -> Result<Self, Error>
     where
         L: GlyphLoader + 'static,
     {
@@ -89,7 +89,7 @@ impl GlyphCache {
     }
 
     /// Get a `&GlyphData` corresponding to the char code
-    pub fn get(&mut self, key: usize) -> Result<&GlyphData> {
+    pub fn get(&mut self, key: usize) -> Result<&GlyphData, Error> {
         if self.cache.contains_key(&key) {
             Ok(&self.cache[&key])
         } else {
@@ -98,7 +98,7 @@ impl GlyphCache {
     }
 
     /// Insert a new glyph into the cache texture from the loader, and return a reference to it
-    pub fn insert(&mut self, key: usize) -> Result<&GlyphData> {
+    pub fn insert(&mut self, key: usize) -> Result<&GlyphData, Error> {
         let rendered = self.loader.load(key)?;
 
         if rendered.width == 0 || rendered.height == 0 {
@@ -230,7 +230,7 @@ pub struct TextRenderer {
 
 impl TextRenderer {
     /// Create a new instance using a specified font and size
-    pub fn new(facade: Rc<Facade>, font: &str, font_size: f32) -> Result<Self> {
+    pub fn new(facade: Rc<Facade>, font: &str, font_size: f32) -> Result<Self, Error> {
         let glyph_cache = GlyphCache::new(
             &Rc::clone(&facade),
             Rc::new(FreeTypeRasterizer::new(font, font_size)?),
@@ -284,7 +284,7 @@ impl TextRenderer {
         x: f32,
         y: f32,
         color: [f32; 3],
-    ) -> Result<()>
+    ) -> Result<(), Error>
     where
         S: Surface,
     {

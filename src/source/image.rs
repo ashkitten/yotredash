@@ -9,9 +9,10 @@ use std::io::{BufReader, SeekFrom};
 use std::io::prelude::*;
 use std::path::Path;
 use time::{self, Duration, Tm};
+use failure::Error;
+use failure::ResultExt;
 
 use super::{Frame, Source};
-use errors::*;
 use surface::Surface;
 
 /// A `Source` that reads an image from file and returns frames from that image
@@ -28,16 +29,16 @@ pub struct ImageSource {
 }
 
 impl Source for ImageSource {
-    fn new(name: &str, path: &Path) -> Result<Self> {
+    fn new(name: &str, path: &Path) -> Result<Self, Error> {
         info!("New image source: {}", path.to_str().unwrap());
 
-        let file = File::open(path).chain_err(|| "Could not open image file")?;
+        let file = File::open(path).context("Could not open image file")?;
         let mut buf_reader = BufReader::new(file);
         let mut buf = Vec::new();
         buf_reader.read_to_end(&mut buf)?;
         buf_reader.seek(SeekFrom::Start(0))?;
 
-        fn decode_frame<D>(decoder: D) -> Result<(Frame, Duration)>
+        fn decode_frame<D>(decoder: D) -> Result<(Frame, Duration), Error>
         where
             D: ImageDecoder,
         {
@@ -128,7 +129,7 @@ impl Source for ImageSource {
         self.frames[self.current_frame].0.clone()
     }
 
-    fn write_frame(&self, surface: &mut Surface) -> Result<()> {
+    fn write_frame(&self, surface: &mut Surface) -> Result<(), Error> {
         let frame = &self.frames[self.current_frame].0;
         surface.write_buffer(&frame.buffer, frame.dimensions())?;
 

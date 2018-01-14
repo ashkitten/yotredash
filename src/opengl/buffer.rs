@@ -12,12 +12,13 @@ use std::fs::File;
 use std::io::BufReader;
 use std::io::prelude::*;
 use std::rc::Rc;
+use failure::Error;
+use failure::ResultExt;
 
 use super::{MapAsUniform, UniformsStorageVec};
 use super::renderer::Vertex;
 use super::surface::OpenGLSurface;
 use config::buffer_config::BufferConfig;
-use errors::*;
 use source::Source;
 use util::DerefInner;
 
@@ -47,26 +48,26 @@ impl Buffer {
         facade: Rc<Facade>,
         config: &BufferConfig,
         sources: Vec<Rc<RefCell<Source>>>,
-    ) -> Result<Self> {
+    ) -> Result<Self, Error> {
         let vertex = config.path_to(&config.vertex);
         let fragment = config.path_to(&config.fragment);
 
         info!("Using vertex shader: {}", vertex.to_str().unwrap());
         info!("Using fragment shader: {}", fragment.to_str().unwrap());
 
-        let file = File::open(vertex).chain_err(|| "Could not open vertex shader file")?;
+        let file = File::open(vertex).context("Could not open vertex shader file")?;
         let mut buf_reader = BufReader::new(file);
         let mut vertex_source = String::new();
         buf_reader
             .read_to_string(&mut vertex_source)
-            .chain_err(|| "Could not read vertex shader file")?;
+            .context("Could not read vertex shader file")?;
 
-        let file = File::open(fragment).chain_err(|| "Could not open fragment shader file")?;
+        let file = File::open(fragment).context("Could not open fragment shader file")?;
         let mut buf_reader = BufReader::new(file);
         let mut fragment_source = String::new();
         buf_reader
             .read_to_string(&mut fragment_source)
-            .chain_err(|| "Could not read fragment shader file")?;
+            .context("Could not read fragment shader file")?;
 
         let input = ProgramCreationInput::SourceCode {
             vertex_shader: &vertex_source,
@@ -122,7 +123,7 @@ impl Buffer {
         index_buffer: &NoIndices,
         time: f32,
         pointer: [f32; 4],
-    ) -> Result<()>
+    ) -> Result<(), Error>
     where
         S: Surface,
     {
@@ -199,7 +200,7 @@ impl Buffer {
         index_buffer: &NoIndices,
         time: f32,
         pointer: [f32; 4],
-    ) -> Result<()> {
+    ) -> Result<(), Error> {
         self.render_to(
             &mut self.texture.as_surface(),
             vertex_buffer,
@@ -211,7 +212,7 @@ impl Buffer {
     }
 
     /// Resize the internal texture
-    pub fn resize(&mut self, width: u32, height: u32) -> Result<()> {
+    pub fn resize(&mut self, width: u32, height: u32) -> Result<(), Error> {
         if self.resizeable {
             self.texture = Texture2d::empty(&*self.facade, width, height)?
         }

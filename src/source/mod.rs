@@ -7,8 +7,8 @@
 pub mod image;
 
 use std::path::Path;
+use failure::Error;
 
-use errors::*;
 use surface::Surface;
 
 #[cfg(feature = "image-src")]
@@ -37,7 +37,7 @@ impl Frame {
 /// image data
 pub trait Source {
     /// Create a new instance of the source, taking a `&Path` as input
-    fn new(name: &str, path: &Path) -> Result<Self>
+    fn new(name: &str, path: &Path) -> Result<Self, Error>
     where
         Self: Sized;
     /// Get the name of the source as defined in the configuration file
@@ -48,5 +48,5 @@ pub trait Source {
     /// Gets the `Frame` for rendering
     fn get_frame(&self) -> Frame;
     /// Writes the current `Frame` to a `Surface`.
-    fn write_frame(&self, surface: &mut Surface) -> Result<()>;
+    fn write_frame(&self, surface: &mut Surface) -> Result<(), Error>;
 }
