@@ -87,10 +87,14 @@ pub mod font;
 pub mod platform;
 pub mod util;
 
+#[cfg(feature = "audio")]
+pub mod audio;
+
 #[cfg(feature = "opengl")]
 pub mod opengl;
 
 use failure::Error;
+use failure::ResultExt;
 use notify::Watcher;
 use std::path::Path;
 use std::sync::mpsc;
@@ -197,6 +201,15 @@ fn run() -> Result<(), Error> {
     // Setup filesystem watches
     let (mut watcher, mut receiver) = setup_watches(&config_path, &config)?;
 
+    // Setup audio
+    #[cfg(feature = "audio")]
+    let audio = {
+        let mut audio = audio::setup().context("Audio subsystem setup failed.")?;
+        audio.run();
+        audio
+    };
+
+    // Creates an appropriate renderer for the configuration, exits with an error if that fails
     let mut events_loop = winit::EventsLoop::new();
 
     let (mut event_sender, event_receiver) = mpsc::channel();
