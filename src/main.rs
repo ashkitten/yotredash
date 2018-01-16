@@ -76,6 +76,11 @@ extern crate gif_dispose;
 #[cfg(feature = "image-src")]
 extern crate image;
 
+#[cfg(feature = "audio")]
+extern crate portaudio;
+#[cfg(feature = "audio")]
+extern crate rb;
+
 pub mod config;
 pub mod event;
 pub mod font;

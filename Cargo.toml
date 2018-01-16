@@ -29,6 +29,10 @@ gif = { version = "0.9.2", optional = true }
 gif-dispose = { version = "2.1.0", optional = true }
 image = { version = "0.18.0", optional = true }
 
+# Needed by audio feature
+portaudio = { version = "0.7.0", optional = true }
+rb = { version = "0.3.1", optional = true }
+
 [target.'cfg(unix)'.dependencies]
 signal = "0.4.0"
 
@@ -36,9 +40,10 @@ signal = "0.4.0"
 glob = "0.2.11"
 
 [features]
-default = ["opengl", "image-src"]
+default = ["opengl", "image-src", "audio"]
 opengl = ["glium"]
 image-src = ["gif", "gif-dispose", "image"]
+audio = ["portaudio", "rb"]
 
 [replace]
 "servo-fontconfig-sys:4.0.4" = { git = "https://github.com/ashkitten/libfontconfig" }
