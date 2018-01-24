@@ -17,9 +17,13 @@ use platform::config::PlatformSpecificConfig;
 #[derive(Debug, Deserialize, Clone)]
 #[allow(non_camel_case_types)]
 pub enum BlendOp {
+    /// Take the minimum RGBA value
     min,
+    /// Take the maximum RGBA value
     max,
+    /// Add the RGBA values
     add,
+    /// Subtract the RGBA values
     sub,
 }
 

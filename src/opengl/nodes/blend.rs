@@ -1,3 +1,5 @@
+//! The blend node takes the output of other nodes and blends them to produce one output
+
 use failure::Error;
 use glium::backend::Facade;
 use glium::draw_parameters::{Blend, DrawParameters};
@@ -50,7 +52,7 @@ const FRAGMENT: &str = "
     }
 ";
 
-/// A node that mixes other nodes
+/// A node that blends the output of other nodes
 pub struct BlendNode {
     /// The name of the node
     name: String,
@@ -58,7 +60,7 @@ pub struct BlendNode {
     facade: Rc<Facade>,
     /// The inner texture it renders to
     texture: Rc<Texture2d>,
-    /// Shader program used to mix the inputs
+    /// Shader program used to blend the inputs
     program: Program,
     /// Vertex buffer for the shader
     vertex_buffer: VertexBuffer<Vertex>,
@@ -74,7 +76,10 @@ impl BlendNode {
         operation: BlendOp,
         inputs: Vec<String>,
     ) -> Result<Self, Error> {
-        debug!("New BlendNode: {}, operation: {:?}, inputs: {:?}", name, operation, inputs);
+        debug!(
+            "New BlendNode: {}, operation: {:?}, inputs: {:?}",
+            name, operation, inputs
+        );
 
         let op_fmt = match operation {
             BlendOp::min => "color = min(texture(%INPUT%, uv);",
