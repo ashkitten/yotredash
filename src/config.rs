@@ -14,8 +14,9 @@ use failure::ResultExt;
 use platform::config::PlatformSpecificConfig;
 
 /// The node configuration contains all the information necessary to build a node
-#[derive(Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone)]
 #[serde(tag = "type")]
+#[serde(deny_unknown_fields)]
 pub enum NodeConfig {
     /// Image node type
     Image {
@@ -32,12 +33,14 @@ pub enum NodeConfig {
         fragment: PathBuf,
 
         /// Input nodes for the shader program
+        #[serde(default)]
         dependencies: Vec<String>,
     },
 }
 
 /// The main configuration contains all the information necessary to build a renderer
-#[derive(Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone)]
+#[serde(deny_unknown_fields)]
 pub struct Config {
     /// The current working directory
     /// Not meant to actually be specified in yaml, but can be

@@ -11,6 +11,7 @@ use glium::program::ProgramCreationInput;
 use glium::texture::{MipmapsOption, RawImage2d, Texture2d};
 use image::ImageFormat::*;
 use image::{self, ImageDecoder};
+use owning_ref::OwningHandle;
 use std::fs::File;
 use std::io::prelude::*;
 use std::io::{BufReader, SeekFrom};
@@ -18,8 +19,9 @@ use std::path::Path;
 use std::rc::Rc;
 use time::{self, Duration, Tm};
 
+use opengl::{MapAsUniform, UniformsStorageVec, Vertex};
 use super::Node;
-use opengl::{UniformsStorageVec, Vertex};
+use util::DerefInner;
 
 #[cfg_attr(rustfmt, rustfmt_skip)]
 const VERTICES: [Vertex; 6] = [
@@ -62,7 +64,7 @@ pub struct ImageNode {
     /// The Facade used to create textures
     facade: Rc<Facade>,
     /// GPU texture containing an atlas of the image frames
-    textures: Vec<Texture2d>,
+    textures: Rc<Vec<Texture2d>>,
     /// The current frame of an animated image
     current_frame: usize,
     /// The time that the current frame started rendering - we need to keep track of this so we can
@@ -105,7 +107,11 @@ impl ImageNode {
             Ok(Program::new(&**facade, input)?)
         }
 
-        fn decode_single<D>(facade: &Rc<Facade>, name: String, decoder: D) -> Result<ImageNode, Error>
+        fn decode_single<D>(
+            facade: &Rc<Facade>,
+            name: String,
+            decoder: D,
+        ) -> Result<ImageNode, Error>
         where
             D: ImageDecoder,
         {
@@ -113,9 +119,9 @@ impl ImageNode {
             let (width, height) = buffer.dimensions();
             let buffer = buffer.into_raw();
             let raw = RawImage2d::from_raw_rgba_reversed(&buffer, (width, height));
-            let textures = vec![
+            let textures = Rc::new(vec![
                 Texture2d::with_mipmaps(&**facade, raw, MipmapsOption::NoMipmap)?,
-            ];
+            ]);
 
             Ok(ImageNode {
                 name,
@@ -148,7 +154,7 @@ impl ImageNode {
                 let width = reader.width() as usize;
                 let height = reader.height() as usize;
 
-                let mut textures = Vec::new();
+                let mut raws = Vec::new();
                 let mut durations = Vec::new();
                 while let Some(frame) = reader.read_next_frame()? {
                     screen.blit_frame(frame)?;
@@ -157,17 +163,23 @@ impl ImageNode {
                     for pixel in screen.pixels.pixels() {
                         pixels.extend(pixel.iter());
                     }
-                    let raw =
-                        RawImage2d::from_raw_rgba_reversed(&pixels, (width as u32, height as u32));
-                    textures.push(Texture2d::with_mipmaps(
-                        &**facade,
-                        raw,
-                        MipmapsOption::NoMipmap,
-                    )?);
+                    raws.push(RawImage2d::from_raw_rgba_reversed(
+                        &pixels,
+                        (width as u32, height as u32),
+                    ));
 
                     // GIF delays are in 100ths of a second
                     durations.push(Duration::milliseconds(i64::from(frame.delay) * 10));
                 }
+
+                let textures = Rc::new(
+                    raws.into_iter()
+                        .map(|raw| {
+                            Texture2d::with_mipmaps(&**facade, raw, MipmapsOption::NoMipmap)
+                                .unwrap()
+                        })
+                        .collect(),
+                );
 
                 Self {
                     name,
@@ -202,7 +214,12 @@ impl Node for ImageNode {
     fn render(&mut self, uniforms: &mut UniformsStorageVec) -> Result<(), Error> {
         self.update();
 
-        uniforms.push(self.name, self.textures[self.current_frame].sampled());
+        let sampled = OwningHandle::new_with_fn(self.textures.clone(), |t| unsafe {
+            DerefInner((*t)[self.current_frame].sampled())
+        });
+        let sampled = MapAsUniform(sampled, |s| &**s);
+
+        uniforms.push(self.name.clone(), sampled);
 
         Ok(())
     }
@@ -232,7 +249,11 @@ impl Node for ImageNode {
         Ok(())
     }
 
-    fn render_to_file(&mut self, _uniforms: &mut UniformsStorageVec, path: &Path) -> Result<(), Error> {
+    fn render_to_file(
+        &mut self,
+        _uniforms: &mut UniformsStorageVec,
+        path: &Path,
+    ) -> Result<(), Error> {
         self.update();
 
         let raw: RawImage2d<u8> = self.textures[self.current_frame].read();

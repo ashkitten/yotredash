@@ -3,7 +3,7 @@ nodes:
     type: Buffer
     vertex: ../default.vert
     fragment: fxaa.frag
-    depends:
+    dependencies:
       - raymarch
 
   raymarch:

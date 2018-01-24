@@ -5,7 +5,8 @@ use clap::{App, Arg, ArgMatches};
 use Config;
 
 /// Platform-specific configuration
-#[derive(Deserialize, Default, Clone)]
+/// Be careful with this, because specifying an unknown field will not cause an error
+#[derive(Debug, Deserialize, Default, Clone)]
 pub struct PlatformSpecificConfig {
     // TODO: implement
     /// Whether or not to draw on the root window

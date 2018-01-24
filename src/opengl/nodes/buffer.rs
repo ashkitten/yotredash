@@ -9,14 +9,16 @@ use glium::program::ProgramCreationInput;
 use glium::texture::{RawImage2d, Texture2d};
 use glium::{Program, Surface, VertexBuffer};
 use image;
+use owning_ref::OwningHandle;
 use std::fs::File;
 use std::io::BufReader;
 use std::io::prelude::*;
 use std::path::Path;
 use std::rc::Rc;
 
+use opengl::{MapAsUniform, UniformsStorageVec, Vertex};
 use super::Node;
-use opengl::{UniformsStorageVec, Vertex};
+use util::DerefInner;
 
 #[cfg_attr(rustfmt, rustfmt_skip)]
 const VERTICES: [Vertex; 6] = [
@@ -35,7 +37,7 @@ pub struct BufferNode {
     /// The Facade it uses to work with the OpenGL context
     facade: Rc<Facade>,
     /// The inner texture which it renders to
-    texture: Texture2d,
+    texture: Rc<Texture2d>,
     /// A shader program which it uses for rendering
     program: Program,
     /// Vertex buffer
@@ -46,7 +48,12 @@ pub struct BufferNode {
 
 impl BufferNode {
     /// Create a new instance
-    pub fn new(facade: &Rc<Facade>, name: String, vertex: &Path, fragment: &Path) -> Result<Self, Error> {
+    pub fn new(
+        facade: &Rc<Facade>,
+        name: String,
+        vertex: &Path,
+        fragment: &Path,
+    ) -> Result<Self, Error> {
         let (width, height) = facade.get_context().get_framebuffer_dimensions();
 
         debug!("Using vertex shader: {}", vertex.to_str().unwrap());
@@ -79,7 +86,7 @@ impl BufferNode {
 
         let program = Program::new(&**facade, input)?;
 
-        let texture = Texture2d::empty(&**facade, width, height)?;
+        let texture = Rc::new(Texture2d::empty(&**facade, width, height)?);
 
         let vertex_buffer = VertexBuffer::new(&**facade, &VERTICES)?;
         let index_buffer = NoIndices(PrimitiveType::TrianglesList);
@@ -99,7 +106,7 @@ impl Node for BufferNode {
     fn render(&mut self, uniforms: &mut UniformsStorageVec) -> Result<(), Error> {
         let mut surface = self.texture.as_surface();
 
-        let input = uniforms.clone();
+        let mut input = uniforms.clone();
         input.push(
             "resolution",
             (
@@ -117,20 +124,22 @@ impl Node for BufferNode {
             &Default::default(),
         )?;
 
-        uniforms.push(self.name, self.texture.sampled());
+        let sampled = OwningHandle::new_with_fn(self.texture.clone(), |t| unsafe {
+            DerefInner((*t).sampled())
+        });
+        let sampled = MapAsUniform(sampled, |s| &**s);
+
+        uniforms.push(self.name.clone(), sampled);
 
         Ok(())
     }
 
     fn present(&mut self, uniforms: &mut UniformsStorageVec) -> Result<(), Error> {
-        let input = uniforms.clone();
-        input.push(
-            "resolution",
-            {
-                let (width, height) = self.facade.get_context().get_framebuffer_dimensions();
-                (width as f32, height as f32)
-            },
-        );
+        let mut input = uniforms.clone();
+        input.push("resolution", {
+            let (width, height) = self.facade.get_context().get_framebuffer_dimensions();
+            (width as f32, height as f32)
+        });
 
         let mut target = self.facade.draw();
         target.clear_color(0.0, 0.0, 0.0, 1.0);
@@ -146,7 +155,11 @@ impl Node for BufferNode {
         Ok(())
     }
 
-    fn render_to_file(&mut self, uniforms: &mut UniformsStorageVec, path: &Path) -> Result<(), Error> {
+    fn render_to_file(
+        &mut self,
+        uniforms: &mut UniformsStorageVec,
+        path: &Path,
+    ) -> Result<(), Error> {
         self.render(uniforms)?;
 
         let raw: RawImage2d<u8> = self.texture.read();

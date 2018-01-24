@@ -1,3 +1,6 @@
+//! Nodes are the basic building blocks for the renderer.
+// TODO: expand documentation and add examples
+
 #[cfg(feature = "image-src")]
 pub mod image;
 pub mod buffer;

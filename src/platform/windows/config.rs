@@ -3,7 +3,8 @@ use clap::{App, ArgMatches};
 use config::Config;
 
 /// Platform-specific configuration
-#[derive(Deserialize, Default, Clone)]
+/// Be careful with this, because specifying an unknown field will not cause an error
+#[derive(Debug, Deserialize, Default, Clone)]
 pub struct PlatformSpecificConfig {}
 
 impl PlatformSpecificConfig {

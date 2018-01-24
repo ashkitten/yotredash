@@ -63,11 +63,17 @@ impl Renderer for OpenGLRenderer {
         let mut nodes: HashMap<String, Box<Node>> = HashMap::new();
         let mut dep_graph: DepGraph<&str> = DepGraph::new();
         for (name, node_config) in config.nodes.iter() {
+            debug!("Node '{}': {:?}", name, node_config);
+
             match *node_config {
                 NodeConfig::Image { ref path } => {
                     nodes.insert(
                         name.to_string(),
-                        Box::new(ImageNode::new(&facade, name.to_string(), &config.path_to(path))?),
+                        Box::new(ImageNode::new(
+                            &facade,
+                            name.to_string(),
+                            &config.path_to(path),
+                        )?),
                     );
                 }
                 NodeConfig::Buffer {
@@ -85,7 +91,10 @@ impl Renderer for OpenGLRenderer {
                         )?),
                     );
 
-                    dep_graph.register_dependencies(name, dependencies.iter().map(|dep| dep.as_str()).collect());
+                    dep_graph.register_dependencies(
+                        name,
+                        dependencies.iter().map(|dep| dep.as_str()).collect(),
+                    );
                 }
             }
         }
@@ -94,6 +103,8 @@ impl Renderer for OpenGLRenderer {
         for dep in dep_graph.dependencies_of(&"__default__")? {
             order.push(dep?.to_string());
         }
+
+        debug!("Render order: {:?}", order);
 
         Ok(Self {
             facade,
@@ -120,15 +131,9 @@ impl Renderer for OpenGLRenderer {
 
         for name in &self.order {
             if name == "__default__" {
-                self.nodes
-                    .get_mut(name)
-                    .unwrap()
-                    .present(&mut uniforms)?;
+                self.nodes.get_mut(name).unwrap().present(&mut uniforms)?;
             } else {
-                let output = self.nodes
-                    .get_mut(name)
-                    .unwrap()
-                    .render(&mut uniforms)?;
+                self.nodes.get_mut(name).unwrap().render(&mut uniforms)?;
             }
         }
 
@@ -173,10 +178,7 @@ impl Renderer for OpenGLRenderer {
                     .unwrap()
                     .render_to_file(&mut uniforms, path)?;
             } else {
-                let output = self.nodes
-                    .get_mut(name)
-                    .unwrap()
-                    .render(&mut uniforms)?;
+                self.nodes.get_mut(name).unwrap().render(&mut uniforms)?;
             }
         }
 
