@@ -1,8 +1,4 @@
-//! A `Buffer` contains a `Program` and renders it to an inner texture with input uniforms from
-//! `Source`s and other `Buffer` dependencies
-
 use failure::Error;
-use failure::ResultExt;
 use glium::backend::Facade;
 use glium::index::{NoIndices, PrimitiveType};
 use glium::program::ProgramCreationInput;
@@ -10,13 +6,10 @@ use glium::texture::{RawImage2d, Texture2d};
 use glium::{Program, Surface, VertexBuffer};
 use image;
 use owning_ref::OwningHandle;
-use std::fs::File;
-use std::io::BufReader;
-use std::io::prelude::*;
 use std::path::Path;
 use std::rc::Rc;
 
-use opengl::{MapAsUniform, UniformsStorageVec, Vertex};
+use opengl::{UniformsStorageVec, MapAsUniform, Vertex};
 use super::Node;
 use util::DerefInner;
 
@@ -30,59 +23,94 @@ const VERTICES: [Vertex; 6] = [
     Vertex { position: [-1.0,  1.0] },
 ];
 
-/// A node that renders a shader program
-pub struct BufferNode {
+const VERTEX: &str = "
+    #version 140
+
+    in vec2 position;
+
+    void main() {
+        gl_Position = vec4(position, 0.0, 1.0);
+    }
+";
+
+const FRAGMENT: &str = "
+    #version 140
+
+    out vec4 color;
+
+    uniform vec2 resolution;
+
+    %INPUTS%
+
+    void main() {
+        vec2 uv = gl_FragCoord.xy / resolution;
+        %MIXING%
+    }
+";
+
+/// A node that mixes other nodes
+pub struct MixNode {
     /// The name of the node
     name: String,
     /// The Facade it uses to work with the OpenGL context
     facade: Rc<Facade>,
-    /// The inner texture which it renders to
+    /// The inner texture it renders to
     texture: Rc<Texture2d>,
-    /// A shader program which it uses for rendering
+    /// Shader program used to mix the inputs
     program: Program,
-    /// Vertex buffer
+    /// Vertex buffer for the shader
     vertex_buffer: VertexBuffer<Vertex>,
-    /// Index buffer
+    /// Index buffer for the shader
     index_buffer: NoIndices,
 }
 
-impl BufferNode {
+impl MixNode {
     /// Create a new instance
     pub fn new(
         facade: &Rc<Facade>,
         name: String,
-        vertex: &Path,
-        fragment: &Path,
+        inputs: Vec<(String, f32)>,
     ) -> Result<Self, Error> {
-        debug!("Using vertex shader: {}", vertex.to_str().unwrap());
-        debug!("Using fragment shader: {}", fragment.to_str().unwrap());
+        debug!("New MixNode: {}, inputs: {:?}", name, inputs);
 
-        let file = File::open(vertex).context("Could not open vertex shader file")?;
-        let mut buf_reader = BufReader::new(file);
-        let mut vertex_source = String::new();
-        buf_reader
-            .read_to_string(&mut vertex_source)
-            .context("Could not read vertex shader file")?;
+        let fragment = FRAGMENT
+            .replace("%INPUTS%", {
+                inputs
+                    .iter()
+                    .map(|input| format!("uniform sampler2D {};", input.0))
+                    .collect::<Vec<String>>()
+                    .join("\n")
+                    .as_str()
+            })
+            .replace("%MIXING%", {
+                let mut iter = inputs.iter();
+                &format!(
+                    "color = texture({}, uv);\n{}",
+                    iter.next().expect("Mix node have at least one input").0,
+                    iter.map(|input| format!(
+                        "color = mix(color, texture({}, uv), {});",
+                        input.0, input.1
+                    )).collect::<Vec<String>>()
+                        .join("\n")
+                        .as_str()
+                )
+            });
 
-        let file = File::open(fragment).context("Could not open fragment shader file")?;
-        let mut buf_reader = BufReader::new(file);
-        let mut fragment_source = String::new();
-        buf_reader
-            .read_to_string(&mut fragment_source)
-            .context("Could not read fragment shader file")?;
+        println!("{}", fragment);
 
-        let input = ProgramCreationInput::SourceCode {
-            vertex_shader: &vertex_source,
-            tessellation_control_shader: None,
-            tessellation_evaluation_shader: None,
-            geometry_shader: None,
-            fragment_shader: &fragment_source,
-            transform_feedback_varyings: None,
-            outputs_srgb: true,
-            uses_point_size: false,
+        let program = {
+            let input = ProgramCreationInput::SourceCode {
+                vertex_shader: &VERTEX,
+                tessellation_control_shader: None,
+                tessellation_evaluation_shader: None,
+                geometry_shader: None,
+                fragment_shader: &fragment,
+                transform_feedback_varyings: None,
+                outputs_srgb: true,
+                uses_point_size: false,
+            };
+            Program::new(&**facade, input)?
         };
-
-        let program = Program::new(&**facade, input)?;
 
         let (width, height) = facade.get_context().get_framebuffer_dimensions();
         let texture = Rc::new(Texture2d::empty(&**facade, width, height)?);
@@ -98,7 +126,7 @@ impl BufferNode {
     }
 }
 
-impl Node for BufferNode {
+impl Node for MixNode {
     fn render(&mut self, uniforms: &mut UniformsStorageVec) -> Result<(), Error> {
         let mut surface = self.texture.as_surface();
 
@@ -109,7 +137,7 @@ impl Node for BufferNode {
             &self.program,
             uniforms,
             &Default::default(),
-        ).unwrap();
+        )?;
 
         let sampled = OwningHandle::new_with_fn(self.texture.clone(), |t| unsafe {
             DerefInner((*t).sampled())

@@ -1,0 +1,16 @@
+nodes:
+  __default__:
+    type: Mix
+    inputs:
+      pointer_buf: 1.0
+      gradient: 0.3 # This value is ignored
+
+  pointer_buf:
+    type: Buffer
+    vertex: ../default.vert
+    fragment: ../pointer/pointer.frag
+
+  gradient:
+    type: Buffer
+    vertex: ../default.vert
+    fragment: ../gradient/gradient.frag

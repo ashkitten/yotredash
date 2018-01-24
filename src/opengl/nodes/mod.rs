@@ -4,6 +4,7 @@
 #[cfg(feature = "image-src")]
 pub mod image;
 pub mod buffer;
+pub mod mix;
 
 use failure::Error;
 use std::path::Path;
@@ -12,6 +13,7 @@ use std::path::Path;
 pub use self::image::ImageNode;
 
 pub use self::buffer::BufferNode;
+pub use self::mix::MixNode;
 use super::UniformsStorageVec;
 
 /// A `Node` is something that takes input as a UniformsStorage and returns data in a

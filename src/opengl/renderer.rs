@@ -15,7 +15,7 @@ use winit::EventsLoop;
 use Renderer;
 use config::{Config, NodeConfig};
 use super::UniformsStorageVec;
-use super::nodes::{BufferNode, ImageNode, Node};
+use super::nodes::*;
 
 /// An implementation of a `Renderer` which uses OpenGL
 pub struct OpenGLRenderer {
@@ -79,7 +79,7 @@ impl Renderer for OpenGLRenderer {
                 NodeConfig::Buffer {
                     ref vertex,
                     ref fragment,
-                    ref dependencies,
+                    ref inputs,
                 } => {
                     nodes.insert(
                         name.to_string(),
@@ -93,7 +93,18 @@ impl Renderer for OpenGLRenderer {
 
                     dep_graph.register_dependencies(
                         name,
-                        dependencies.iter().map(|dep| dep.as_str()).collect(),
+                        inputs.iter().map(|input| input.as_str()).collect(),
+                    );
+                }
+                NodeConfig::Mix { ref inputs } => {
+                    nodes.insert(
+                        name.to_string(),
+                        Box::new(MixNode::new(&facade, name.to_string(), inputs.clone())?),
+                    );
+
+                    dep_graph.register_dependencies(
+                        name,
+                        inputs.iter().map(|input| input.0.as_str()).collect(),
                     );
                 }
             }
@@ -114,20 +125,19 @@ impl Renderer for OpenGLRenderer {
     }
 
     fn render(&mut self, time: ::time::Duration, pointer: [f32; 4], fps: f32) -> Result<(), Error> {
+        let (width, height) = self.facade.get_context().get_framebuffer_dimensions();
         let time = (time.num_nanoseconds().unwrap() as f32) / 1000_000_000.0 % 4096.0;
-        let pointer = {
-            let height = self.facade.get_context().get_framebuffer_dimensions().1 as f32;
-            [
-                pointer[0],
-                height - pointer[1],
-                pointer[2],
-                height - pointer[3],
-            ]
-        };
+        let pointer = [
+            pointer[0],
+            height as f32 - pointer[1],
+            pointer[2],
+            height as f32 - pointer[3],
+        ];
 
         let mut uniforms = UniformsStorageVec::new();
-        uniforms.push("time".to_string(), time);
-        uniforms.push("pointer".to_string(), pointer);
+        uniforms.push("time", time);
+        uniforms.push("pointer", pointer);
+        uniforms.push("resolution", (width as f32, height as f32));
 
         for name in &self.order {
             if name == "__default__" {

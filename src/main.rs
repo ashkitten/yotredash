@@ -53,6 +53,7 @@ extern crate rect_packer;
 extern crate serde_yaml;
 extern crate solvent;
 extern crate time;
+extern crate tuple_vec_map;
 extern crate winit;
 
 #[cfg(feature = "opengl")]
@@ -157,6 +158,7 @@ fn setup_watches(
                         notify::RecursiveMode::NonRecursive,
                     )?;
                 }
+                _ => (),
             }
         }
     }

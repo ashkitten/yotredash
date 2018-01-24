@@ -34,7 +34,14 @@ pub enum NodeConfig {
 
         /// Input nodes for the shader program
         #[serde(default)]
-        dependencies: Vec<String>,
+        inputs: Vec<String>,
+    },
+
+    /// Mix node type
+    Mix {
+        /// Input node names and alpha transparencies
+        #[serde(with = "::tuple_vec_map")]
+        inputs: Vec<(String, f32)>,
     },
 }
 

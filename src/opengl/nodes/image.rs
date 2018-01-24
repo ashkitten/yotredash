@@ -243,7 +243,7 @@ impl Node for ImageNode {
             &self.program,
             &input,
             &Default::default(),
-        )?;
+        ).unwrap(); // For some reason if we return this error, it panicks because finish() is never called
         target.finish()?;
 
         Ok(())
