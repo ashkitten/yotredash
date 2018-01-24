@@ -1,91 +1,6 @@
 //! The `config` module provides definitions for all configuration structs as well as methods
 //! necessary for configuration via yaml and command line.
 
-/// The source configuration contains all the information necessary to build a source
-pub mod source_config {
-    use std::path::PathBuf;
-
-    /// The source configuration contains all the information necessary to build a source
-    #[derive(Deserialize, Clone)]
-    pub struct SourceConfig {
-        /// The path to the source file (relative to the configuration file, if there is one)
-        pub path: PathBuf,
-        /// The kind of the source file (image, etc) if applicable
-        pub kind: String,
-    }
-}
-
-/// The buffer configuration contains all the information necessary to build a buffer
-pub mod buffer_config {
-    use std::path::{Path, PathBuf};
-
-    /// The buffer configuration contains all the information necessary to build a buffer
-    #[derive(Deserialize, Clone)]
-    pub struct BufferConfig {
-        /// The current working directory relative to the main config file
-        #[serde(default)]
-        pub _cwd: PathBuf,
-
-        /// The path to the vertex shader (relative to the configuration file, if there is one)
-        pub vertex: PathBuf,
-
-        /// The path to the fragment shader (relative to the configuration file, if there is one)
-        pub fragment: PathBuf,
-
-        /// The names of the source configurations this buffer references
-        #[serde(default = "default_sources")]
-        pub sources: Vec<String>,
-
-        /// The width of the buffer
-        #[serde(default = "default_width")]
-        pub width: u32,
-
-        /// The height of the buffer
-        #[serde(default = "default_height")]
-        pub height: u32,
-
-        /// The names of the buffer configurations this buffer references
-        #[serde(default = "default_depends")]
-        pub depends: Vec<String>,
-
-        /// Whether or not this buffer is resizeable
-        #[serde(default = "default_resizeable")]
-        pub resizeable: bool,
-    }
-
-    /// A function that returns the default value of the `sources` field
-    pub fn default_sources() -> Vec<String> {
-        Vec::new()
-    }
-
-    /// A function that returns the default value of the `width` field
-    pub fn default_width() -> u32 {
-        640
-    }
-
-    /// A function that returns the default value of the `height` field
-    pub fn default_height() -> u32 {
-        400
-    }
-
-    /// A function that returns the default value of the `depends` field
-    pub fn default_depends() -> Vec<String> {
-        Vec::new()
-    }
-
-    /// A function that returns the default value of the `resizeable` field
-    pub fn default_resizeable() -> bool {
-        true
-    }
-
-    impl BufferConfig {
-        /// Provides a way to get the complete path to a file referenced in a configuration
-        pub fn path_to(&self, path: &Path) -> PathBuf {
-            self._cwd.join(path)
-        }
-    }
-}
-
 use clap::{App, Arg, ArgMatches};
 use nfd::{self, Response};
 use std::collections::HashMap;
@@ -96,9 +11,30 @@ use std::path::{Path, PathBuf};
 use failure::Error;
 use failure::ResultExt;
 
-use self::buffer_config::BufferConfig;
-use self::source_config::SourceConfig;
 use platform::config::PlatformSpecificConfig;
+
+/// The node configuration contains all the information necessary to build a node
+#[derive(Deserialize, Clone)]
+#[serde(tag = "type")]
+pub enum NodeConfig {
+    /// Image node type
+    Image {
+        /// Relative path to the image
+        path: PathBuf,
+    },
+
+    /// Buffer node type
+    Buffer {
+        /// Relative path to the vertex shader
+        vertex: PathBuf,
+
+        /// Relative path to the fragment shader
+        fragment: PathBuf,
+
+        /// Input nodes for the shader program
+        dependencies: Vec<String>,
+    },
+}
 
 /// The main configuration contains all the information necessary to build a renderer
 #[derive(Deserialize, Clone)]
@@ -108,14 +44,18 @@ pub struct Config {
     #[serde(default)]
     pub _cwd: PathBuf,
 
-    /// The buffer configurations, keyed by name
-    ///
-    /// The buffer called `__default__` must be specified, as this is the output buffer
-    pub buffers: HashMap<String, BufferConfig>,
+    /// The node configurations, keyed by name
+    /// The node called `__default__` must be specified, as this is the output node
+    #[serde(default)]
+    pub nodes: HashMap<String, NodeConfig>,
 
-    /// The source configurations, keyed by name
-    #[serde(default = "default_sources")]
-    pub sources: HashMap<String, SourceConfig>,
+    /// Initial width of the window
+    #[serde(default = "default_width")]
+    pub width: u32,
+
+    /// Initial height of the window
+    #[serde(default = "default_height")]
+    pub height: u32,
 
     /// Whether or not to maximize the window
     #[serde(default = "default_maximize")]
@@ -158,9 +98,14 @@ pub struct Config {
     pub platform_config: PlatformSpecificConfig,
 }
 
-/// A function that returns the default value of the `sources` field
-fn default_sources() -> HashMap<String, SourceConfig> {
-    HashMap::new()
+/// A function that returns the default value of the `width` field
+fn default_width() -> u32 {
+    640
+}
+
+/// A function that returns the default value of the `width` field
+fn default_height() -> u32 {
+    400
 }
 
 /// A function that returns the default value of the `maximize` field
@@ -273,11 +218,11 @@ impl Config {
     /// Parses the configuration from command-line arguments
     fn merge_args(&mut self, args: &ArgMatches) -> Result<(), Error> {
         if let Some(value) = args.value_of("width") {
-            self.buffers.get_mut("__default__").unwrap().width = value.parse::<u32>()?;
+            self.width = value.parse::<u32>()?;
         }
 
         if let Some(value) = args.value_of("height") {
-            self.buffers.get_mut("__default__").unwrap().height = value.parse::<u32>()?;
+            self.height = value.parse::<u32>()?;
         }
 
         if args.is_present("maximize") {
@@ -331,14 +276,11 @@ impl Config {
         let mut config: Config = ::serde_yaml::from_str(&config_str)?;
 
         config._cwd = path.parent().unwrap().to_path_buf();
-        for buffer in config.buffers.values_mut() {
-            buffer._cwd = config._cwd.clone();
-        }
 
         Ok(config)
     }
 
-    /// Returns the configuration, appropriately sourced from both command-line arguments and the
+    /// Returns the configuration, appropriately noded from both command-line arguments and the
     /// config file
     pub fn parse(path: &Path) -> Result<Self, Error> {
         let app = PlatformSpecificConfig::build_cli();

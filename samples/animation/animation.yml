@@ -1,11 +1,4 @@
-buffers:
+nodes:
   __default__:
-    vertex: ../default.vert
-    fragment: animation.frag
-    sources:
-      - animation
-
-sources:
-  animation:
+    type: Image
     path: animation.gif
-    kind: image

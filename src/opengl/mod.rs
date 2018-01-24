@@ -1,17 +1,23 @@
 //! Contains everything for the OpenGL renderer pipeline
 
-pub mod surface;
-pub mod buffer;
+pub mod nodes;
 pub mod renderer;
-pub mod text_renderer;
 
 use glium::uniforms::{AsUniformValue, UniformValue, Uniforms};
 use std::borrow::Cow;
 
+/// Implementation of the vertex attributes for the vertex buffer
+#[derive(Copy, Clone)]
+pub struct Vertex {
+    /// Position of the vertex in 2D space
+    position: [f32; 2],
+}
+implement_vertex!(Vertex, position);
+
 /// A `UniformsStorage` which has a `push` method for appending new uniforms
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct UniformsStorageVec<'name, 'uniform>(
-    Vec<(Cow<'name, str>, Box<AsUniformValue + 'uniform>)>,
+    Vec<(Cow<'name, str>, SelfAsUniformValue<'uniform>)>,
 );
 
 impl<'name, 'uniform> UniformsStorageVec<'name, 'uniform> {
@@ -26,7 +32,7 @@ impl<'name, 'uniform> UniformsStorageVec<'name, 'uniform> {
         S: Into<Cow<'name, str>>,
         U: AsUniformValue + 'uniform,
     {
-        self.0.push((name.into(), Box::new(uniform)))
+        self.0.push((name.into(), SelfAsUniformValue(uniform.as_uniform_value())))
     }
 }
 
@@ -39,11 +45,11 @@ impl<'name, 'uniform> Uniforms for UniformsStorageVec<'name, 'uniform> {
     }
 }
 
-/// Implements `AsUniformValue` for a closure
-pub struct MapAsUniform<T, U: AsUniformValue>(pub T, pub fn(&T) -> &U);
+#[derive(Clone)]
+pub struct SelfAsUniformValue<'a>(UniformValue<'a>);
 
-impl<T, U: AsUniformValue> AsUniformValue for MapAsUniform<T, U> {
+impl<'a> AsUniformValue for SelfAsUniformValue<'a> {
     fn as_uniform_value(&self) -> UniformValue {
-        (self.1)(&self.0).as_uniform_value()
+        self.0
     }
 }

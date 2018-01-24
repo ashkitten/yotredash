@@ -1,4 +1,5 @@
-buffers:
+nodes:
   __default__:
-    vertex: ../default.vert
+    type: Buffer
+    vertex: default.vert
     fragment: raymarch.frag

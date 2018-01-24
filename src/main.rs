@@ -30,7 +30,7 @@
 // So we don't run into issues with the error_chain macro
 #![recursion_limit = "128"]
 // Experimental features
-#![feature(type_ascription, refcell_replace_swap, inclusive_range_syntax)]
+#![feature(type_ascription, refcell_replace_swap, inclusive_range_syntax, universal_impl_trait)]
 
 #[cfg(unix)]
 extern crate signal;
@@ -51,6 +51,7 @@ extern crate notify;
 extern crate owning_ref;
 extern crate rect_packer;
 extern crate serde_yaml;
+extern crate solvent;
 extern crate time;
 extern crate winit;
 
@@ -68,8 +69,6 @@ extern crate image;
 pub mod config;
 pub mod font;
 pub mod platform;
-pub mod surface;
-pub mod source;
 pub mod util;
 
 #[cfg(feature = "opengl")]
@@ -89,7 +88,7 @@ use signal::trap::Trap;
 #[cfg(feature = "opengl")]
 use opengl::renderer::OpenGLRenderer;
 
-use config::Config;
+use config::{Config, NodeConfig};
 use util::FpsCounter;
 
 /// Renders a configured shader
@@ -138,26 +137,26 @@ fn setup_watches(
         // Watch the config file for changes
         watcher.watch(config_path, notify::RecursiveMode::NonRecursive)?;
 
-        for buffer in config.buffers.values() {
-            watcher.watch(
-                config.path_to(&buffer.vertex),
-                notify::RecursiveMode::NonRecursive,
-            )?;
-            watcher.watch(
-                config.path_to(&buffer.fragment),
-                notify::RecursiveMode::NonRecursive,
-            )?;
-        }
-
-        for source in config.sources.values() {
-            // Allow single match for future expansion
-            #[cfg_attr(feature = "cargo-clippy", allow(single_match))]
-            match source.kind.as_str() {
-                "image" => watcher.watch(
-                    config.path_to(&source.path),
+        for node in config.nodes.values() {
+            match *node {
+                NodeConfig::Image { ref path } => watcher.watch(
+                    config.path_to(Path::new(path)),
                     notify::RecursiveMode::NonRecursive,
                 )?,
-                _ => (),
+                NodeConfig::Buffer {
+                    ref vertex,
+                    ref fragment,
+                    ..
+                } => {
+                    watcher.watch(
+                        config.path_to(Path::new(vertex)),
+                        notify::RecursiveMode::NonRecursive,
+                    )?;
+                    watcher.watch(
+                        config.path_to(Path::new(fragment)),
+                        notify::RecursiveMode::NonRecursive,
+                    )?;
+                }
             }
         }
     }
@@ -331,7 +330,7 @@ fn run() -> Result<(), Error> {
 fn main() {
     use std::io::Write;
 
-    ::std::process::exit(match run() {
+    std::process::exit(match run() {
         Ok(()) => 0,
         Err(ref error) => {
             let mut causes = error.causes();

@@ -1,4 +1,5 @@
-buffers:
+nodes:
   __default__:
+    type: Buffer
     vertex: ../default.vert
     fragment: red.frag
