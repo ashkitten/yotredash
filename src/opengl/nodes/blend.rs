@@ -76,11 +76,6 @@ impl BlendNode {
         operation: BlendOp,
         inputs: Vec<String>,
     ) -> Result<Self, Error> {
-        debug!(
-            "New BlendNode: {}, operation: {:?}, inputs: {:?}",
-            name, operation, inputs
-        );
-
         let op_fmt = match operation {
             BlendOp::min => "color = min(texture(%INPUT%, uv);",
             BlendOp::max => "color = max(texture(%INPUT%, uv);",
@@ -108,8 +103,6 @@ impl BlendNode {
                         .as_str()
                 )
             });
-
-        println!("{}", fragment);
 
         let program = {
             let input = ProgramCreationInput::SourceCode {

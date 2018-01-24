@@ -27,6 +27,78 @@ pub struct OpenGLRenderer {
     order: Vec<String>,
 }
 
+fn init_nodes(
+    config: &Config,
+    facade: &Rc<Facade>,
+) -> Result<(HashMap<String, Box<Node>>, Vec<String>), Error> {
+    let mut nodes: HashMap<String, Box<Node>> = HashMap::new();
+    let mut dep_graph: DepGraph<&str> = DepGraph::new();
+    for (name, node_config) in config.nodes.iter() {
+        debug!("Node '{}': {:?}", name, node_config);
+
+        match *node_config {
+            NodeConfig::image { ref path } => {
+                nodes.insert(
+                    name.to_string(),
+                    Box::new(ImageNode::new(
+                        &facade,
+                        name.to_string(),
+                        &config.path_to(path),
+                    )?),
+                );
+            }
+            NodeConfig::shader {
+                ref vertex,
+                ref fragment,
+                ref inputs,
+            } => {
+                nodes.insert(
+                    name.to_string(),
+                    Box::new(ShaderNode::new(
+                        &facade,
+                        name.to_string(),
+                        &config.path_to(vertex),
+                        &config.path_to(fragment),
+                    )?),
+                );
+
+                dep_graph.register_dependencies(
+                    name,
+                    inputs.iter().map(|input| input.as_str()).collect(),
+                );
+            }
+            NodeConfig::blend {
+                ref operation,
+                ref inputs,
+            } => {
+                nodes.insert(
+                    name.to_string(),
+                    Box::new(BlendNode::new(
+                        &facade,
+                        name.to_string(),
+                        operation.clone(),
+                        inputs.clone(),
+                    )?),
+                );
+
+                dep_graph.register_dependencies(
+                    name,
+                    inputs.iter().map(|input| input.as_str()).collect(),
+                );
+            }
+        }
+    }
+
+    let mut order = Vec::new();
+    for dep in dep_graph.dependencies_of(&"__default__")? {
+        order.push(dep?.to_string());
+    }
+
+    debug!("Render order: {:?}", order);
+
+    Ok((nodes, order))
+}
+
 impl Renderer for OpenGLRenderer {
     fn new(config: Config, events_loop: &EventsLoop) -> Result<Self, Error> {
         let facade: Rc<Facade> = if !config.headless {
@@ -60,70 +132,7 @@ impl Renderer for OpenGLRenderer {
             facade.get_context().get_opengl_version_string()
         );
 
-        let mut nodes: HashMap<String, Box<Node>> = HashMap::new();
-        let mut dep_graph: DepGraph<&str> = DepGraph::new();
-        for (name, node_config) in config.nodes.iter() {
-            debug!("Node '{}': {:?}", name, node_config);
-
-            match *node_config {
-                NodeConfig::image { ref path } => {
-                    nodes.insert(
-                        name.to_string(),
-                        Box::new(ImageNode::new(
-                            &facade,
-                            name.to_string(),
-                            &config.path_to(path),
-                        )?),
-                    );
-                }
-                NodeConfig::shader {
-                    ref vertex,
-                    ref fragment,
-                    ref inputs,
-                } => {
-                    nodes.insert(
-                        name.to_string(),
-                        Box::new(ShaderNode::new(
-                            &facade,
-                            name.to_string(),
-                            &config.path_to(vertex),
-                            &config.path_to(fragment),
-                        )?),
-                    );
-
-                    dep_graph.register_dependencies(
-                        name,
-                        inputs.iter().map(|input| input.as_str()).collect(),
-                    );
-                }
-                NodeConfig::blend {
-                    ref operation,
-                    ref inputs,
-                } => {
-                    nodes.insert(
-                        name.to_string(),
-                        Box::new(BlendNode::new(
-                            &facade,
-                            name.to_string(),
-                            operation.clone(),
-                            inputs.clone(),
-                        )?),
-                    );
-
-                    dep_graph.register_dependencies(
-                        name,
-                        inputs.iter().map(|input| input.as_str()).collect(),
-                    );
-                }
-            }
-        }
-
-        let mut order = Vec::new();
-        for dep in dep_graph.dependencies_of(&"__default__")? {
-            order.push(dep?.to_string());
-        }
-
-        debug!("Render order: {:?}", order);
+        let (nodes, order) = init_nodes(&config, &facade)?;
 
         Ok(Self {
             facade,
@@ -165,7 +174,11 @@ impl Renderer for OpenGLRenderer {
 
     fn reload(&mut self, config: &Config) -> Result<(), Error> {
         info!("Reloading config");
-        // TODO: reimplement
+
+        let (nodes, order) = init_nodes(config, &self.facade)?;
+        self.nodes = nodes;
+        self.order = order;
+
         Ok(())
     }
 
