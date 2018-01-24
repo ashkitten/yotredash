@@ -1,13 +1,13 @@
 nodes:
   __default__:
-    type: Buffer
+    type: buffer
     vertex: ../default.vert
     fragment: fxaa.frag
     dependencies:
       - raymarch
 
   raymarch:
-    type: Buffer
+    type: buffer
     vertex: ../default.vert
     fragment: raymarch.frag
 

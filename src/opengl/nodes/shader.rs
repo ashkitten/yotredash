@@ -1,9 +1,10 @@
-//! A `Buffer` contains a `Program` and renders it to an inner texture with input uniforms from
-//! `Source`s and other `Buffer` dependencies
+//! A `Shader` contains a `Program` and renders it to an inner texture with input uniforms from
+//! `Source`s and other `Shader` dependencies
 
 use failure::Error;
 use failure::ResultExt;
 use glium::backend::Facade;
+use glium::draw_parameters::{Blend, DrawParameters};
 use glium::index::{NoIndices, PrimitiveType};
 use glium::program::ProgramCreationInput;
 use glium::texture::{RawImage2d, Texture2d};
@@ -31,7 +32,7 @@ const VERTICES: [Vertex; 6] = [
 ];
 
 /// A node that renders a shader program
-pub struct BufferNode {
+pub struct ShaderNode {
     /// The name of the node
     name: String,
     /// The Facade it uses to work with the OpenGL context
@@ -46,7 +47,7 @@ pub struct BufferNode {
     index_buffer: NoIndices,
 }
 
-impl BufferNode {
+impl ShaderNode {
     /// Create a new instance
     pub fn new(
         facade: &Rc<Facade>,
@@ -98,18 +99,23 @@ impl BufferNode {
     }
 }
 
-impl Node for BufferNode {
+impl Node for ShaderNode {
     fn render(&mut self, uniforms: &mut UniformsStorageVec) -> Result<(), Error> {
         let mut surface = self.texture.as_surface();
 
-        surface.clear_color(0.0, 0.0, 0.0, 1.0);
-        surface.draw(
-            &self.vertex_buffer,
-            &self.index_buffer,
-            &self.program,
-            uniforms,
-            &Default::default(),
-        ).unwrap();
+        surface.clear_color(0.0, 0.0, 0.0, 0.0);
+        surface
+            .draw(
+                &self.vertex_buffer,
+                &self.index_buffer,
+                &self.program,
+                uniforms,
+                &DrawParameters {
+                    blend: Blend::alpha_blending(),
+                    ..Default::default()
+                },
+            )
+            .unwrap();
 
         let sampled = OwningHandle::new_with_fn(self.texture.clone(), |t| unsafe {
             DerefInner((*t).sampled())
@@ -123,14 +129,19 @@ impl Node for BufferNode {
 
     fn present(&mut self, uniforms: &mut UniformsStorageVec) -> Result<(), Error> {
         let mut target = self.facade.draw();
-        target.clear_color(0.0, 0.0, 0.0, 1.0);
-        target.draw(
-            &self.vertex_buffer,
-            &self.index_buffer,
-            &self.program,
-            uniforms,
-            &Default::default(),
-        ).unwrap(); // For some reason if we return this error, it panicks because finish() is never called
+        target.clear_color(0.0, 0.0, 0.0, 0.0);
+        target
+            .draw(
+                &self.vertex_buffer,
+                &self.index_buffer,
+                &self.program,
+                uniforms,
+                &DrawParameters {
+                    blend: Blend::alpha_blending(),
+                    ..Default::default()
+                },
+            )
+            .unwrap(); // For some reason if we return this error, it panicks because finish() is never called
         target.finish()?;
 
         Ok(())

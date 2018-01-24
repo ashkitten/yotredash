@@ -13,19 +13,30 @@ use failure::ResultExt;
 
 use platform::config::PlatformSpecificConfig;
 
+/// Blend node operations
+#[derive(Debug, Deserialize, Clone)]
+#[allow(non_camel_case_types)]
+pub enum BlendOp {
+    min,
+    max,
+    add,
+    sub,
+}
+
 /// The node configuration contains all the information necessary to build a node
 #[derive(Debug, Deserialize, Clone)]
 #[serde(tag = "type")]
 #[serde(deny_unknown_fields)]
+#[allow(non_camel_case_types)]
 pub enum NodeConfig {
     /// Image node type
-    Image {
+    image {
         /// Relative path to the image
         path: PathBuf,
     },
 
-    /// Buffer node type
-    Buffer {
+    /// Shader node type
+    shader {
         /// Relative path to the vertex shader
         vertex: PathBuf,
 
@@ -37,11 +48,13 @@ pub enum NodeConfig {
         inputs: Vec<String>,
     },
 
-    /// Mix node type
-    Mix {
+    /// Blend node type - blends the output of multiple nodes
+    blend {
+        /// Math operation
+        operation: BlendOp,
+
         /// Input node names and alpha transparencies
-        #[serde(with = "::tuple_vec_map")]
-        inputs: Vec<(String, f32)>,
+        inputs: Vec<String>,
     },
 }
 

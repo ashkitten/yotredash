@@ -4,11 +4,12 @@ use failure::Error;
 use failure::ResultExt;
 use gif::{self, SetParameter};
 use gif_dispose;
-use glium::{Program, Surface, VertexBuffer};
 use glium::backend::Facade;
+use glium::draw_parameters::{Blend, DrawParameters};
 use glium::index::{NoIndices, PrimitiveType};
 use glium::program::ProgramCreationInput;
 use glium::texture::{MipmapsOption, RawImage2d, Texture2d};
+use glium::{Program, Surface, VertexBuffer};
 use image::ImageFormat::*;
 use image::{self, ImageDecoder};
 use owning_ref::OwningHandle;
@@ -236,14 +237,19 @@ impl Node for ImageNode {
         };
 
         let mut target = self.facade.draw();
-        target.clear_color(0.0, 0.0, 0.0, 1.0);
-        target.draw(
-            &self.vertex_buffer,
-            &self.index_buffer,
-            &self.program,
-            &input,
-            &Default::default(),
-        ).unwrap(); // For some reason if we return this error, it panicks because finish() is never called
+        target.clear_color(0.0, 0.0, 0.0, 0.0);
+        target
+            .draw(
+                &self.vertex_buffer,
+                &self.index_buffer,
+                &self.program,
+                &input,
+                &DrawParameters {
+                    blend: Blend::alpha_blending(),
+                    ..Default::default()
+                },
+            )
+            .unwrap(); // For some reason if we return this error, it panicks because finish() is never called
         target.finish()?;
 
         Ok(())

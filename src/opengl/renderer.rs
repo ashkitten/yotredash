@@ -66,7 +66,7 @@ impl Renderer for OpenGLRenderer {
             debug!("Node '{}': {:?}", name, node_config);
 
             match *node_config {
-                NodeConfig::Image { ref path } => {
+                NodeConfig::image { ref path } => {
                     nodes.insert(
                         name.to_string(),
                         Box::new(ImageNode::new(
@@ -76,14 +76,14 @@ impl Renderer for OpenGLRenderer {
                         )?),
                     );
                 }
-                NodeConfig::Buffer {
+                NodeConfig::shader {
                     ref vertex,
                     ref fragment,
                     ref inputs,
                 } => {
                     nodes.insert(
                         name.to_string(),
-                        Box::new(BufferNode::new(
+                        Box::new(ShaderNode::new(
                             &facade,
                             name.to_string(),
                             &config.path_to(vertex),
@@ -96,15 +96,23 @@ impl Renderer for OpenGLRenderer {
                         inputs.iter().map(|input| input.as_str()).collect(),
                     );
                 }
-                NodeConfig::Mix { ref inputs } => {
+                NodeConfig::blend {
+                    ref operation,
+                    ref inputs,
+                } => {
                     nodes.insert(
                         name.to_string(),
-                        Box::new(MixNode::new(&facade, name.to_string(), inputs.clone())?),
+                        Box::new(BlendNode::new(
+                            &facade,
+                            name.to_string(),
+                            operation.clone(),
+                            inputs.clone(),
+                        )?),
                     );
 
                     dep_graph.register_dependencies(
                         name,
-                        inputs.iter().map(|input| input.0.as_str()).collect(),
+                        inputs.iter().map(|input| input.as_str()).collect(),
                     );
                 }
             }

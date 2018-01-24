@@ -53,7 +53,6 @@ extern crate rect_packer;
 extern crate serde_yaml;
 extern crate solvent;
 extern crate time;
-extern crate tuple_vec_map;
 extern crate winit;
 
 #[cfg(feature = "opengl")]
@@ -140,11 +139,11 @@ fn setup_watches(
 
         for node in config.nodes.values() {
             match *node {
-                NodeConfig::Image { ref path } => watcher.watch(
+                NodeConfig::image { ref path } => watcher.watch(
                     config.path_to(Path::new(path)),
                     notify::RecursiveMode::NonRecursive,
                 )?,
-                NodeConfig::Buffer {
+                NodeConfig::shader {
                     ref vertex,
                     ref fragment,
                     ..

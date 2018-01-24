@@ -1,5 +1,6 @@
 use failure::Error;
 use glium::backend::Facade;
+use glium::draw_parameters::{Blend, DrawParameters};
 use glium::index::{NoIndices, PrimitiveType};
 use glium::program::ProgramCreationInput;
 use glium::texture::{RawImage2d, Texture2d};
@@ -9,7 +10,8 @@ use owning_ref::OwningHandle;
 use std::path::Path;
 use std::rc::Rc;
 
-use opengl::{UniformsStorageVec, MapAsUniform, Vertex};
+use config::BlendOp;
+use opengl::{MapAsUniform, UniformsStorageVec, Vertex};
 use super::Node;
 use util::DerefInner;
 
@@ -44,12 +46,12 @@ const FRAGMENT: &str = "
 
     void main() {
         vec2 uv = gl_FragCoord.xy / resolution;
-        %MIXING%
+        %BLENDS%
     }
 ";
 
 /// A node that mixes other nodes
-pub struct MixNode {
+pub struct BlendNode {
     /// The name of the node
     name: String,
     /// The Facade it uses to work with the OpenGL context
@@ -64,33 +66,39 @@ pub struct MixNode {
     index_buffer: NoIndices,
 }
 
-impl MixNode {
+impl BlendNode {
     /// Create a new instance
     pub fn new(
         facade: &Rc<Facade>,
         name: String,
-        inputs: Vec<(String, f32)>,
+        operation: BlendOp,
+        inputs: Vec<String>,
     ) -> Result<Self, Error> {
-        debug!("New MixNode: {}, inputs: {:?}", name, inputs);
+        debug!("New BlendNode: {}, operation: {:?}, inputs: {:?}", name, operation, inputs);
+
+        let op_fmt = match operation {
+            BlendOp::min => "color = min(texture(%INPUT%, uv);",
+            BlendOp::max => "color = max(texture(%INPUT%, uv);",
+            BlendOp::add => "color += texture(%INPUT%, uv);",
+            BlendOp::sub => "color -= texture(%INPUT%, uv);",
+        };
 
         let fragment = FRAGMENT
             .replace("%INPUTS%", {
                 inputs
                     .iter()
-                    .map(|input| format!("uniform sampler2D {};", input.0))
+                    .map(|input| format!("uniform sampler2D {};", input))
                     .collect::<Vec<String>>()
                     .join("\n")
                     .as_str()
             })
-            .replace("%MIXING%", {
+            .replace("%BLENDS%", {
                 let mut iter = inputs.iter();
                 &format!(
                     "color = texture({}, uv);\n{}",
-                    iter.next().expect("Mix node have at least one input").0,
-                    iter.map(|input| format!(
-                        "color = mix(color, texture({}, uv), {});",
-                        input.0, input.1
-                    )).collect::<Vec<String>>()
+                    iter.next().expect("Blend node needs at least one input"),
+                    iter.map(|input| op_fmt.replace("%INPUT%", input))
+                        .collect::<Vec<String>>()
                         .join("\n")
                         .as_str()
                 )
@@ -126,17 +134,20 @@ impl MixNode {
     }
 }
 
-impl Node for MixNode {
+impl Node for BlendNode {
     fn render(&mut self, uniforms: &mut UniformsStorageVec) -> Result<(), Error> {
         let mut surface = self.texture.as_surface();
 
-        surface.clear_color(0.0, 0.0, 0.0, 1.0);
+        surface.clear_color(0.0, 0.0, 0.0, 0.0);
         surface.draw(
             &self.vertex_buffer,
             &self.index_buffer,
             &self.program,
             uniforms,
-            &Default::default(),
+            &DrawParameters {
+                blend: Blend::alpha_blending(),
+                ..Default::default()
+            },
         )?;
 
         let sampled = OwningHandle::new_with_fn(self.texture.clone(), |t| unsafe {
@@ -151,14 +162,19 @@ impl Node for MixNode {
 
     fn present(&mut self, uniforms: &mut UniformsStorageVec) -> Result<(), Error> {
         let mut target = self.facade.draw();
-        target.clear_color(0.0, 0.0, 0.0, 1.0);
-        target.draw(
-            &self.vertex_buffer,
-            &self.index_buffer,
-            &self.program,
-            uniforms,
-            &Default::default(),
-        ).unwrap(); // For some reason if we return this error, it panicks because finish() is never called
+        target.clear_color(0.0, 0.0, 0.0, 0.0);
+        target
+            .draw(
+                &self.vertex_buffer,
+                &self.index_buffer,
+                &self.program,
+                uniforms,
+                &DrawParameters {
+                    blend: Blend::alpha_blending(),
+                    ..Default::default()
+                },
+            )
+            .unwrap(); // For some reason if we return this error, it panicks because finish() is never called
         target.finish()?;
 
         Ok(())

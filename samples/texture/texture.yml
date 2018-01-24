@@ -1,4 +1,4 @@
 nodes:
   __default__:
-    type: Image
+    type: image
     path: texture.png
