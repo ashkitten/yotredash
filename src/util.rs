@@ -42,7 +42,8 @@ impl FpsCounter {
         self.frames += 1;
         let delta = time::now() - self.start;
         if delta > self.interval {
-            self.fps = self.frames as f32 / (delta.num_nanoseconds().unwrap() as f32 / 1_000_000_000.0);
+            self.fps =
+                self.frames as f32 / (delta.num_nanoseconds().unwrap() as f32 / 1_000_000_000.0);
             self.frames = 0;
             self.start = time::now();
         }

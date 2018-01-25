@@ -27,7 +27,15 @@ impl FpsNode {
         interval: f32,
     ) -> Result<Self, Error> {
         Ok(Self {
-            text_node: TextNode::new(facade, name, String::default(), position, color, font_name, font_size)?,
+            text_node: TextNode::new(
+                facade,
+                name,
+                String::default(),
+                position,
+                color,
+                font_name,
+                font_size,
+            )?,
             fps_counter: FpsCounter::new(interval),
         })
     }
@@ -51,13 +59,15 @@ impl FpsNode {
 impl Node for FpsNode {
     fn render(&mut self, uniforms: &mut UniformsStorageVec) -> Result<(), Error> {
         self.fps_counter.next_frame();
-        self.text_node.set_text(format!("FPS: {:.01}", self.fps_counter.fps()));
+        self.text_node
+            .set_text(format!("FPS: {:.01}", self.fps_counter.fps()));
         self.text_node.render(uniforms)
     }
 
     fn present(&mut self, uniforms: &mut UniformsStorageVec) -> Result<(), Error> {
         self.fps_counter.next_frame();
-        self.text_node.set_text(format!("FPS: {:.01}", self.fps_counter.fps()));
+        self.text_node
+            .set_text(format!("FPS: {:.01}", self.fps_counter.fps()));
         self.text_node.present(uniforms)
     }
 
@@ -67,7 +77,8 @@ impl Node for FpsNode {
         path: &Path,
     ) -> Result<(), Error> {
         self.fps_counter.next_frame();
-        self.text_node.set_text(format!("FPS: {:.01}", self.fps_counter.fps()));
+        self.text_node
+            .set_text(format!("FPS: {:.01}", self.fps_counter.fps()));
         self.text_node.render_to_file(uniforms, path)
     }
 
