@@ -60,6 +60,36 @@ pub enum NodeConfig {
         /// Input node names and alpha transparencies
         inputs: Vec<String>,
     },
+
+    /// Text node type - renders text
+    text {
+        /// Text to render
+        text: String,
+
+        /// Position to render at
+        #[serde(default)]
+        position: [f32; 2],
+
+        /// Color to render in
+        #[serde(default = "text_default_color")]
+        color: [f32; 4],
+
+        /// Font name
+        #[serde(default)]
+        font_name: String,
+
+        /// Font size
+        #[serde(default = "text_default_font_size")]
+        font_size: f32,
+    },
+}
+
+fn text_default_color() -> [f32; 4] {
+    [1.0; 4]
+}
+
+fn text_default_font_size() -> f32 {
+    20.0
 }
 
 /// The main configuration contains all the information necessary to build a renderer

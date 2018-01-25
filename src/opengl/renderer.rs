@@ -33,6 +33,8 @@ fn init_nodes(
 ) -> Result<(HashMap<String, Box<Node>>, Vec<String>), Error> {
     let mut nodes: HashMap<String, Box<Node>> = HashMap::new();
     let mut dep_graph: DepGraph<&str> = DepGraph::new();
+    dep_graph.register_node("__default__");
+
     for (name, node_config) in config.nodes.iter() {
         debug!("Node '{}': {:?}", name, node_config);
 
@@ -47,6 +49,7 @@ fn init_nodes(
                     )?),
                 );
             }
+
             NodeConfig::shader {
                 ref vertex,
                 ref fragment,
@@ -67,6 +70,7 @@ fn init_nodes(
                     inputs.iter().map(|input| input.as_str()).collect(),
                 );
             }
+
             NodeConfig::blend {
                 ref operation,
                 ref inputs,
@@ -84,6 +88,28 @@ fn init_nodes(
                 dep_graph.register_dependencies(
                     name,
                     inputs.iter().map(|input| input.as_str()).collect(),
+                );
+            }
+
+            // TODO: Color in a better format
+            NodeConfig::text {
+                ref text,
+                ref position,
+                ref color,
+                ref font_name,
+                ref font_size,
+            } => {
+                nodes.insert(
+                    name.to_string(),
+                    Box::new(TextNode::new(
+                        &facade,
+                        name.to_string(),
+                        text.to_string(),
+                        position.clone(),
+                        color.clone(),
+                        font_name,
+                        font_size.clone(),
+                    )?),
                 );
             }
         }

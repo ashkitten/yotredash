@@ -1,0 +1,5 @@
+nodes:
+  __default__:
+    type: text
+    text: Hello, World!
+    position: [5.0, 5.0]

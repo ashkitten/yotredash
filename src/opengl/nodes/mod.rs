@@ -6,6 +6,7 @@ pub mod image;
 
 pub mod blend;
 pub mod shader;
+pub mod text;
 
 use failure::Error;
 use std::path::Path;
@@ -15,6 +16,7 @@ pub use self::image::ImageNode;
 
 pub use self::blend::BlendNode;
 pub use self::shader::ShaderNode;
+pub use self::text::TextNode;
 use super::UniformsStorageVec;
 
 /// A `Node` is something that takes input as a UniformsStorage and returns data in a

@@ -30,7 +30,8 @@
 // So we don't run into issues with the error_chain macro
 #![recursion_limit = "128"]
 // Experimental features
-#![feature(type_ascription, refcell_replace_swap, inclusive_range_syntax, universal_impl_trait)]
+#![feature(type_ascription, refcell_replace_swap, inclusive_range_syntax, universal_impl_trait,
+           slice_patterns)]
 
 #[cfg(unix)]
 extern crate signal;

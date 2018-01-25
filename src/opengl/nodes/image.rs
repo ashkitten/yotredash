@@ -184,7 +184,7 @@ impl ImageNode {
 
                 Self {
                     name,
-                    facade: facade.clone(),
+                    facade: Rc::clone(facade),
                     textures,
                     current_frame: 0,
                     frame_start: time::now(),

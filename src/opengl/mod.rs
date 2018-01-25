@@ -2,6 +2,7 @@
 
 pub mod nodes;
 pub mod renderer;
+pub mod text;
 
 use glium::uniforms::{AsUniformValue, UniformValue, Uniforms};
 use std::borrow::Cow;
