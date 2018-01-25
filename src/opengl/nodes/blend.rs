@@ -77,10 +77,10 @@ impl BlendNode {
         inputs: Vec<String>,
     ) -> Result<Self, Error> {
         let op_fmt = match operation {
-            BlendOp::min => "color = min(texture(%INPUT%, uv);",
-            BlendOp::max => "color = max(texture(%INPUT%, uv);",
-            BlendOp::add => "color += texture(%INPUT%, uv);",
-            BlendOp::sub => "color -= texture(%INPUT%, uv);",
+            BlendOp::Min => "color = min(texture(%INPUT%, uv);",
+            BlendOp::Max => "color = max(texture(%INPUT%, uv);",
+            BlendOp::Add => "color += texture(%INPUT%, uv);",
+            BlendOp::Sub => "color -= texture(%INPUT%, uv);",
         };
 
         let fragment = FRAGMENT

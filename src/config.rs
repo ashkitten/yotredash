@@ -15,32 +15,32 @@ use platform::config::PlatformSpecificConfig;
 
 /// Blend node operations
 #[derive(Debug, Deserialize, Clone)]
-#[allow(non_camel_case_types)]
+#[serde(rename_all = "snake_case")]
 pub enum BlendOp {
     /// Take the minimum RGBA value
-    min,
+    Min,
     /// Take the maximum RGBA value
-    max,
+    Max,
     /// Add the RGBA values
-    add,
+    Add,
     /// Subtract the RGBA values
-    sub,
+    Sub,
 }
 
 /// The node configuration contains all the information necessary to build a node
 #[derive(Debug, Deserialize, Clone)]
 #[serde(tag = "type")]
 #[serde(deny_unknown_fields)]
-#[allow(non_camel_case_types)]
+#[serde(rename_all = "snake_case")]
 pub enum NodeConfig {
     /// Image node type
-    image {
+    Image {
         /// Relative path to the image
         path: PathBuf,
     },
 
     /// Shader node type
-    shader {
+    Shader {
         /// Relative path to the vertex shader
         vertex: PathBuf,
 
@@ -53,7 +53,7 @@ pub enum NodeConfig {
     },
 
     /// Blend node type - blends the output of multiple nodes
-    blend {
+    Blend {
         /// Math operation
         operation: BlendOp,
 
@@ -62,7 +62,7 @@ pub enum NodeConfig {
     },
 
     /// Text node type - renders text
-    text {
+    Text {
         /// Text to render
         text: String,
 
@@ -84,7 +84,7 @@ pub enum NodeConfig {
     },
 
     /// FPS counter node type - renders text
-    fps {
+    Fps {
         /// Position to render at
         #[serde(default)]
         position: [f32; 2],

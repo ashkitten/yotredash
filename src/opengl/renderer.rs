@@ -39,7 +39,7 @@ fn init_nodes(
         debug!("Node '{}': {:?}", name, node_config);
 
         match *node_config {
-            NodeConfig::image { ref path } => {
+            NodeConfig::Image { ref path } => {
                 nodes.insert(
                     name.to_string(),
                     Box::new(ImageNode::new(
@@ -50,7 +50,7 @@ fn init_nodes(
                 );
             }
 
-            NodeConfig::shader {
+            NodeConfig::Shader {
                 ref vertex,
                 ref fragment,
                 ref inputs,
@@ -71,7 +71,7 @@ fn init_nodes(
                 );
             }
 
-            NodeConfig::blend {
+            NodeConfig::Blend {
                 ref operation,
                 ref inputs,
             } => {
@@ -92,7 +92,7 @@ fn init_nodes(
             }
 
             // TODO: Color in a better format
-            NodeConfig::text {
+            NodeConfig::Text {
                 ref text,
                 ref position,
                 ref color,
@@ -113,7 +113,7 @@ fn init_nodes(
                 );
             }
 
-            NodeConfig::fps {
+            NodeConfig::Fps {
                 ref position,
                 ref color,
                 ref font_name,

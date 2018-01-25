@@ -138,11 +138,11 @@ fn setup_watches(
 
         for node in config.nodes.values() {
             match *node {
-                NodeConfig::image { ref path } => watcher.watch(
+                NodeConfig::Image { ref path } => watcher.watch(
                     config.path_to(Path::new(path)),
                     notify::RecursiveMode::NonRecursive,
                 )?,
-                NodeConfig::shader {
+                NodeConfig::Shader {
                     ref vertex,
                     ref fragment,
                     ..
