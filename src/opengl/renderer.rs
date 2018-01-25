@@ -141,7 +141,7 @@ impl Renderer for OpenGLRenderer {
         })
     }
 
-    fn render(&mut self, time: ::time::Duration, pointer: [f32; 4], fps: f32) -> Result<(), Error> {
+    fn render(&mut self, time: ::time::Duration, pointer: [f32; 4]) -> Result<(), Error> {
         let (width, height) = self.facade.get_context().get_framebuffer_dimensions();
         let time = (time.num_nanoseconds().unwrap() as f32) / 1000_000_000.0 % 4096.0;
         let pointer = [
@@ -184,7 +184,11 @@ impl Renderer for OpenGLRenderer {
 
     fn resize(&mut self, width: u32, height: u32) -> Result<(), Error> {
         debug!("Resized window to {}x{}", width, height);
-        // TODO: reimplement
+
+        for node in self.nodes.values_mut() {
+            node.resize(width, height)?;
+        }
+
         Ok(())
     }
 
@@ -192,15 +196,21 @@ impl Renderer for OpenGLRenderer {
         &mut self,
         time: ::time::Duration,
         pointer: [f32; 4],
-        fps: f32,
         path: &Path,
     ) -> Result<(), Error> {
+        let (width, height) = self.facade.get_context().get_framebuffer_dimensions();
+        let time = (time.num_nanoseconds().unwrap() as f32) / 1000_000_000.0 % 4096.0;
+        let pointer = [
+            pointer[0],
+            height as f32 - pointer[1],
+            pointer[2],
+            height as f32 - pointer[3],
+        ];
+
         let mut uniforms = UniformsStorageVec::new();
-        uniforms.push(
-            "time".to_string(),
-            (time.num_nanoseconds().unwrap() as f32) / 1000_000_000.0 % 4096.0,
-        );
-        uniforms.push("pointer".to_string(), pointer);
+        uniforms.push("time", time);
+        uniforms.push("pointer", pointer);
+        uniforms.push("resolution", (width as f32, height as f32));
 
         for name in &self.order {
             if name == "__default__" {

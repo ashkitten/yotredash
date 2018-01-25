@@ -263,7 +263,13 @@ impl Node for ImageNode {
         self.update();
 
         let raw: RawImage2d<u8> = self.textures[self.current_frame].read();
-        image::save_buffer(path, &raw.data, raw.width, raw.height, ::image::RGBA(8))?;
+        image::save_buffer(path, &raw.data, raw.width, raw.height, image::RGBA(8))?;
+
+        Ok(())
+    }
+
+    fn resize(&mut self, _width: u32, _height: u32) -> Result<(), Error> {
+        // Do nothing
 
         Ok(())
     }

@@ -157,7 +157,13 @@ impl Node for ShaderNode {
         let raw: RawImage2d<u8> = self.texture.read();
         let raw = RawImage2d::from_raw_rgba_reversed(&raw.data, (raw.width, raw.height));
 
-        image::save_buffer(path, &raw.data, raw.width, raw.height, ::image::RGBA(8))?;
+        image::save_buffer(path, &raw.data, raw.width, raw.height, image::RGBA(8))?;
+
+        Ok(())
+    }
+
+    fn resize(&mut self, width: u32, height: u32) -> Result<(), Error> {
+        self.texture = Rc::new(Texture2d::empty(&*self.facade, width, height)?);
 
         Ok(())
     }

@@ -26,4 +26,6 @@ pub trait Node {
     fn present(&mut self, input: &mut UniformsStorageVec) -> Result<(), Error>;
     /// Renders to a file
     fn render_to_file(&mut self, input: &mut UniformsStorageVec, path: &Path) -> Result<(), Error>;
+    /// Called on a window resize event
+    fn resize(&mut self, width: u32, height: u32) -> Result<(), Error>;
 }
