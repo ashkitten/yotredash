@@ -112,6 +112,27 @@ fn init_nodes(
                     )?),
                 );
             }
+
+            NodeConfig::fps {
+                ref position,
+                ref color,
+                ref font_name,
+                ref font_size,
+                ref interval,
+            } => {
+                nodes.insert(
+                    name.to_string(),
+                    Box::new(FpsNode::new(
+                        &facade,
+                        name.to_string(),
+                        position.clone(),
+                        color.clone(),
+                        font_name,
+                        font_size.clone(),
+                        interval.clone(),
+                    )?),
+                );
+            }
         }
     }
 

@@ -82,6 +82,29 @@ pub enum NodeConfig {
         #[serde(default = "text_default_font_size")]
         font_size: f32,
     },
+
+    /// FPS counter node type - renders text
+    fps {
+        /// Position to render at
+        #[serde(default)]
+        position: [f32; 2],
+
+        /// Color to render in
+        #[serde(default = "text_default_color")]
+        color: [f32; 4],
+
+        /// Font name
+        #[serde(default)]
+        font_name: String,
+
+        /// Font size
+        #[serde(default = "text_default_font_size")]
+        font_size: f32,
+
+        /// Update interval (seconds)
+        #[serde(default = "fps_default_interval")]
+        interval: f32,
+    },
 }
 
 fn text_default_color() -> [f32; 4] {
@@ -90,6 +113,10 @@ fn text_default_color() -> [f32; 4] {
 
 fn text_default_font_size() -> f32 {
     20.0
+}
+
+fn fps_default_interval() -> f32 {
+    1.0
 }
 
 /// The main configuration contains all the information necessary to build a renderer
@@ -125,18 +152,6 @@ pub struct Config {
     /// Whether or not the program should use vertical sync
     #[serde(default = "default_vsync")]
     pub vsync: bool,
-
-    /// Whether or not to show the FPS counter
-    #[serde(default = "default_fps")]
-    pub fps: bool,
-
-    /// The name of the font to use
-    #[serde(default = "default_font")]
-    pub font: String,
-
-    /// The size of the font, in points
-    #[serde(default = "default_font_size")]
-    pub font_size: f32,
 
     /// Specifies which renderer to use (current options: opengl)
     #[serde(default = "default_renderer")]
@@ -180,21 +195,6 @@ fn default_vsync() -> bool {
     false
 }
 
-/// A function that returns the default value of the `fps` field
-fn default_fps() -> bool {
-    false
-}
-
-/// A function that returns the default value of the `font` field
-fn default_font() -> String {
-    "".to_string()
-}
-
-/// A function that returns the default value of the `font` field
-fn default_font_size() -> f32 {
-    20.0
-}
-
 /// A function that returns the default value of the `renderer` field
 fn default_renderer() -> String {
     "opengl".to_string()
@@ -236,17 +236,6 @@ impl Config {
                 Arg::with_name("vsync")
                     .long("vsync")
                     .help("Enable vertical sync"),
-                Arg::with_name("fps")
-                    .long("fps")
-                    .help("Enable FPS log to console"),
-                Arg::with_name("font")
-                    .long("font")
-                    .help("Specify font")
-                    .takes_value(true),
-                Arg::with_name("font_size")
-                    .long("font-size")
-                    .help("Specify font size")
-                    .takes_value(true),
                 Arg::with_name("renderer")
                     .long("renderer")
                     .help("Specify renderer to use")
@@ -292,18 +281,6 @@ impl Config {
 
         if args.is_present("vsync") {
             self.vsync = true;
-        }
-
-        if args.is_present("fps") {
-            self.fps = true;
-        }
-
-        if let Some(value) = args.value_of("font") {
-            self.font = value.to_string();
-        }
-
-        if let Some(value) = args.value_of("font_size") {
-            self.font_size = value.parse::<f32>()?;
         }
 
         if let Some(value) = args.value_of("renderer") {

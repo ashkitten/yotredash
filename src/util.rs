@@ -1,7 +1,7 @@
 //! Various utilities that don't really have a place elsewhere
 
 use std::ops::Deref;
-use time::Duration;
+use time::{self, Duration, Tm};
 
 /// A struct that derefs to its contents
 pub struct DerefInner<T>(pub T);
@@ -17,7 +17,7 @@ impl<T> Deref for DerefInner<T> {
 /// A simple struct to count frames per second and update at a set interval
 pub struct FpsCounter {
     /// The last time the counter reset
-    counter: Duration,
+    start: Tm,
     /// The number of frames counted since the last reset
     frames: u32,
     /// Interval between resets
@@ -30,7 +30,7 @@ impl FpsCounter {
     /// Create a new instance with the specified update interval
     pub fn new(interval: f32) -> Self {
         Self {
-            counter: Duration::zero(),
+            start: time::now(),
             frames: 0,
             interval: Duration::milliseconds((interval * 1_000.0) as i64),
             fps: 0.0,
@@ -38,14 +38,13 @@ impl FpsCounter {
     }
 
     /// Increment the frame count and update the timer
-    pub fn next_frame(&mut self, delta: Duration) {
+    pub fn next_frame(&mut self) {
         self.frames += 1;
-        self.counter = self.counter + delta;
-        if self.counter > self.interval {
-            self.fps = self.frames as f32
-                / (self.counter.num_nanoseconds().unwrap() as f32 / 1_000_000_000.0);
+        let delta = time::now() - self.start;
+        if delta > self.interval {
+            self.fps = self.frames as f32 / (delta.num_nanoseconds().unwrap() as f32 / 1_000_000_000.0);
             self.frames = 0;
-            self.counter = self.counter - self.interval
+            self.start = time::now();
         }
     }
 

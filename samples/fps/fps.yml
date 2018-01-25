@@ -1,0 +1,15 @@
+nodes:
+  __default__:
+    type: blend
+    operation: add
+    inputs:
+      - raymarch
+      - fps
+
+  fps:
+    type: fps
+
+  raymarch:
+    type: shader
+    vertex: ../default.vert
+    fragment: ../raymarch/raymarch.frag

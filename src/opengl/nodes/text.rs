@@ -27,7 +27,7 @@ pub struct TextNode {
     /// The text it draws
     text: String,
     /// The position to draw the text
-    pos: [f32; 2],
+    position: [f32; 2],
     /// The color of the text in RGBA format
     color: [f32; 4],
 }
@@ -38,7 +38,7 @@ impl TextNode {
         facade: &Rc<Facade>,
         name: String,
         text: String,
-        pos: [f32; 2],
+        position: [f32; 2],
         color: [f32; 4],
         font_name: &str,
         font_size: f32,
@@ -54,7 +54,7 @@ impl TextNode {
             texture,
             text_renderer,
             text,
-            pos,
+            position,
             color,
         })
     }
@@ -65,8 +65,8 @@ impl TextNode {
     }
 
     /// Set the text position
-    pub fn set_pos(&mut self, pos: [f32; 2]) {
-        self.pos = pos;
+    pub fn set_position(&mut self, position: [f32; 2]) {
+        self.position = position;
     }
 
     /// Set the text color
@@ -88,7 +88,7 @@ impl Node for TextNode {
 
         surface.clear_color(0.0, 0.0, 0.0, 0.0);
         self.text_renderer
-            .draw_text(&mut surface, &self.text, self.pos, self.color)?;
+            .draw_text(&mut surface, &self.text, self.position, self.color)?;
 
         let sampled = OwningHandle::new_with_fn(self.texture.clone(), |t| unsafe {
             DerefInner((*t).sampled())
@@ -104,7 +104,7 @@ impl Node for TextNode {
         let mut target = self.facade.draw();
         target.clear_color(0.0, 0.0, 0.0, 0.0);
         self.text_renderer
-            .draw_text(&mut target, &self.text, self.pos, self.color)?;
+            .draw_text(&mut target, &self.text, self.position, self.color)?;
         target.finish()?;
 
         Ok(())

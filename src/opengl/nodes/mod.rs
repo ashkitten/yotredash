@@ -5,6 +5,7 @@
 pub mod image;
 
 pub mod blend;
+pub mod fps;
 pub mod shader;
 pub mod text;
 
@@ -15,6 +16,7 @@ use std::path::Path;
 pub use self::image::ImageNode;
 
 pub use self::blend::BlendNode;
+pub use self::fps::FpsNode;
 pub use self::shader::ShaderNode;
 pub use self::text::TextNode;
 use super::UniformsStorageVec;
