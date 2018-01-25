@@ -1,91 +1,6 @@
 //! The `config` module provides definitions for all configuration structs as well as methods
 //! necessary for configuration via yaml and command line.
 
-/// The source configuration contains all the information necessary to build a source
-pub mod source_config {
-    use std::path::PathBuf;
-
-    /// The source configuration contains all the information necessary to build a source
-    #[derive(Deserialize, Clone)]
-    pub struct SourceConfig {
-        /// The path to the source file (relative to the configuration file, if there is one)
-        pub path: PathBuf,
-        /// The kind of the source file (image, etc) if applicable
-        pub kind: String,
-    }
-}
-
-/// The buffer configuration contains all the information necessary to build a buffer
-pub mod buffer_config {
-    use std::path::{Path, PathBuf};
-
-    /// The buffer configuration contains all the information necessary to build a buffer
-    #[derive(Deserialize, Clone)]
-    pub struct BufferConfig {
-        /// The current working directory relative to the main config file
-        #[serde(default)]
-        pub _cwd: PathBuf,
-
-        /// The path to the vertex shader (relative to the configuration file, if there is one)
-        pub vertex: PathBuf,
-
-        /// The path to the fragment shader (relative to the configuration file, if there is one)
-        pub fragment: PathBuf,
-
-        /// The names of the source configurations this buffer references
-        #[serde(default = "default_sources")]
-        pub sources: Vec<String>,
-
-        /// The width of the buffer
-        #[serde(default = "default_width")]
-        pub width: u32,
-
-        /// The height of the buffer
-        #[serde(default = "default_height")]
-        pub height: u32,
-
-        /// The names of the buffer configurations this buffer references
-        #[serde(default = "default_depends")]
-        pub depends: Vec<String>,
-
-        /// Whether or not this buffer is resizeable
-        #[serde(default = "default_resizeable")]
-        pub resizeable: bool,
-    }
-
-    /// A function that returns the default value of the `sources` field
-    pub fn default_sources() -> Vec<String> {
-        Vec::new()
-    }
-
-    /// A function that returns the default value of the `width` field
-    pub fn default_width() -> u32 {
-        640
-    }
-
-    /// A function that returns the default value of the `height` field
-    pub fn default_height() -> u32 {
-        400
-    }
-
-    /// A function that returns the default value of the `depends` field
-    pub fn default_depends() -> Vec<String> {
-        Vec::new()
-    }
-
-    /// A function that returns the default value of the `resizeable` field
-    pub fn default_resizeable() -> bool {
-        true
-    }
-
-    impl BufferConfig {
-        /// Provides a way to get the complete path to a file referenced in a configuration
-        pub fn path_to(&self, path: &Path) -> PathBuf {
-            self._cwd.join(path)
-        }
-    }
-}
-
 use clap::{App, Arg, ArgMatches};
 use nfd::{self, Response};
 use std::collections::HashMap;
@@ -96,26 +11,135 @@ use std::path::{Path, PathBuf};
 use failure::Error;
 use failure::ResultExt;
 
-use self::buffer_config::BufferConfig;
-use self::source_config::SourceConfig;
 use platform::config::PlatformSpecificConfig;
 
+/// Blend node operations
+#[derive(Debug, Deserialize, Clone)]
+#[serde(rename_all = "snake_case")]
+pub enum BlendOp {
+    /// Take the minimum RGBA value
+    Min,
+    /// Take the maximum RGBA value
+    Max,
+    /// Add the RGBA values
+    Add,
+    /// Subtract the RGBA values
+    Sub,
+}
+
+/// The node configuration contains all the information necessary to build a node
+#[derive(Debug, Deserialize, Clone)]
+#[serde(tag = "type")]
+#[serde(deny_unknown_fields)]
+#[serde(rename_all = "snake_case")]
+pub enum NodeConfig {
+    /// Image node type
+    Image {
+        /// Relative path to the image
+        path: PathBuf,
+    },
+
+    /// Shader node type
+    Shader {
+        /// Relative path to the vertex shader
+        vertex: PathBuf,
+
+        /// Relative path to the fragment shader
+        fragment: PathBuf,
+
+        /// Input nodes for the shader program
+        #[serde(default)]
+        inputs: Vec<String>,
+    },
+
+    /// Blend node type - blends the output of multiple nodes
+    Blend {
+        /// Math operation
+        operation: BlendOp,
+
+        /// Input node names and alpha transparencies
+        inputs: Vec<String>,
+    },
+
+    /// Text node type - renders text
+    Text {
+        /// Text to render
+        text: String,
+
+        /// Position to render at
+        #[serde(default)]
+        position: [f32; 2],
+
+        /// Color to render in
+        #[serde(default = "text_default_color")]
+        color: [f32; 4],
+
+        /// Font name
+        #[serde(default)]
+        font_name: String,
+
+        /// Font size
+        #[serde(default = "text_default_font_size")]
+        font_size: f32,
+    },
+
+    /// FPS counter node type - renders text
+    Fps {
+        /// Position to render at
+        #[serde(default)]
+        position: [f32; 2],
+
+        /// Color to render in
+        #[serde(default = "text_default_color")]
+        color: [f32; 4],
+
+        /// Font name
+        #[serde(default)]
+        font_name: String,
+
+        /// Font size
+        #[serde(default = "text_default_font_size")]
+        font_size: f32,
+
+        /// Update interval (seconds)
+        #[serde(default = "fps_default_interval")]
+        interval: f32,
+    },
+}
+
+fn text_default_color() -> [f32; 4] {
+    [1.0; 4]
+}
+
+fn text_default_font_size() -> f32 {
+    20.0
+}
+
+fn fps_default_interval() -> f32 {
+    1.0
+}
+
 /// The main configuration contains all the information necessary to build a renderer
-#[derive(Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone)]
+#[serde(deny_unknown_fields)]
 pub struct Config {
     /// The current working directory
     /// Not meant to actually be specified in yaml, but can be
     #[serde(default)]
     pub _cwd: PathBuf,
 
-    /// The buffer configurations, keyed by name
-    ///
-    /// The buffer called `__default__` must be specified, as this is the output buffer
-    pub buffers: HashMap<String, BufferConfig>,
+    /// The node configurations, keyed by name
+    /// The node called `__default__` must be specified, as this is the output node
+    #[serde(default)]
+    pub nodes: HashMap<String, NodeConfig>,
 
-    /// The source configurations, keyed by name
-    #[serde(default = "default_sources")]
-    pub sources: HashMap<String, SourceConfig>,
+    /// Initial width of the window
+    #[serde(default = "default_width")]
+    pub width: u32,
+
+    /// Initial height of the window
+    #[serde(default = "default_height")]
+    pub height: u32,
 
     /// Whether or not to maximize the window
     #[serde(default = "default_maximize")]
@@ -128,18 +152,6 @@ pub struct Config {
     /// Whether or not the program should use vertical sync
     #[serde(default = "default_vsync")]
     pub vsync: bool,
-
-    /// Whether or not to show the FPS counter
-    #[serde(default = "default_fps")]
-    pub fps: bool,
-
-    /// The name of the font to use
-    #[serde(default = "default_font")]
-    pub font: String,
-
-    /// The size of the font, in points
-    #[serde(default = "default_font_size")]
-    pub font_size: f32,
 
     /// Specifies which renderer to use (current options: opengl)
     #[serde(default = "default_renderer")]
@@ -158,9 +170,14 @@ pub struct Config {
     pub platform_config: PlatformSpecificConfig,
 }
 
-/// A function that returns the default value of the `sources` field
-fn default_sources() -> HashMap<String, SourceConfig> {
-    HashMap::new()
+/// A function that returns the default value of the `width` field
+fn default_width() -> u32 {
+    640
+}
+
+/// A function that returns the default value of the `width` field
+fn default_height() -> u32 {
+    400
 }
 
 /// A function that returns the default value of the `maximize` field
@@ -176,21 +193,6 @@ fn default_fullscreen() -> bool {
 /// A function that returns the default value of the `vsync` field
 fn default_vsync() -> bool {
     false
-}
-
-/// A function that returns the default value of the `fps` field
-fn default_fps() -> bool {
-    false
-}
-
-/// A function that returns the default value of the `font` field
-fn default_font() -> String {
-    "".to_string()
-}
-
-/// A function that returns the default value of the `font` field
-fn default_font_size() -> f32 {
-    20.0
 }
 
 /// A function that returns the default value of the `renderer` field
@@ -234,17 +236,6 @@ impl Config {
                 Arg::with_name("vsync")
                     .long("vsync")
                     .help("Enable vertical sync"),
-                Arg::with_name("fps")
-                    .long("fps")
-                    .help("Enable FPS log to console"),
-                Arg::with_name("font")
-                    .long("font")
-                    .help("Specify font")
-                    .takes_value(true),
-                Arg::with_name("font_size")
-                    .long("font-size")
-                    .help("Specify font size")
-                    .takes_value(true),
                 Arg::with_name("renderer")
                     .long("renderer")
                     .help("Specify renderer to use")
@@ -273,11 +264,11 @@ impl Config {
     /// Parses the configuration from command-line arguments
     fn merge_args(&mut self, args: &ArgMatches) -> Result<(), Error> {
         if let Some(value) = args.value_of("width") {
-            self.buffers.get_mut("__default__").unwrap().width = value.parse::<u32>()?;
+            self.width = value.parse::<u32>()?;
         }
 
         if let Some(value) = args.value_of("height") {
-            self.buffers.get_mut("__default__").unwrap().height = value.parse::<u32>()?;
+            self.height = value.parse::<u32>()?;
         }
 
         if args.is_present("maximize") {
@@ -290,18 +281,6 @@ impl Config {
 
         if args.is_present("vsync") {
             self.vsync = true;
-        }
-
-        if args.is_present("fps") {
-            self.fps = true;
-        }
-
-        if let Some(value) = args.value_of("font") {
-            self.font = value.to_string();
-        }
-
-        if let Some(value) = args.value_of("font_size") {
-            self.font_size = value.parse::<f32>()?;
         }
 
         if let Some(value) = args.value_of("renderer") {
@@ -331,14 +310,11 @@ impl Config {
         let mut config: Config = ::serde_yaml::from_str(&config_str)?;
 
         config._cwd = path.parent().unwrap().to_path_buf();
-        for buffer in config.buffers.values_mut() {
-            buffer._cwd = config._cwd.clone();
-        }
 
         Ok(config)
     }
 
-    /// Returns the configuration, appropriately sourced from both command-line arguments and the
+    /// Returns the configuration, appropriately noded from both command-line arguments and the
     /// config file
     pub fn parse(path: &Path) -> Result<Self, Error> {
         let app = PlatformSpecificConfig::build_cli();

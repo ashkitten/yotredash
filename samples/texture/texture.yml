@@ -1,11 +1,4 @@
-buffers:
+nodes:
   __default__:
-    vertex: ../default.vert
-    fragment: texture.frag
-    sources:
-      - tex
-
-sources:
-  tex:
+    type: image
     path: texture.png
-    kind: image

@@ -4,10 +4,11 @@
 use glium::{Blend, DrawParameters, Program, Surface, Texture2d, VertexBuffer};
 use glium::backend::Facade;
 use glium::index::{NoIndices, PrimitiveType};
+use glium::program::ProgramCreationInput;
 use glium::texture::{MipmapsOption, PixelValue, RawImage2d, Texture2dDataSource,
                      UncompressedFloatFormat};
 use glium::uniforms::MagnifySamplerFilter;
-use rect_packer::DensePacker;
+use rect_packer::{self, DensePacker};
 use std::borrow::Cow;
 use std::cmp::max;
 use std::collections::HashMap;
@@ -17,11 +18,53 @@ use failure::Error;
 use super::UniformsStorageVec;
 use font::{FreeTypeRasterizer, GlyphLoader, RenderedGlyph};
 
+const VERTEX: &str = "
+    #version 140
+
+    in vec2 position;
+    in vec2 tex_coords;
+    out vec2 texCoords;
+
+    uniform mat4 projection;
+
+    void main() {
+        gl_Position = projection * vec4(position, 0.0, 1.0);
+        texCoords = tex_coords;
+    }
+";
+
+const FRAGMENT: &str = "
+    #version 140
+
+    in vec2 texCoords;
+    out vec4 color;
+
+    uniform sampler2D glyphTexture;
+    uniform vec4 glyphColor;
+
+    void main() {
+        vec4 sampled = vec4(1.0, 1.0, 1.0, texture(glyphTexture, texCoords).r);
+        color = glyphColor * sampled;
+    }
+";
+
+impl<'a> Texture2dDataSource<'a> for &'a RenderedGlyph {
+    type Data = u8;
+    fn into_raw(self) -> RawImage2d<'a, u8> {
+        RawImage2d {
+            data: Cow::Borrowed(&self.buffer),
+            width: self.width as u32,
+            height: self.height as u32,
+            format: <u8 as PixelValue>::get_format(),
+        }
+    }
+}
+
 /// Data about a glyph stored in the texture cache
 #[derive(Clone)]
 pub struct GlyphData {
     /// Rectangle containing the glyph within the cache texture
-    pub rect: ::rect_packer::Rect,
+    pub rect: rect_packer::Rect,
     /// Width of glyph in pixels
     pub width: u32,
     /// Height of glyph in pixels
@@ -46,18 +89,6 @@ pub struct GlyphCache {
     loader: Rc<GlyphLoader>,
     /// The packer used to pack glyphs into the texture
     packer: DensePacker,
-}
-
-impl<'a> Texture2dDataSource<'a> for &'a RenderedGlyph {
-    type Data = u8;
-    fn into_raw(self) -> RawImage2d<'a, u8> {
-        RawImage2d {
-            data: Cow::Borrowed(&self.buffer),
-            width: self.width as u32,
-            height: self.height as u32,
-            format: <u8 as PixelValue>::get_format(),
-        }
-    }
 }
 
 impl GlyphCache {
@@ -105,7 +136,7 @@ impl GlyphCache {
             self.cache.insert(
                 key,
                 GlyphData {
-                    rect: ::rect_packer::Rect {
+                    rect: rect_packer::Rect {
                         x: 0,
                         y: 0,
                         width: 0,
@@ -236,38 +267,19 @@ impl TextRenderer {
             Rc::new(FreeTypeRasterizer::new(font, font_size)?),
         )?;
 
-        let program = program!(&*facade,
-            140 => {
-                vertex: "
-                    #version 140
-
-                    in vec2 position;
-                    in vec2 tex_coords;
-                    out vec2 texCoords;
-
-                    uniform mat4 projection;
-
-                    void main() {
-                        gl_Position = projection * vec4(position, 0.0, 1.0);
-                        texCoords = tex_coords;
-                    }
-                ",
-                fragment: "
-                    #version 140
-
-                    in vec2 texCoords;
-                    out vec4 color;
-
-                    uniform sampler2D glyphTexture;
-                    uniform vec3 glyphColor;
-
-                    void main() {
-                        vec4 sampled = vec4(1.0, 1.0, 1.0, texture(glyphTexture, texCoords).r);
-                        color = vec4(glyphColor, 1.0) * sampled;
-                    }
-                ",
-            }
-        )?;
+        let program = {
+            let input = ProgramCreationInput::SourceCode {
+                vertex_shader: &VERTEX,
+                tessellation_control_shader: None,
+                tessellation_evaluation_shader: None,
+                geometry_shader: None,
+                fragment_shader: &FRAGMENT,
+                transform_feedback_varyings: None,
+                outputs_srgb: true,
+                uses_point_size: false,
+            };
+            Program::new(&*facade, input)?
+        };
 
         Ok(Self {
             facade: facade,
@@ -281,13 +293,13 @@ impl TextRenderer {
         &mut self,
         surface: &mut S,
         text: &str,
-        x: f32,
-        y: f32,
-        color: [f32; 3],
+        pos: [f32; 2],
+        color: [f32; 4],
     ) -> Result<(), Error>
     where
         S: Surface,
     {
+        let [x, y] = pos;
         let mut advance = 0;
         for c in text.chars() {
             let glyph = self.glyph_cache.get(c as usize)?.clone();

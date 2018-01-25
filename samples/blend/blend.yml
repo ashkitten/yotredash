@@ -1,0 +1,17 @@
+nodes:
+  __default__:
+    type: blend
+    operation: add
+    inputs:
+      - gradient
+      - pointer_buf
+
+  gradient:
+    type: shader
+    vertex: ../default.vert
+    fragment: ../gradient/gradient.frag
+
+  pointer_buf:
+    type: shader
+    vertex: ../default.vert
+    fragment: ../pointer/pointer.frag

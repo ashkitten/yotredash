@@ -91,10 +91,7 @@ pub fn init(window: &Window, config: &Config) {
             // take effect
             remap_window(&x_connection, x_display, x_window);
             // After remapping the window we need to set the size again
-            window.set_inner_size(
-                config.buffers["__default__"].width,
-                config.buffers["__default__"].height,
-            );
+            window.set_inner_size(config.width, config.height);
         }
 
         if config.platform_config.lower_window {

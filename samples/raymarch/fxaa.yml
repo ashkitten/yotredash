@@ -1,12 +1,12 @@
-buffers:
-  __default__:
+nodes:
+  fxaa:
+    type: shader
     vertex: ../default.vert
     fragment: fxaa.frag
-    depends:
+    inputs:
       - raymarch
 
   raymarch:
+    type: shader
     vertex: ../default.vert
     fragment: raymarch.frag
-
-fps: true

@@ -30,7 +30,8 @@
 // So we don't run into issues with the error_chain macro
 #![recursion_limit = "128"]
 // Experimental features
-#![feature(type_ascription, refcell_replace_swap, inclusive_range_syntax)]
+#![feature(type_ascription, refcell_replace_swap, inclusive_range_syntax, universal_impl_trait,
+           slice_patterns)]
 
 #[cfg(unix)]
 extern crate signal;
@@ -51,6 +52,7 @@ extern crate notify;
 extern crate owning_ref;
 extern crate rect_packer;
 extern crate serde_yaml;
+extern crate solvent;
 extern crate time;
 extern crate winit;
 
@@ -68,8 +70,6 @@ extern crate image;
 pub mod config;
 pub mod font;
 pub mod platform;
-pub mod surface;
-pub mod source;
 pub mod util;
 
 #[cfg(feature = "opengl")]
@@ -89,8 +89,7 @@ use signal::trap::Trap;
 #[cfg(feature = "opengl")]
 use opengl::renderer::OpenGLRenderer;
 
-use config::Config;
-use util::FpsCounter;
+use config::{Config, NodeConfig};
 
 /// Renders a configured shader
 pub trait Renderer {
@@ -99,13 +98,12 @@ pub trait Renderer {
     where
         Self: Sized;
     /// Render the current frame
-    fn render(&mut self, time: time::Duration, pointer: [f32; 4], fps: f32) -> Result<(), Error>;
+    fn render(&mut self, time: time::Duration, pointer: [f32; 4]) -> Result<(), Error>;
     /// Render the current frame to a file
     fn render_to_file(
         &mut self,
         time: time::Duration,
         pointer: [f32; 4],
-        fps: f32,
         path: &Path,
     ) -> Result<(), Error>;
     /// Tells the renderer to swap buffers (only applicable to buffered renderers)
@@ -138,25 +136,26 @@ fn setup_watches(
         // Watch the config file for changes
         watcher.watch(config_path, notify::RecursiveMode::NonRecursive)?;
 
-        for buffer in config.buffers.values() {
-            watcher.watch(
-                config.path_to(&buffer.vertex),
-                notify::RecursiveMode::NonRecursive,
-            )?;
-            watcher.watch(
-                config.path_to(&buffer.fragment),
-                notify::RecursiveMode::NonRecursive,
-            )?;
-        }
-
-        for source in config.sources.values() {
-            // Allow single match for future expansion
-            #[cfg_attr(feature = "cargo-clippy", allow(single_match))]
-            match source.kind.as_str() {
-                "image" => watcher.watch(
-                    config.path_to(&source.path),
+        for node in config.nodes.values() {
+            match *node {
+                NodeConfig::Image { ref path } => watcher.watch(
+                    config.path_to(Path::new(path)),
                     notify::RecursiveMode::NonRecursive,
                 )?,
+                NodeConfig::Shader {
+                    ref vertex,
+                    ref fragment,
+                    ..
+                } => {
+                    watcher.watch(
+                        config.path_to(Path::new(vertex)),
+                        notify::RecursiveMode::NonRecursive,
+                    )?;
+                    watcher.watch(
+                        config.path_to(Path::new(fragment)),
+                        notify::RecursiveMode::NonRecursive,
+                    )?;
+                }
                 _ => (),
             }
         }
@@ -192,7 +191,6 @@ fn run() -> Result<(), Error> {
 
     let mut time = time::Duration::zero();
     let mut last_frame = time::now();
-    let mut fps_counter = FpsCounter::new(2.0);
     let mut pointer = [0.0; 4];
 
     let mut paused = false;
@@ -205,12 +203,8 @@ fn run() -> Result<(), Error> {
             time = time + delta;
             last_frame = time::now();
 
-            fps_counter.next_frame(delta);
-
-            renderer.render(time, pointer, fps_counter.fps())?;
+            renderer.render(time, pointer)?;
         } else {
-            last_frame = time::now();
-
             renderer.swap_buffers()?;
         }
 
@@ -320,7 +314,7 @@ fn run() -> Result<(), Error> {
                 RendererAction::Snapshot => {
                     let path =
                         Path::new(&format!("{}.png", time::now().strftime("%F_%T")?)).to_path_buf();
-                    renderer.render_to_file(time, pointer, fps_counter.fps(), &path)?
+                    renderer.render_to_file(time, pointer, &path)?
                 }
                 RendererAction::Close => return Ok(()),
             }
@@ -331,7 +325,7 @@ fn run() -> Result<(), Error> {
 fn main() {
     use std::io::Write;
 
-    ::std::process::exit(match run() {
+    std::process::exit(match run() {
         Ok(()) => 0,
         Err(ref error) => {
             let mut causes = error.causes();

@@ -17,6 +17,7 @@ rect_packer = "0.2.1"
 serde = "1.0.26"
 serde_derive = "1.0.26"
 serde_yaml = "0.7.3"
+solvent = "0.8.1"
 time = "0.1.38"
 winit = "0.9.0"
 
@@ -24,9 +25,9 @@ winit = "0.9.0"
 glium = { git = "https://github.com/ashkitten/glium", optional = true }
 
 # Needed by image feature
-image = { version = "0.18.0", optional = true }
 gif = { version = "0.9.2", optional = true }
 gif-dispose = { version = "2.1.0", optional = true }
+image = { version = "0.18.0", optional = true }
 
 [target.'cfg(unix)'.dependencies]
 signal = "0.4.0"
@@ -37,7 +38,7 @@ glob = "0.2.11"
 [features]
 default = ["opengl", "image-src"]
 opengl = ["glium"]
-image-src = ["image", "gif", "gif-dispose"]
+image-src = ["gif", "gif-dispose", "image"]
 
 [replace]
 "servo-fontconfig-sys:4.0.4" = { git = "https://github.com/ashkitten/libfontconfig" }

@@ -1,4 +1,5 @@
-buffers:
+nodes:
   __default__:
+    type: shader
     vertex: ../default.vert
     fragment: gradient.frag
