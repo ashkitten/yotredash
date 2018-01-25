@@ -55,9 +55,6 @@ impl ShaderNode {
         vertex: &Path,
         fragment: &Path,
     ) -> Result<Self, Error> {
-        debug!("Using vertex shader: {}", vertex.to_str().unwrap());
-        debug!("Using fragment shader: {}", fragment.to_str().unwrap());
-
         let file = File::open(vertex).context("Could not open vertex shader file")?;
         let mut buf_reader = BufReader::new(file);
         let mut vertex_source = String::new();

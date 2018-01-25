@@ -31,13 +31,13 @@ fn init_nodes(
     config: &Config,
     facade: &Rc<Facade>,
 ) -> Result<(HashMap<String, Box<Node>>, Vec<String>), Error> {
+    ensure!(config.nodes.contains_key("__default__"), "Config does not contain node __default__");
+
     let mut nodes: HashMap<String, Box<Node>> = HashMap::new();
     let mut dep_graph: DepGraph<&str> = DepGraph::new();
     dep_graph.register_node("__default__");
 
     for (name, node_config) in config.nodes.iter() {
-        debug!("Node '{}': {:?}", name, node_config);
-
         match *node_config {
             NodeConfig::Image { ref path } => {
                 nodes.insert(
@@ -137,11 +137,17 @@ fn init_nodes(
     }
 
     let mut order = Vec::new();
-    for dep in dep_graph.dependencies_of(&"__default__")? {
-        order.push(dep?.to_string());
+    for node in dep_graph.dependencies_of(&"__default__")? {
+        order.push(node?.to_string());
     }
+    debug!("Render order: {}", order.join(", "));
 
-    debug!("Render order: {:?}", order);
+    let dangling_nodes: Vec<String> = nodes.keys().filter(|name| !order.contains(name)).cloned().collect();
+    if dangling_nodes.len() == 1 {
+        warn!("Dangling node: {}", dangling_nodes[0]);
+    } else if dangling_nodes.len() > 1 {
+        warn!("Dangling nodes: {}", dangling_nodes.join(", "));
+    }
 
     Ok((nodes, order))
 }

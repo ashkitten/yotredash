@@ -165,7 +165,7 @@ fn setup_watches(
 }
 
 fn run() -> Result<(), Error> {
-    env_logger::init()?;
+    env_logger::try_init()?;
 
     // Register signal handler (unix only)
     #[cfg(unix)]

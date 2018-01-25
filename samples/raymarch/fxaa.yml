@@ -1,5 +1,5 @@
 nodes:
-  fxaa:
+  __default__:
     type: shader
     vertex: ../default.vert
     fragment: fxaa.frag

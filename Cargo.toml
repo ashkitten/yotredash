@@ -5,11 +5,11 @@ authors = ["Ash Levy <ashy.of.ren@gmail.com>"]
 
 [dependencies]
 clap = "2.29.0"
-env_logger = "0.4.3"
+env_logger = "0.5.3"
 failure = "0.1.1"
 font-loader = "0.5.0"
 freetype-rs = "0.16.0"
-log = "0.3.9"
+log = "0.4.1"
 nfd = { git = "https://github.com/ashkitten/nfd-rs", branch = "dev" }
 notify = "4.0.3"
 owning_ref = "0.3.3"
