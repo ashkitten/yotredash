@@ -31,7 +31,10 @@ fn init_nodes(
     config: &Config,
     facade: &Rc<Facade>,
 ) -> Result<(HashMap<String, Box<Node>>, Vec<String>), Error> {
-    ensure!(config.nodes.contains_key("__default__"), "Config does not contain node __default__");
+    ensure!(
+        config.nodes.contains_key("__default__"),
+        "Config does not contain node __default__"
+    );
 
     let mut nodes: HashMap<String, Box<Node>> = HashMap::new();
     let mut dep_graph: DepGraph<&str> = DepGraph::new();
@@ -142,7 +145,11 @@ fn init_nodes(
     }
     debug!("Render order: {}", order.join(", "));
 
-    let dangling_nodes: Vec<String> = nodes.keys().filter(|name| !order.contains(name)).cloned().collect();
+    let dangling_nodes: Vec<String> = nodes
+        .keys()
+        .filter(|name| !order.contains(name))
+        .cloned()
+        .collect();
     if dangling_nodes.len() == 1 {
         warn!("Dangling node: {}", dangling_nodes[0]);
     } else if dangling_nodes.len() > 1 {

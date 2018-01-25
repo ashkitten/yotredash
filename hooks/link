@@ -1,0 +1,3 @@
+#! /usr/bin/env sh
+
+ln -sf ../../hooks/pre-commit $(git rev-parse --git-dir)/hooks/pre-commit
