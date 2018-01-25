@@ -55,3 +55,9 @@ impl<T, U: AsUniformValue> AsUniformValue for MapAsUniform<T, U> {
         (self.1)(&self.0).as_uniform_value()
     }
 }
+
+impl<'a, T, U: AsUniformValue> AsUniformValue for &'a MapAsUniform<T, U> {
+    fn as_uniform_value(&self) -> UniformValue {
+        (self.1)(&self.0).as_uniform_value()
+    }
+}

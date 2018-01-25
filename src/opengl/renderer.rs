@@ -13,8 +13,8 @@ use std::rc::Rc;
 use winit::EventsLoop;
 
 use Renderer;
-use config::{Config, NodeConfig};
-use super::UniformsStorageVec;
+use config::Config;
+use config::nodes::NodeConfig;
 use super::nodes::*;
 
 /// An implementation of a `Renderer` which uses OpenGL
@@ -40,100 +40,77 @@ fn init_nodes(
     let mut dep_graph: DepGraph<&str> = DepGraph::new();
     dep_graph.register_node("__default__");
 
-    for (name, node_config) in config.nodes.iter() {
+    for (name, node_config) in &config.nodes {
         match *node_config {
-            NodeConfig::Image { ref path } => {
+            NodeConfig::Image(ref image_config) => {
+                let mut image_config = image_config.clone();
+                image_config.path = config.path_to(&image_config.path);
+
                 nodes.insert(
                     name.to_string(),
-                    Box::new(ImageNode::new(
-                        &facade,
-                        name.to_string(),
-                        &config.path_to(path),
-                    )?),
+                    Box::new(ImageNode::new(&facade, name.to_string(), image_config)?),
                 );
             }
 
-            NodeConfig::Shader {
-                ref vertex,
-                ref fragment,
-                ref inputs,
-            } => {
-                nodes.insert(
-                    name.to_string(),
-                    Box::new(ShaderNode::new(
-                        &facade,
+            NodeConfig::Shader(ref shader_config) => {
+                {
+                    // Replace the paths with absolute paths
+                    let mut shader_config = shader_config.clone();
+                    shader_config.vertex = config.path_to(&shader_config.vertex);
+                    shader_config.fragment = config.path_to(&shader_config.fragment);
+
+                    nodes.insert(
                         name.to_string(),
-                        &config.path_to(vertex),
-                        &config.path_to(fragment),
-                    )?),
-                );
+                        Box::new(ShaderNode::new(&facade, name.to_string(), shader_config)?),
+                    );
+                }
 
                 dep_graph.register_dependencies(
                     name,
-                    inputs.iter().map(|input| input.as_str()).collect(),
+                    shader_config
+                        .inputs
+                        .iter()
+                        .map(|input| input.as_str())
+                        .collect(),
                 );
             }
 
-            NodeConfig::Blend {
-                ref operation,
-                ref inputs,
-            } => {
+            NodeConfig::Blend(ref blend_config) => {
                 nodes.insert(
                     name.to_string(),
                     Box::new(BlendNode::new(
                         &facade,
                         name.to_string(),
-                        operation.clone(),
-                        inputs.clone(),
+                        blend_config.clone(),
                     )?),
                 );
 
                 dep_graph.register_dependencies(
                     name,
-                    inputs.iter().map(|input| input.as_str()).collect(),
+                    blend_config
+                        .inputs
+                        .iter()
+                        .map(|input| input.as_str())
+                        .collect(),
                 );
             }
 
             // TODO: Color in a better format
-            NodeConfig::Text {
-                ref text,
-                ref position,
-                ref color,
-                ref font_name,
-                ref font_size,
-            } => {
+            NodeConfig::Text(ref text_config) => {
                 nodes.insert(
                     name.to_string(),
                     Box::new(TextNode::new(
                         &facade,
                         name.to_string(),
-                        text.to_string(),
-                        position.clone(),
-                        color.clone(),
-                        font_name,
-                        font_size.clone(),
+                        text_config.clone(),
                     )?),
                 );
             }
 
-            NodeConfig::Fps {
-                ref position,
-                ref color,
-                ref font_name,
-                ref font_size,
-                ref interval,
-            } => {
+            NodeConfig::Fps(ref fps_config) => {
                 nodes.insert(
                     name.to_string(),
-                    Box::new(FpsNode::new(
-                        &facade,
-                        name.to_string(),
-                        position.clone(),
-                        color.clone(),
-                        font_name,
-                        font_size.clone(),
-                        interval.clone(),
-                    )?),
+                    Box::new(FpsNode::new(&facade, name.to_string(), fps_config.clone())?),
                 );
             }
         }
@@ -211,16 +188,11 @@ impl Renderer for OpenGLRenderer {
             height as f32 - pointer[3],
         ];
 
-        let mut uniforms = UniformsStorageVec::new();
-        uniforms.push("time", time);
-        uniforms.push("pointer", pointer);
-        uniforms.push("resolution", (width as f32, height as f32));
-
         for name in &self.order {
             if name == "__default__" {
-                self.nodes.get_mut(name).unwrap().present(&mut uniforms)?;
+                self.nodes.get_mut(name).unwrap().present(&inputs)?;
             } else {
-                self.nodes.get_mut(name).unwrap().render(&mut uniforms)?;
+                self.nodes.get_mut(name).unwrap().render(&inputs)?;
             }
         }
 
@@ -267,19 +239,14 @@ impl Renderer for OpenGLRenderer {
             height as f32 - pointer[3],
         ];
 
-        let mut uniforms = UniformsStorageVec::new();
-        uniforms.push("time", time);
-        uniforms.push("pointer", pointer);
-        uniforms.push("resolution", (width as f32, height as f32));
-
         for name in &self.order {
             if name == "__default__" {
                 self.nodes
                     .get_mut(name)
                     .unwrap()
-                    .render_to_file(&mut uniforms, path)?;
+                    .render_to_file(&inputs, path)?;
             } else {
-                self.nodes.get_mut(name).unwrap().render(&mut uniforms)?;
+                self.nodes.get_mut(name).unwrap().render(&inputs)?;
             }
         }
 

@@ -31,7 +31,7 @@
 #![recursion_limit = "128"]
 // Experimental features
 #![feature(type_ascription, refcell_replace_swap, inclusive_range_syntax, universal_impl_trait,
-           slice_patterns)]
+           slice_patterns, get_type_id)]
 
 #[cfg(unix)]
 extern crate signal;
@@ -89,7 +89,8 @@ use signal::trap::Trap;
 #[cfg(feature = "opengl")]
 use opengl::renderer::OpenGLRenderer;
 
-use config::{Config, NodeConfig};
+use config::Config;
+use config::nodes::NodeConfig;
 
 /// Renders a configured shader
 pub trait Renderer {
@@ -138,21 +139,17 @@ fn setup_watches(
 
         for node in config.nodes.values() {
             match *node {
-                NodeConfig::Image { ref path } => watcher.watch(
-                    config.path_to(Path::new(path)),
+                NodeConfig::Image(ref image_config) => watcher.watch(
+                    config.path_to(Path::new(&image_config.path)),
                     notify::RecursiveMode::NonRecursive,
                 )?,
-                NodeConfig::Shader {
-                    ref vertex,
-                    ref fragment,
-                    ..
-                } => {
+                NodeConfig::Shader(ref shader_config) => {
                     watcher.watch(
-                        config.path_to(Path::new(vertex)),
+                        config.path_to(Path::new(&shader_config.vertex)),
                         notify::RecursiveMode::NonRecursive,
                     )?;
                     watcher.watch(
-                        config.path_to(Path::new(fragment)),
+                        config.path_to(Path::new(&shader_config.fragment)),
                         notify::RecursiveMode::NonRecursive,
                     )?;
                 }

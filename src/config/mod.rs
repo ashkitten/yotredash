@@ -1,6 +1,8 @@
 //! The `config` module provides definitions for all configuration structs as well as methods
 //! necessary for configuration via yaml and command line.
 
+pub mod nodes;
+
 use clap::{App, Arg, ArgMatches};
 use nfd::{self, Response};
 use std::collections::HashMap;
@@ -12,112 +14,7 @@ use failure::Error;
 use failure::ResultExt;
 
 use platform::config::PlatformSpecificConfig;
-
-/// Blend node operations
-#[derive(Debug, Deserialize, Clone)]
-#[serde(rename_all = "snake_case")]
-pub enum BlendOp {
-    /// Take the minimum RGBA value
-    Min,
-    /// Take the maximum RGBA value
-    Max,
-    /// Add the RGBA values
-    Add,
-    /// Subtract the RGBA values
-    Sub,
-}
-
-/// The node configuration contains all the information necessary to build a node
-#[derive(Debug, Deserialize, Clone)]
-#[serde(tag = "type")]
-#[serde(deny_unknown_fields)]
-#[serde(rename_all = "snake_case")]
-pub enum NodeConfig {
-    /// Image node type
-    Image {
-        /// Relative path to the image
-        path: PathBuf,
-    },
-
-    /// Shader node type
-    Shader {
-        /// Relative path to the vertex shader
-        vertex: PathBuf,
-
-        /// Relative path to the fragment shader
-        fragment: PathBuf,
-
-        /// Input nodes for the shader program
-        #[serde(default)]
-        inputs: Vec<String>,
-    },
-
-    /// Blend node type - blends the output of multiple nodes
-    Blend {
-        /// Math operation
-        operation: BlendOp,
-
-        /// Input node names and alpha transparencies
-        inputs: Vec<String>,
-    },
-
-    /// Text node type - renders text
-    Text {
-        /// Text to render
-        text: String,
-
-        /// Position to render at
-        #[serde(default)]
-        position: [f32; 2],
-
-        /// Color to render in
-        #[serde(default = "text_default_color")]
-        color: [f32; 4],
-
-        /// Font name
-        #[serde(default)]
-        font_name: String,
-
-        /// Font size
-        #[serde(default = "text_default_font_size")]
-        font_size: f32,
-    },
-
-    /// FPS counter node type - renders text
-    Fps {
-        /// Position to render at
-        #[serde(default)]
-        position: [f32; 2],
-
-        /// Color to render in
-        #[serde(default = "text_default_color")]
-        color: [f32; 4],
-
-        /// Font name
-        #[serde(default)]
-        font_name: String,
-
-        /// Font size
-        #[serde(default = "text_default_font_size")]
-        font_size: f32,
-
-        /// Update interval (seconds)
-        #[serde(default = "fps_default_interval")]
-        interval: f32,
-    },
-}
-
-fn text_default_color() -> [f32; 4] {
-    [1.0; 4]
-}
-
-fn text_default_font_size() -> f32 {
-    20.0
-}
-
-fn fps_default_interval() -> f32 {
-    1.0
-}
+use self::nodes::NodeConfig;
 
 /// The main configuration contains all the information necessary to build a renderer
 #[derive(Debug, Deserialize, Clone)]
