@@ -1,4 +1,33 @@
 use std::path::PathBuf;
+use std::default::Default;
+
+/// Represents a parameter to a node which can either be a static value
+/// or a pointer to the output of a different node.
+#[derive(Debug, Deserialize, Clone)]
+pub enum NodeParameter<T> {
+    NodeConnection(String),
+
+    Static(T),
+}
+
+impl<T: Default> Default for NodeParameter<T> {
+    fn default() -> NodeParameter<T> {
+        NodeParameter::Static(Default::default())
+    }
+}
+
+impl<T> NodeParameter<T>
+where
+    T: Default,
+{
+    /// Returns the inner value if `Static`, or `Default::default()` if a `NodeConnection`.
+    pub fn or_default(&self) -> T {
+        match *self {
+            NodeParameter::Static(v) => v,
+            NodeParameter::NodeConnection(_) => Default::default(),
+        }
+    }
+}
 
 /// Image node type
 #[derive(Debug, Deserialize, Clone)]
@@ -38,15 +67,15 @@ pub struct BlendConfig {
 #[serde(deny_unknown_fields)]
 pub struct TextConfig {
     /// Text to render
-    pub text: String,
+    pub text: NodeParameter<String>,
 
     /// Position to render at
     #[serde(default)]
-    pub position: [f32; 2],
+    pub position: NodeParameter<[f32; 2]>,
 
     /// Color to render in
     #[serde(default = "text_default_color")]
-    pub color: [f32; 4],
+    pub color: NodeParameter<[f32; 4]>,
 
     /// Font name
     #[serde(default)]
@@ -67,7 +96,7 @@ pub struct FpsConfig {
 
     /// Color to render in
     #[serde(default = "text_default_color")]
-    pub color: [f32; 4],
+    pub color: NodeParameter<[f32; 4]>,
 
     /// Font name
     #[serde(default)]
@@ -109,8 +138,8 @@ pub enum NodeConfig {
     Fps(FpsConfig),
 }
 
-fn text_default_color() -> [f32; 4] {
-    [1.0; 4]
+fn text_default_color() -> NodeParameter<[f32; 4]> {
+    NodeParameter::Static([1.0; 4])
 }
 
 fn text_default_font_size() -> f32 {

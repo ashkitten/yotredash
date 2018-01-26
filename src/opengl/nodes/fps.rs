@@ -5,7 +5,7 @@ use glium::backend::Facade;
 use std::path::Path;
 use std::rc::Rc;
 
-use config::nodes::{FpsConfig, TextConfig};
+use config::nodes::{FpsConfig, NodeParameter, TextConfig};
 use super::{Node, NodeInputs, NodeOutputs, TextNode};
 use util::FpsCounter;
 
@@ -25,8 +25,8 @@ impl FpsNode {
                 facade,
                 name,
                 TextConfig {
-                    text: "".to_string(),
-                    position: config.position,
+                    text: NodeParameter::Static("".to_string()),
+                    position: NodeParameter::Static(config.position),
                     color: config.color,
                     font_name: config.font_name,
                     font_size: config.font_size,
@@ -34,7 +34,7 @@ impl FpsNode {
             )?,
             fps_counter: FpsCounter::new(config.interval),
             position: config.position,
-            color: config.color,
+            color: config.color.or_default(),
         })
     }
 }

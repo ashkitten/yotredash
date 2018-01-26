@@ -43,9 +43,9 @@ impl TextNode {
             facade: Rc::clone(facade),
             texture,
             text_renderer,
-            text: config.text,
-            position: config.position,
-            color: config.color,
+            text: config.text.or_default(),
+            position: config.position.or_default(),
+            color: config.color.or_default(),
         })
     }
 }
