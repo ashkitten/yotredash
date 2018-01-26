@@ -19,21 +19,20 @@ pub struct FpsNode {
 
 impl FpsNode {
     /// Create a new instance
-    pub fn new(facade: &Rc<Facade>, name: String, config: FpsConfig) -> Result<Self, Error> {
+    pub fn new(facade: &Rc<Facade>, config: FpsConfig) -> Result<Self, Error> {
         Ok(Self {
             text_node: TextNode::new(
                 facade,
-                name,
                 TextConfig {
                     text: NodeParameter::Static("".to_string()),
-                    position: NodeParameter::Static(config.position),
-                    color: config.color,
+                    position: config.position.clone(),
+                    color: config.color.clone(),
                     font_name: config.font_name,
                     font_size: config.font_size,
                 },
             )?,
             fps_counter: FpsCounter::new(config.interval),
-            position: config.position,
+            position: config.position.or_default(),
             color: config.color.or_default(),
         })
     }

@@ -14,8 +14,6 @@ use super::{Node, NodeInputs, NodeOutputs};
 
 /// A node that draws text
 pub struct TextNode {
-    /// The name of the node
-    name: String,
     /// The Facade it uses to work with the OpenGL context
     facade: Rc<Facade>,
     /// The inner texture it renders to
@@ -32,14 +30,13 @@ pub struct TextNode {
 
 impl TextNode {
     /// Create a new instance
-    pub fn new(facade: &Rc<Facade>, name: String, config: TextConfig) -> Result<Self, Error> {
+    pub fn new(facade: &Rc<Facade>, config: TextConfig) -> Result<Self, Error> {
         let (width, height) = facade.get_context().get_framebuffer_dimensions();
         let texture = Rc::new(Texture2d::empty(&**facade, width, height)?);
 
         let text_renderer = TextRenderer::new(facade.clone(), &config.font_name, config.font_size)?;
 
         Ok(Self {
-            name,
             facade: Rc::clone(facade),
             texture,
             text_renderer,
@@ -53,12 +50,12 @@ impl TextNode {
 impl Node for TextNode {
     fn render(&mut self, inputs: &NodeInputs) -> Result<NodeOutputs, Error> {
         if let &NodeInputs::Text {
-            text,
-            position,
-            color,
+            ref text,
+            ref position,
+            ref color,
         } = inputs
         {
-            let text = text.unwrap_or(self.text);
+            let text = text.clone().unwrap_or(self.text.to_string());
             let position = position.unwrap_or(self.position);
             let color = color.unwrap_or(self.color);
 
@@ -80,7 +77,7 @@ impl Node for TextNode {
             ref color,
         } = inputs
         {
-            let text = text.unwrap_or(self.text);
+            let text = text.clone().unwrap_or(self.text.to_string());
             let position = position.unwrap_or(self.position);
             let color = color.unwrap_or(self.color);
 

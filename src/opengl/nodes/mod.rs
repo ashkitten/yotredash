@@ -23,6 +23,7 @@ pub use self::fps::FpsNode;
 pub use self::shader::ShaderNode;
 pub use self::text::TextNode;
 
+#[derive(Debug)]
 pub enum NodeInputs {
     Image,
     Shader {
@@ -44,14 +45,17 @@ pub enum NodeInputs {
     },
 }
 
+#[derive(Debug)]
 pub enum NodeOutputs {
     Texture2d(Rc<Texture2d>),
+    Text(String),
+    Float2([f32; 2]),
+    Color([f32; 4]),
 }
 
-/// A `Node` is something that takes input as a UniformsStorage and returns data in a
-/// UniformsStorage
+/// A `Node` is something that takes input and returns an output
 pub trait Node {
-    /// Does stuff and puts its value in the UniformsStorageVec
+    /// Does stuff and returns a `NodeOutputs`
     fn render(&mut self, input: &NodeInputs) -> Result<NodeOutputs, Error>;
     /// Renders to the default framebuffer
     fn present(&mut self, input: &NodeInputs) -> Result<(), Error>;

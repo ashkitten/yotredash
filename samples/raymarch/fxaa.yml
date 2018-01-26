@@ -3,8 +3,8 @@ nodes:
     type: shader
     vertex: ../default.vert
     fragment: fxaa.frag
-    inputs:
-      - raymarch
+    textures:
+      - node: raymarch
 
   raymarch:
     type: shader

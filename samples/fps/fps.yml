@@ -2,9 +2,9 @@ nodes:
   __default__:
     type: blend
     operation: add
-    inputs:
-      - raymarch
-      - fps
+    textures:
+      - node: raymarch
+      - node: fps
 
   fps:
     type: fps

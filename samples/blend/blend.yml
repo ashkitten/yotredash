@@ -2,9 +2,9 @@ nodes:
   __default__:
     type: blend
     operation: add
-    inputs:
-      - gradient
-      - pointer_buf
+    textures:
+      - node: gradient
+      - node: pointer_buf
 
   gradient:
     type: shader

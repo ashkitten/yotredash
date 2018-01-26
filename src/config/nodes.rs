@@ -4,8 +4,9 @@ use std::default::Default;
 /// Represents a parameter to a node which can either be a static value
 /// or a pointer to the output of a different node.
 #[derive(Debug, Deserialize, Clone)]
+#[serde(untagged)]
 pub enum NodeParameter<T> {
-    NodeConnection(String),
+    NodeConnection { node: String },
 
     Static(T),
 }
@@ -21,10 +22,10 @@ where
     T: Default,
 {
     /// Returns the inner value if `Static`, or `Default::default()` if a `NodeConnection`.
-    pub fn or_default(&self) -> T {
-        match *self {
+    pub fn or_default(self) -> T {
+        match self {
             NodeParameter::Static(v) => v,
-            NodeParameter::NodeConnection(_) => Default::default(),
+            NodeParameter::NodeConnection { .. } => Default::default(),
         }
     }
 }
@@ -48,7 +49,7 @@ pub struct ShaderConfig {
 
     /// Input nodes for the shader program
     #[serde(default)]
-    pub inputs: Vec<String>,
+    pub textures: Vec<NodeParameter<String>>,
 }
 
 /// Blend node type - blends the output of multiple nodes
@@ -59,7 +60,7 @@ pub struct BlendConfig {
     pub operation: BlendOp,
 
     /// Input node names and alpha transparencies
-    pub inputs: Vec<String>,
+    pub textures: Vec<NodeParameter<String>>,
 }
 
 /// Text node type - renders text
@@ -92,7 +93,7 @@ pub struct TextConfig {
 pub struct FpsConfig {
     /// Position to render at
     #[serde(default)]
-    pub position: [f32; 2],
+    pub position: NodeParameter<[f32; 2]>,
 
     /// Color to render in
     #[serde(default = "text_default_color")]

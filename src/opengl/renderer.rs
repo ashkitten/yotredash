@@ -14,7 +14,7 @@ use winit::EventsLoop;
 
 use Renderer;
 use config::Config;
-use config::nodes::NodeConfig;
+use config::nodes::{NodeConfig, NodeParameter};
 use super::nodes::*;
 
 /// An implementation of a `Renderer` which uses OpenGL
@@ -23,6 +23,8 @@ pub struct OpenGLRenderer {
     facade: Rc<Facade>,
     /// Maps names to nodes
     nodes: HashMap<String, Box<Node>>,
+    /// Node configurations for mapping outputs to inputs
+    node_configs: HashMap<String, NodeConfig>,
     /// Order to render nodes in
     order: Vec<String>,
 }
@@ -48,7 +50,7 @@ fn init_nodes(
 
                 nodes.insert(
                     name.to_string(),
-                    Box::new(ImageNode::new(&facade, name.to_string(), image_config)?),
+                    Box::new(ImageNode::new(&facade, image_config)?),
                 );
             }
 
@@ -61,16 +63,19 @@ fn init_nodes(
 
                     nodes.insert(
                         name.to_string(),
-                        Box::new(ShaderNode::new(&facade, name.to_string(), shader_config)?),
+                        Box::new(ShaderNode::new(&facade, shader_config)?),
                     );
                 }
 
                 dep_graph.register_dependencies(
                     name,
                     shader_config
-                        .inputs
+                        .textures
                         .iter()
-                        .map(|input| input.as_str())
+                        .filter_map(|texture| match texture {
+                            &NodeParameter::NodeConnection { ref node } => Some(node.as_str()),
+                            &NodeParameter::Static(_) => None,
+                        })
                         .collect(),
                 );
             }
@@ -78,19 +83,18 @@ fn init_nodes(
             NodeConfig::Blend(ref blend_config) => {
                 nodes.insert(
                     name.to_string(),
-                    Box::new(BlendNode::new(
-                        &facade,
-                        name.to_string(),
-                        blend_config.clone(),
-                    )?),
+                    Box::new(BlendNode::new(&facade, blend_config.clone())?),
                 );
 
                 dep_graph.register_dependencies(
                     name,
                     blend_config
-                        .inputs
+                        .textures
                         .iter()
-                        .map(|input| input.as_str())
+                        .filter_map(|texture| match texture {
+                            &NodeParameter::NodeConnection { ref node } => Some(node.as_str()),
+                            &NodeParameter::Static(_) => None,
+                        })
                         .collect(),
                 );
             }
@@ -99,18 +103,14 @@ fn init_nodes(
             NodeConfig::Text(ref text_config) => {
                 nodes.insert(
                     name.to_string(),
-                    Box::new(TextNode::new(
-                        &facade,
-                        name.to_string(),
-                        text_config.clone(),
-                    )?),
+                    Box::new(TextNode::new(&facade, text_config.clone())?),
                 );
             }
 
             NodeConfig::Fps(ref fps_config) => {
                 nodes.insert(
                     name.to_string(),
-                    Box::new(FpsNode::new(&facade, name.to_string(), fps_config.clone())?),
+                    Box::new(FpsNode::new(&facade, fps_config.clone())?),
                 );
             }
         }
@@ -134,6 +134,106 @@ fn init_nodes(
     }
 
     Ok((nodes, order))
+}
+
+fn map_node_io(
+    config: &NodeConfig,
+    outputs: &HashMap<String, NodeOutputs>,
+    time: f32,
+    pointer: [f32; 4],
+) -> Result<NodeInputs, Error> {
+    Ok(match config {
+        &NodeConfig::Image(_) => NodeInputs::Image,
+
+        &NodeConfig::Shader(ref shader_config) => {
+            let mut textures = HashMap::new();
+            for texture in &shader_config.textures {
+                match texture {
+                    &NodeParameter::NodeConnection { ref node } => {
+                        match &outputs[node] {
+                            &NodeOutputs::Texture2d(ref texture) => {
+                                textures.insert(node.to_string(), Rc::clone(texture))
+                            }
+                            ref other => bail!("Wrong input type `{:?}` for `textures`", other),
+                        };
+                    }
+                    &NodeParameter::Static(_) => (),
+                }
+            }
+            NodeInputs::Shader {
+                time,
+                pointer,
+                textures,
+            }
+        }
+
+        &NodeConfig::Blend(ref blend_config) => {
+            let mut textures = HashMap::new();
+            for texture in &blend_config.textures {
+                match texture {
+                    &NodeParameter::NodeConnection { ref node } => {
+                        match &outputs[node] {
+                            &NodeOutputs::Texture2d(ref texture) => {
+                                textures.insert(node.to_string(), Rc::clone(texture))
+                            }
+                            ref other => bail!("Wrong input type `{:?}` for `textures`", other),
+                        };
+                    }
+                    &NodeParameter::Static(_) => (),
+                }
+            }
+            NodeInputs::Blend { textures }
+        }
+
+        &NodeConfig::Text(ref text_config) => {
+            let text = match &text_config.text {
+                &NodeParameter::NodeConnection { ref node } => match &outputs[node] {
+                    &NodeOutputs::Text(ref text) => Some(text.to_string()),
+                    ref other => bail!("Wrong input type `{:?}` for `text`", other),
+                },
+                &NodeParameter::Static(_) => None,
+            };
+            let position = match &text_config.position {
+                &NodeParameter::NodeConnection { ref node } => match &outputs[node] {
+                    &NodeOutputs::Float2(ref position) => Some(position.clone()),
+                    ref other => bail!("Wrong input type `{:?}` for `position`", other),
+                },
+                &NodeParameter::Static(_) => None,
+            };
+            let color = match &text_config.color {
+                &NodeParameter::NodeConnection { ref node } => match &outputs[node] {
+                    &NodeOutputs::Color(ref color) => Some(color.clone()),
+                    ref other => bail!("Wrong input type `{:?}` for `position`", other),
+                },
+                &NodeParameter::Static(_) => None,
+            };
+
+            NodeInputs::Text {
+                text,
+                position,
+                color,
+            }
+        }
+
+        &NodeConfig::Fps(ref fps_config) => {
+            let position = match &fps_config.position {
+                &NodeParameter::NodeConnection { ref node } => match &outputs[node] {
+                    &NodeOutputs::Float2(ref position) => Some(position.clone()),
+                    ref other => bail!("Wrong input type `{:?}` for `position`", other),
+                },
+                &NodeParameter::Static(_) => None,
+            };
+            let color = match &fps_config.color {
+                &NodeParameter::NodeConnection { ref node } => match &outputs[node] {
+                    &NodeOutputs::Color(ref color) => Some(color.clone()),
+                    ref other => bail!("Wrong input type `{:?}` for `position`", other),
+                },
+                &NodeParameter::Static(_) => None,
+            };
+
+            NodeInputs::Fps { position, color }
+        }
+    })
 }
 
 impl Renderer for OpenGLRenderer {
@@ -174,12 +274,13 @@ impl Renderer for OpenGLRenderer {
         Ok(Self {
             facade,
             nodes,
+            node_configs: config.nodes,
             order,
         })
     }
 
     fn render(&mut self, time: ::time::Duration, pointer: [f32; 4]) -> Result<(), Error> {
-        let (width, height) = self.facade.get_context().get_framebuffer_dimensions();
+        let height = self.facade.get_context().get_framebuffer_dimensions().1;
         let time = (time.num_nanoseconds().unwrap() as f32) / 1000_000_000.0 % 4096.0;
         let pointer = [
             pointer[0],
@@ -188,11 +289,18 @@ impl Renderer for OpenGLRenderer {
             height as f32 - pointer[3],
         ];
 
+        let mut outputs: HashMap<String, NodeOutputs> = HashMap::new();
+
         for name in &self.order {
+            let inputs = map_node_io(&self.node_configs[name], &outputs, time, pointer)?;
+
             if name == "__default__" {
                 self.nodes.get_mut(name).unwrap().present(&inputs)?;
             } else {
-                self.nodes.get_mut(name).unwrap().render(&inputs)?;
+                outputs.insert(
+                    name.to_string(),
+                    self.nodes.get_mut(name).unwrap().render(&inputs)?,
+                );
             }
         }
 
@@ -230,7 +338,7 @@ impl Renderer for OpenGLRenderer {
         pointer: [f32; 4],
         path: &Path,
     ) -> Result<(), Error> {
-        let (width, height) = self.facade.get_context().get_framebuffer_dimensions();
+        let height = self.facade.get_context().get_framebuffer_dimensions().1;
         let time = (time.num_nanoseconds().unwrap() as f32) / 1000_000_000.0 % 4096.0;
         let pointer = [
             pointer[0],
@@ -239,14 +347,21 @@ impl Renderer for OpenGLRenderer {
             height as f32 - pointer[3],
         ];
 
+        let mut outputs: HashMap<String, NodeOutputs> = HashMap::new();
+
         for name in &self.order {
+            let inputs = map_node_io(&self.node_configs[name], &outputs, time, pointer)?;
+
             if name == "__default__" {
                 self.nodes
                     .get_mut(name)
                     .unwrap()
                     .render_to_file(&inputs, path)?;
             } else {
-                self.nodes.get_mut(name).unwrap().render(&inputs)?;
+                outputs.insert(
+                    name.to_string(),
+                    self.nodes.get_mut(name).unwrap().render(&inputs)?,
+                );
             }
         }
 

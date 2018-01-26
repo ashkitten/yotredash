@@ -59,8 +59,6 @@ const FRAGMENT: &str = "
 
 /// A `Node` that reads an image from file and returns frames from that image
 pub struct ImageNode {
-    /// The name of the node
-    name: String,
     /// The Facade used to create textures
     facade: Rc<Facade>,
     /// GPU texture containing an atlas of the image frames
@@ -83,7 +81,7 @@ pub struct ImageNode {
 
 impl ImageNode {
     /// Create a new instance
-    pub fn new(facade: &Rc<Facade>, name: String, config: ImageConfig) -> Result<Self, Error> {
+    pub fn new(facade: &Rc<Facade>, config: ImageConfig) -> Result<Self, Error> {
         debug!("New image node: {}", config.path.to_string_lossy());
 
         let file = File::open(config.path).context("Could not open image file")?;
@@ -107,11 +105,7 @@ impl ImageNode {
             Ok(Program::new(&**facade, input)?)
         }
 
-        fn decode_single<D>(
-            facade: &Rc<Facade>,
-            name: String,
-            decoder: D,
-        ) -> Result<ImageNode, Error>
+        fn decode_single<D>(facade: &Rc<Facade>, decoder: D) -> Result<ImageNode, Error>
         where
             D: ImageDecoder,
         {
@@ -128,7 +122,6 @@ impl ImageNode {
             ];
 
             Ok(ImageNode {
-                name,
                 facade: Rc::clone(facade),
                 textures,
                 current_frame: 0,
@@ -142,14 +135,14 @@ impl ImageNode {
 
         let format = image::guess_format(&buf)?;
         Ok(match format {
-            BMP => decode_single(facade, name, image::bmp::BMPDecoder::new(buf_reader))?,
-            ICO => decode_single(facade, name, image::ico::ICODecoder::new(buf_reader)?)?,
-            JPEG => decode_single(facade, name, image::jpeg::JPEGDecoder::new(buf_reader))?,
-            PNG => decode_single(facade, name, image::png::PNGDecoder::new(buf_reader))?,
-            PNM => decode_single(facade, name, image::pnm::PNMDecoder::new(buf_reader)?)?,
-            TGA => decode_single(facade, name, image::tga::TGADecoder::new(buf_reader))?,
-            TIFF => decode_single(facade, name, image::tiff::TIFFDecoder::new(buf_reader)?)?,
-            WEBP => decode_single(facade, name, image::webp::WebpDecoder::new(buf_reader))?,
+            BMP => decode_single(facade, image::bmp::BMPDecoder::new(buf_reader))?,
+            ICO => decode_single(facade, image::ico::ICODecoder::new(buf_reader)?)?,
+            JPEG => decode_single(facade, image::jpeg::JPEGDecoder::new(buf_reader))?,
+            PNG => decode_single(facade, image::png::PNGDecoder::new(buf_reader))?,
+            PNM => decode_single(facade, image::pnm::PNMDecoder::new(buf_reader)?)?,
+            TGA => decode_single(facade, image::tga::TGADecoder::new(buf_reader))?,
+            TIFF => decode_single(facade, image::tiff::TIFFDecoder::new(buf_reader)?)?,
+            WEBP => decode_single(facade, image::webp::WebpDecoder::new(buf_reader))?,
             GIF => {
                 let mut decoder = gif::Decoder::new(buf_reader);
                 decoder.set(gif::ColorOutput::Indexed);
@@ -186,7 +179,6 @@ impl ImageNode {
                     .collect();
 
                 Self {
-                    name,
                     facade: Rc::clone(facade),
                     textures,
                     current_frame: 0,
@@ -215,7 +207,7 @@ impl ImageNode {
 }
 
 impl Node for ImageNode {
-    fn render(&mut self, inputs: &NodeInputs) -> Result<NodeOutputs, Error> {
+    fn render(&mut self, _inputs: &NodeInputs) -> Result<NodeOutputs, Error> {
         self.update();
 
         Ok(NodeOutputs::Texture2d(Rc::clone(
@@ -223,10 +215,10 @@ impl Node for ImageNode {
         )))
     }
 
-    fn present(&mut self, inputs: &NodeInputs) -> Result<(), Error> {
+    fn present(&mut self, _inputs: &NodeInputs) -> Result<(), Error> {
         self.update();
 
-        let uniforms = UniformsStorageVec::new();
+        let mut uniforms = UniformsStorageVec::new();
         uniforms.push("resolution", {
             let (width, height) = self.facade.get_context().get_framebuffer_dimensions();
             (width as f32, height as f32)
@@ -250,7 +242,7 @@ impl Node for ImageNode {
         Ok(())
     }
 
-    fn render_to_file(&mut self, inputs: &NodeInputs, path: &Path) -> Result<(), Error> {
+    fn render_to_file(&mut self, _inputs: &NodeInputs, path: &Path) -> Result<(), Error> {
         self.update();
 
         let raw: RawImage2d<u8> = self.textures[self.current_frame].read();

@@ -16,7 +16,7 @@ use std::io::prelude::*;
 use std::path::Path;
 use std::rc::Rc;
 
-use config::nodes::ShaderConfig;
+use config::nodes::{NodeParameter, ShaderConfig};
 use opengl::{UniformsStorageVec, Vertex};
 use super::{Node, NodeInputs, NodeOutputs};
 
@@ -32,8 +32,6 @@ const VERTICES: [Vertex; 6] = [
 
 /// A node that renders a shader program
 pub struct ShaderNode {
-    /// The name of the node
-    name: String,
     /// The Facade it uses to work with the OpenGL context
     facade: Rc<Facade>,
     /// The inner texture which it renders to
@@ -45,12 +43,12 @@ pub struct ShaderNode {
     /// Index buffer
     index_buffer: NoIndices,
     /// List of input nodes
-    inputs: Vec<String>,
+    textures: Vec<String>,
 }
 
 impl ShaderNode {
     /// Create a new instance
-    pub fn new(facade: &Rc<Facade>, name: String, config: ShaderConfig) -> Result<Self, Error> {
+    pub fn new(facade: &Rc<Facade>, config: ShaderConfig) -> Result<Self, Error> {
         let file = File::open(config.vertex).context("Could not open vertex shader file")?;
         let mut buf_reader = BufReader::new(file);
         let mut vertex_source = String::new();
@@ -81,14 +79,23 @@ impl ShaderNode {
         let (width, height) = facade.get_context().get_framebuffer_dimensions();
         let texture = Rc::new(Texture2d::empty(&**facade, width, height)?);
 
+        // TODO: Handle Static case
+        let textures: Vec<String> = config
+            .textures
+            .iter()
+            .map(|texture| match texture {
+                &NodeParameter::NodeConnection { ref node } => node.to_string(),
+                &NodeParameter::Static(_) => unimplemented!(),
+            })
+            .collect();
+
         Ok(Self {
-            name,
             facade: Rc::clone(facade),
             texture,
             program,
             vertex_buffer: VertexBuffer::new(&**facade, &VERTICES)?,
             index_buffer: NoIndices(PrimitiveType::TrianglesList),
-            inputs: config.inputs,
+            textures,
         })
     }
 }
@@ -96,19 +103,19 @@ impl ShaderNode {
 impl Node for ShaderNode {
     fn render(&mut self, inputs: &NodeInputs) -> Result<NodeOutputs, Error> {
         if let &NodeInputs::Shader {
-            time,
-            pointer,
-            textures,
+            ref time,
+            ref pointer,
+            ref textures,
         } = inputs
         {
             let resolution = (self.texture.width() as f32, self.texture.height() as f32);
 
-            let uniforms = UniformsStorageVec::new();
+            let mut uniforms = UniformsStorageVec::new();
             uniforms.push("resolution", resolution);
-            uniforms.push("time", time);
-            uniforms.push("pointer", pointer);
+            uniforms.push("time", time.clone());
+            uniforms.push("pointer", pointer.clone());
             for (name, texture) in textures {
-                uniforms.push(name, texture.sampled());
+                uniforms.push(name.to_string(), texture.sampled());
             }
 
             let mut surface = self.texture.as_surface();
@@ -132,20 +139,20 @@ impl Node for ShaderNode {
 
     fn present(&mut self, inputs: &NodeInputs) -> Result<(), Error> {
         if let &NodeInputs::Shader {
-            time,
-            pointer,
-            textures,
+            ref time,
+            ref pointer,
+            ref textures,
         } = inputs
         {
             let resolution = self.facade.get_context().get_framebuffer_dimensions();
             let resolution = (resolution.0 as f32, resolution.1 as f32);
 
-            let uniforms = UniformsStorageVec::new();
+            let mut uniforms = UniformsStorageVec::new();
             uniforms.push("resolution", resolution);
-            uniforms.push("time", time);
-            uniforms.push("pointer", pointer);
+            uniforms.push("time", time.clone());
+            uniforms.push("pointer", pointer.clone());
             for (name, texture) in textures {
-                uniforms.push(name, texture.sampled());
+                uniforms.push(name.to_string(), texture.sampled());
             }
 
             let mut target = self.facade.draw();
