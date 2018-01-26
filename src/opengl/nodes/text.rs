@@ -3,14 +3,12 @@
 use failure::Error;
 use glium::Surface;
 use glium::backend::Facade;
-use glium::texture::{RawImage2d, Texture2d};
-use image;
-use std::path::Path;
+use glium::texture::Texture2d;
 use std::rc::Rc;
 
 use config::nodes::TextConfig;
 use opengl::text::TextRenderer;
-use super::{Node, NodeInputs, NodeOutputs};
+use super::{Node, NodeInputs, NodeOutput};
 
 /// A node that draws text
 pub struct TextNode {
@@ -48,7 +46,7 @@ impl TextNode {
 }
 
 impl Node for TextNode {
-    fn render(&mut self, inputs: &NodeInputs) -> Result<NodeOutputs, Error> {
+    fn render(&mut self, inputs: &NodeInputs) -> Result<Vec<NodeOutput>, Error> {
         if let &NodeInputs::Text {
             ref text,
             ref position,
@@ -64,44 +62,10 @@ impl Node for TextNode {
             self.text_renderer
                 .draw_text(&mut surface, &text, position.clone(), color.clone())?;
 
-            Ok(NodeOutputs::Texture2d(Rc::clone(&self.texture)))
+            Ok(vec![NodeOutput::Texture2d(Rc::clone(&self.texture))])
         } else {
             bail!("Wrong input type for node");
         }
-    }
-
-    fn present(&mut self, inputs: &NodeInputs) -> Result<(), Error> {
-        if let &NodeInputs::Text {
-            ref text,
-            ref position,
-            ref color,
-        } = inputs
-        {
-            let text = text.clone().unwrap_or(self.text.to_string());
-            let position = position.unwrap_or(self.position);
-            let color = color.unwrap_or(self.color);
-
-            let mut target = self.facade.draw();
-            target.clear_color(0.0, 0.0, 0.0, 0.0);
-            self.text_renderer
-                .draw_text(&mut target, &text, position.clone(), color.clone())?;
-            target.finish()?;
-        } else {
-            bail!("Wrong input type for node");
-        }
-
-        Ok(())
-    }
-
-    fn render_to_file(&mut self, inputs: &NodeInputs, path: &Path) -> Result<(), Error> {
-        self.render(inputs)?;
-
-        let raw: RawImage2d<u8> = self.texture.read();
-        let raw = RawImage2d::from_raw_rgba_reversed(&raw.data, (raw.width, raw.height));
-
-        image::save_buffer(path, &raw.data, raw.width, raw.height, image::RGBA(8))?;
-
-        Ok(())
     }
 
     fn resize(&mut self, width: u32, height: u32) -> Result<(), Error> {

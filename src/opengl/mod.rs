@@ -8,14 +8,6 @@ use glium::uniforms::{AsUniformValue, UniformValue, Uniforms};
 use std::borrow::Cow;
 use std::rc::Rc;
 
-/// Implementation of the vertex attributes for the vertex buffer
-#[derive(Copy, Clone)]
-pub struct Vertex {
-    /// Position of the vertex in 2D space
-    position: [f32; 2],
-}
-implement_vertex!(Vertex, position);
-
 /// A `UniformsStorage` which has a `push` method for appending new uniforms
 #[derive(Clone, Default)]
 pub struct UniformsStorageVec<'name, 'uniform>(
@@ -48,16 +40,16 @@ impl<'name, 'uniform> Uniforms for UniformsStorageVec<'name, 'uniform> {
 }
 
 /// Implements `AsUniformValue` for a closure
-pub struct MapAsUniform<T, U: AsUniformValue>(pub T, pub fn(&T) -> &U);
+pub struct MapAsUniform<T>(pub T, pub fn(&T) -> UniformValue);
 
-impl<T, U: AsUniformValue> AsUniformValue for MapAsUniform<T, U> {
+impl<T> AsUniformValue for MapAsUniform<T> {
     fn as_uniform_value(&self) -> UniformValue {
-        (self.1)(&self.0).as_uniform_value()
+        (self.1)(&self.0)
     }
 }
 
-impl<'a, T, U: AsUniformValue> AsUniformValue for &'a MapAsUniform<T, U> {
+impl<'a, T> AsUniformValue for &'a MapAsUniform<T> {
     fn as_uniform_value(&self) -> UniformValue {
-        (self.1)(&self.0).as_uniform_value()
+        (self.1)(&self.0)
     }
 }

@@ -1,5 +1,18 @@
 nodes:
-  __default__:
+  output:
+    type: output
+    texture:
+      node: gradient
+      output: 0
+
+  gradient:
     type: shader
     vertex: ../default.vert
     fragment: gradient.frag
+    uniforms:
+      -
+        node: info
+        output: 1
+
+  info:
+    type: info

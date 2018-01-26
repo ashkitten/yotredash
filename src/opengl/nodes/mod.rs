@@ -6,33 +6,39 @@ pub mod image;
 
 pub mod blend;
 pub mod fps;
+pub mod info;
+pub mod output;
 pub mod shader;
 pub mod text;
 
 use failure::Error;
 use glium::texture::Texture2d;
+use glium::uniforms::AsUniformValue;
 use std::collections::HashMap;
-use std::path::Path;
 use std::rc::Rc;
 
 #[cfg(feature = "image-src")]
 pub use self::image::ImageNode;
 
+use config::nodes::NodeConnection;
 pub use self::blend::BlendNode;
 pub use self::fps::FpsNode;
+pub use self::output::OutputNode;
 pub use self::shader::ShaderNode;
 pub use self::text::TextNode;
+pub use self::info::InfoNode;
 
-#[derive(Debug)]
 pub enum NodeInputs {
+    Info,
+    Output {
+        texture: Rc<Texture2d>,
+    },
     Image,
     Shader {
-        time: f32,
-        pointer: [f32; 4],
-        textures: HashMap<String, Rc<Texture2d>>,
+        uniforms: HashMap<NodeConnection, NodeOutput>,
     },
     Blend {
-        textures: HashMap<String, Rc<Texture2d>>,
+        textures: Vec<Rc<Texture2d>>,
     },
     Text {
         text: Option<String>,
@@ -45,22 +51,20 @@ pub enum NodeInputs {
     },
 }
 
-#[derive(Debug)]
-pub enum NodeOutputs {
-    Texture2d(Rc<Texture2d>),
-    Text(String),
-    Float2([f32; 2]),
+#[derive(Clone)]
+pub enum NodeOutput {
     Color([f32; 4]),
+    Float(f32),
+    Float2([f32; 2]),
+    Float4([f32; 4]),
+    Text(String),
+    Texture2d(Rc<Texture2d>),
 }
 
 /// A `Node` is something that takes input and returns an output
 pub trait Node {
     /// Does stuff and returns a `NodeOutputs`
-    fn render(&mut self, input: &NodeInputs) -> Result<NodeOutputs, Error>;
-    /// Renders to the default framebuffer
-    fn present(&mut self, input: &NodeInputs) -> Result<(), Error>;
-    /// Renders to a file
-    fn render_to_file(&mut self, input: &NodeInputs, path: &Path) -> Result<(), Error>;
+    fn render(&mut self, inputs: &NodeInputs) -> Result<Vec<NodeOutput>, Error>;
     /// Called on a window resize event
     fn resize(&mut self, width: u32, height: u32) -> Result<(), Error>;
 }

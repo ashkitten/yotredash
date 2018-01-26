@@ -5,15 +5,21 @@ use glium::backend::Facade;
 use glium::draw_parameters::{Blend, DrawParameters};
 use glium::index::{NoIndices, PrimitiveType};
 use glium::program::ProgramCreationInput;
-use glium::texture::{RawImage2d, Texture2d};
+use glium::texture::Texture2d;
 use glium::{Program, Surface, VertexBuffer};
-use image;
-use std::path::Path;
 use std::rc::Rc;
 
-use config::nodes::{BlendConfig, BlendOp, NodeParameter};
-use opengl::{UniformsStorageVec, Vertex};
-use super::{Node, NodeInputs, NodeOutputs};
+use config::nodes::{BlendConfig, BlendOp};
+use opengl::UniformsStorageVec;
+use super::{Node, NodeInputs, NodeOutput};
+
+/// Implementation of the vertex attributes for the vertex buffer
+#[derive(Copy, Clone)]
+pub struct Vertex {
+    /// Position of the vertex in 2D space
+    position: [f32; 2],
+}
+implement_vertex!(Vertex, position);
 
 #[cfg_attr(rustfmt, rustfmt_skip)]
 const VERTICES: [Vertex; 6] = [
@@ -62,8 +68,6 @@ pub struct BlendNode {
     vertex_buffer: VertexBuffer<Vertex>,
     /// Index buffer for the shader
     index_buffer: NoIndices,
-    /// List of input nodes
-    textures: Vec<String>,
 }
 
 impl BlendNode {
@@ -76,32 +80,20 @@ impl BlendNode {
             BlendOp::Sub => "color -= texture(%INPUT%, uv);",
         };
 
-        // TODO: Handle Static case
-        let textures: Vec<String> = config
-            .textures
-            .iter()
-            .map(|texture| match texture {
-                &NodeParameter::NodeConnection { ref node } => node.to_string(),
-                &NodeParameter::Static(_) => unimplemented!(),
-            })
-            .collect();
-
         let fragment = FRAGMENT
             .replace("%TEXTURES%", {
-                textures
-                    .iter()
-                    .map(|texture| format!("uniform sampler2D {};", texture))
+                (0..config.textures.len())
+                    .map(|i| format!("uniform sampler2D texture_{};", i))
                     .collect::<Vec<String>>()
                     .join("\n")
                     .as_str()
             })
             .replace("%BLENDS%", {
-                let mut iter = textures.iter();
-                let first = iter.next().expect("Blend node needs at least one input");
+                let mut iter = (0..config.textures.len()).map(|i| format!("texture_{}", i));
                 &format!(
                     "color = texture({}, uv);\n{}",
-                    first,
-                    iter.map(|texture| op_fmt.replace("%INPUT%", texture))
+                    iter.next().expect("Blend node needs at least one input"),
+                    iter.map(|name| op_fmt.replace("%INPUT%", &name))
                         .collect::<Vec<String>>()
                         .join("\n")
                         .as_str()
@@ -131,20 +123,19 @@ impl BlendNode {
             program,
             vertex_buffer: VertexBuffer::new(&**facade, &VERTICES)?,
             index_buffer: NoIndices(PrimitiveType::TrianglesList),
-            textures,
         })
     }
 }
 
 impl Node for BlendNode {
-    fn render(&mut self, inputs: &NodeInputs) -> Result<NodeOutputs, Error> {
+    fn render(&mut self, inputs: &NodeInputs) -> Result<Vec<NodeOutput>, Error> {
         if let &NodeInputs::Blend { ref textures } = inputs {
             let resolution = (self.texture.width() as f32, self.texture.height() as f32);
 
             let mut uniforms = UniformsStorageVec::new();
             uniforms.push("resolution", resolution);
-            for (name, texture) in textures {
-                uniforms.push(name.to_string(), texture.sampled());
+            for (i, texture) in textures.iter().enumerate() {
+                uniforms.push(format!("texture_{}", i), texture.sampled());
             }
 
             let mut surface = self.texture.as_surface();
@@ -160,52 +151,10 @@ impl Node for BlendNode {
                 },
             )?;
 
-            Ok(NodeOutputs::Texture2d(Rc::clone(&self.texture)))
+            Ok(vec![NodeOutput::Texture2d(Rc::clone(&self.texture))])
         } else {
             bail!("Wrong input type for node");
         }
-    }
-
-    fn present(&mut self, inputs: &NodeInputs) -> Result<(), Error> {
-        if let &NodeInputs::Blend { ref textures } = inputs {
-            let resolution = self.facade.get_context().get_framebuffer_dimensions();
-            let resolution = (resolution.0 as f32, resolution.1 as f32);
-
-            let mut uniforms = UniformsStorageVec::new();
-            uniforms.push("resolution", resolution);
-            for (name, texture) in textures {
-                uniforms.push(name.to_string(), texture.sampled());
-            }
-
-            let mut target = self.facade.draw();
-            target.clear_color(0.0, 0.0, 0.0, 0.0);
-            target.draw(
-                &self.vertex_buffer,
-                &self.index_buffer,
-                &self.program,
-                &uniforms,
-                &DrawParameters {
-                    blend: Blend::alpha_blending(),
-                    ..Default::default()
-                },
-            )?;
-            target.finish()?;
-
-            Ok(())
-        } else {
-            bail!("Wrong input type for node");
-        }
-    }
-
-    fn render_to_file(&mut self, inputs: &NodeInputs, path: &Path) -> Result<(), Error> {
-        self.render(inputs)?;
-
-        let raw: RawImage2d<u8> = self.texture.read();
-        let raw = RawImage2d::from_raw_rgba_reversed(&raw.data, (raw.width, raw.height));
-
-        image::save_buffer(path, &raw.data, raw.width, raw.height, image::RGBA(8))?;
-
-        Ok(())
     }
 
     fn resize(&mut self, width: u32, height: u32) -> Result<(), Error> {

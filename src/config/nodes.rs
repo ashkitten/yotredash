@@ -1,13 +1,21 @@
-use std::path::PathBuf;
 use std::default::Default;
+use std::path::PathBuf;
+
+#[derive(Debug, Deserialize, Clone, PartialEq, Eq, Hash)]
+pub struct NodeConnection {
+    pub node: String,
+    pub output: usize,
+}
 
 /// Represents a parameter to a node which can either be a static value
 /// or a pointer to the output of a different node.
 #[derive(Debug, Deserialize, Clone)]
 #[serde(untagged)]
 pub enum NodeParameter<T> {
-    NodeConnection { node: String },
+    /// A reference to another node's output
+    NodeConnection(NodeConnection),
 
+    /// A static input
     Static(T),
 }
 
@@ -30,6 +38,13 @@ where
     }
 }
 
+/// Output node type
+#[derive(Debug, Deserialize, Clone)]
+pub struct OutputConfig {
+    /// Node to read from
+    pub texture: NodeConnection,
+}
+
 /// Image node type
 #[derive(Debug, Deserialize, Clone)]
 pub struct ImageConfig {
@@ -49,7 +64,7 @@ pub struct ShaderConfig {
 
     /// Input nodes for the shader program
     #[serde(default)]
-    pub textures: Vec<NodeParameter<String>>,
+    pub uniforms: Vec<NodeConnection>,
 }
 
 /// Blend node type - blends the output of multiple nodes
@@ -60,7 +75,7 @@ pub struct BlendConfig {
     pub operation: BlendOp,
 
     /// Input node names and alpha transparencies
-    pub textures: Vec<NodeParameter<String>>,
+    pub textures: Vec<NodeConnection>,
 }
 
 /// Text node type - renders text
@@ -132,6 +147,8 @@ pub enum BlendOp {
 #[serde(deny_unknown_fields)]
 #[serde(rename_all = "snake_case")]
 pub enum NodeConfig {
+    Info,
+    Output(OutputConfig),
     Image(ImageConfig),
     Shader(ShaderConfig),
     Blend(BlendConfig),

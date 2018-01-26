@@ -1,10 +1,20 @@
 nodes:
-  __default__:
+  output:
+    type: output
+    texture:
+      node: blend
+      output: 0
+
+  blend:
     type: blend
     operation: add
     textures:
-      - node: raymarch
-      - node: fps
+      -
+        node: raymarch
+        output: 0
+      -
+        node: fps
+        output: 0
 
   fps:
     type: fps

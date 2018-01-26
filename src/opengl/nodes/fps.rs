@@ -2,11 +2,10 @@
 
 use failure::Error;
 use glium::backend::Facade;
-use std::path::Path;
 use std::rc::Rc;
 
 use config::nodes::{FpsConfig, NodeParameter, TextConfig};
-use super::{Node, NodeInputs, NodeOutputs, TextNode};
+use super::{Node, NodeInputs, NodeOutput, TextNode};
 use util::FpsCounter;
 
 /// A node that draws text
@@ -39,7 +38,7 @@ impl FpsNode {
 }
 
 impl Node for FpsNode {
-    fn render(&mut self, inputs: &NodeInputs) -> Result<NodeOutputs, Error> {
+    fn render(&mut self, inputs: &NodeInputs) -> Result<Vec<NodeOutput>, Error> {
         if let &NodeInputs::Fps { position, color } = inputs {
             self.fps_counter.next_frame();
 
@@ -50,38 +49,6 @@ impl Node for FpsNode {
             };
 
             self.text_node.render(&inputs)
-        } else {
-            bail!("Wrong input type for node");
-        }
-    }
-
-    fn present(&mut self, inputs: &NodeInputs) -> Result<(), Error> {
-        if let &NodeInputs::Fps { position, color } = inputs {
-            self.fps_counter.next_frame();
-
-            let inputs = NodeInputs::Text {
-                text: Some(format!("FPS: {:.01}", self.fps_counter.fps())),
-                position: Some(position.unwrap_or(self.position)),
-                color: Some(color.unwrap_or(self.color)),
-            };
-
-            self.text_node.present(&inputs)
-        } else {
-            bail!("Wrong input type for node");
-        }
-    }
-
-    fn render_to_file(&mut self, inputs: &NodeInputs, path: &Path) -> Result<(), Error> {
-        if let &NodeInputs::Fps { position, color } = inputs {
-            self.fps_counter.next_frame();
-
-            let inputs = NodeInputs::Text {
-                text: Some(format!("FPS: {:.01}", self.fps_counter.fps())),
-                position: Some(position.unwrap_or(self.position)),
-                color: Some(color.unwrap_or(self.color)),
-            };
-
-            self.text_node.render_to_file(&inputs, path)
         } else {
             bail!("Wrong input type for node");
         }

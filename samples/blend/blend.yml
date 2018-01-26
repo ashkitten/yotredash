@@ -1,17 +1,38 @@
 nodes:
-  __default__:
+  output:
+    type: output
+    texture:
+      node: blend
+      output: 0
+
+  info:
+    type: info
+
+  blend:
     type: blend
     operation: add
     textures:
-      - node: gradient
-      - node: pointer_buf
+      -
+        node: gradient
+        output: 0
+      -
+        node: pointer
+        output: 0
 
   gradient:
     type: shader
     vertex: ../default.vert
     fragment: ../gradient/gradient.frag
+    uniforms:
+      -
+        node: info
+        output: 1
 
-  pointer_buf:
+  pointer:
     type: shader
     vertex: ../default.vert
     fragment: ../pointer/pointer.frag
+    uniforms:
+      -
+        node: info
+        output: 2
