@@ -336,7 +336,8 @@ impl TextRenderer {
                 uniforms.push("projection", projection);
 
                 let x = x + (glyph.bearing_x + advance_x) as f32;
-                let y = y - (glyph.height as f32 - glyph.bearing_y as f32 + advance_y as f32);
+                let y = y - glyph.height as f32 + glyph.bearing_y as f32 - advance_y as f32
+                    - glyph.line_height as f32 + win_height as f32;
                 let w = glyph.width as f32;
                 let h = glyph.height as f32;
 
