@@ -72,6 +72,7 @@ fn init_nodes(
 
                 dep_graph.register_dependency(name, &output_config.texture.node);
 
+                ensure!(output_node.is_empty(), "There can only be one output node");
                 output_node = name;
             }
 
