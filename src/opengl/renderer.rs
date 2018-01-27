@@ -165,13 +165,13 @@ fn init_nodes(
 
 fn map_node_io(
     config: &NodeConfig,
-    outputs: &HashMap<String, Vec<NodeOutput>>,
+    outputs: &HashMap<String, HashMap<String, NodeOutput>>,
 ) -> Result<NodeInputs, Error> {
     Ok(match config {
         &NodeConfig::Info => NodeInputs::Info,
 
         &NodeConfig::Output(ref output_config) => {
-            match &outputs[&output_config.texture.node][output_config.texture.output] {
+            match &outputs[&output_config.texture.node][&output_config.texture.output] {
                 &NodeOutput::Texture2d(ref texture) => NodeInputs::Output {
                     texture: Rc::clone(texture),
                 },
@@ -186,7 +186,7 @@ fn map_node_io(
             for connection in &shader_config.uniforms {
                 uniforms.insert(
                     connection.clone(),
-                    outputs[&connection.node][connection.output.clone()].clone(),
+                    outputs[&connection.node][&connection.output].clone(),
                 );
             }
             NodeInputs::Shader { uniforms }
@@ -195,7 +195,7 @@ fn map_node_io(
         &NodeConfig::Blend(ref blend_config) => {
             let mut textures = Vec::new();
             for connection in &blend_config.textures {
-                match &outputs[&connection.node][connection.output.clone()] {
+                match &outputs[&connection.node][&connection.output] {
                     &NodeOutput::Texture2d(ref texture) => textures.push(Rc::clone(texture)),
                     _ => bail!("Wrong input type for `uniforms`"),
                 };
@@ -206,7 +206,7 @@ fn map_node_io(
         &NodeConfig::Text(ref text_config) => {
             let text = match &text_config.text {
                 &NodeParameter::NodeConnection(ref connection) => {
-                    match &outputs[&connection.node][connection.output.clone()] {
+                    match &outputs[&connection.node][&connection.output] {
                         &NodeOutput::Text(ref text) => Some(text.to_string()),
                         _ => bail!("Wrong input type for `text`"),
                     }
@@ -215,7 +215,7 @@ fn map_node_io(
             };
             let position = match &text_config.position {
                 &NodeParameter::NodeConnection(ref connection) => {
-                    match &outputs[&connection.node][connection.output.clone()] {
+                    match &outputs[&connection.node][&connection.output] {
                         &NodeOutput::Float2(ref position) => Some(position.clone()),
                         _ => bail!("Wrong input type for `position`"),
                     }
@@ -224,7 +224,7 @@ fn map_node_io(
             };
             let color = match &text_config.color {
                 &NodeParameter::NodeConnection(ref connection) => {
-                    match &outputs[&connection.node][connection.output.clone()] {
+                    match &outputs[&connection.node][&connection.output] {
                         &NodeOutput::Color(ref color) => Some(color.clone()),
                         _ => bail!("Wrong input type for `position`"),
                     }
@@ -242,7 +242,7 @@ fn map_node_io(
         &NodeConfig::Fps(ref fps_config) => {
             let position = match &fps_config.position {
                 &NodeParameter::NodeConnection(ref connection) => {
-                    match &outputs[&connection.node][connection.output.clone()] {
+                    match &outputs[&connection.node][&connection.output] {
                         &NodeOutput::Float2(ref position) => Some(position.clone()),
                         _ => bail!("Wrong input type for `position`"),
                     }
@@ -251,7 +251,7 @@ fn map_node_io(
             };
             let color = match &fps_config.color {
                 &NodeParameter::NodeConnection(ref connection) => {
-                    match &outputs[&connection.node][connection.output.clone()] {
+                    match &outputs[&connection.node][&connection.output] {
                         &NodeOutput::Color(ref color) => Some(color.clone()),
                         _ => bail!("Wrong input type for `position`"),
                     }
@@ -343,9 +343,15 @@ impl Renderer for OpenGLRenderer {
             }
         }
 
-        let mut outputs: HashMap<String, Vec<NodeOutput>> = HashMap::new();
+        let mut outputs: HashMap<String, HashMap<String, NodeOutput>> = HashMap::new();
 
         for name in &self.order {
+            ensure!(
+                self.node_configs.contains_key(name),
+                "No such node: {}",
+                name
+            );
+
             let inputs = map_node_io(&self.node_configs[name], &outputs)?;
 
             outputs.insert(

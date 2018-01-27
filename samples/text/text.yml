@@ -1,5 +1,11 @@
 nodes:
-  __default__:
+  output:
+    type: output
+    texture:
+      node: text
+      output: texture
+
+  text:
     type: text
     text: Hello, World!
     position: [5.0, 5.0]

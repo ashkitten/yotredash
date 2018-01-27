@@ -2,6 +2,7 @@
 
 use failure::Error;
 use glium::backend::Facade;
+use std::collections::HashMap;
 use std::rc::Rc;
 
 use config::nodes::{FpsConfig, NodeParameter, TextConfig};
@@ -38,7 +39,7 @@ impl FpsNode {
 }
 
 impl Node for FpsNode {
-    fn render(&mut self, inputs: &NodeInputs) -> Result<Vec<NodeOutput>, Error> {
+    fn render(&mut self, inputs: &NodeInputs) -> Result<HashMap<String, NodeOutput>, Error> {
         if let &NodeInputs::Fps { position, color } = inputs {
             self.fps_counter.next_frame();
 

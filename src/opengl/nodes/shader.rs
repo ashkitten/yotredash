@@ -9,13 +9,14 @@ use glium::index::{NoIndices, PrimitiveType};
 use glium::program::ProgramCreationInput;
 use glium::texture::Texture2d;
 use glium::{Program, Surface, VertexBuffer};
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::BufReader;
 use std::io::prelude::*;
 use std::rc::Rc;
 
 use config::nodes::ShaderConfig;
-use opengl::{MapAsUniform, UniformsStorageVec};
+use opengl::UniformsStorageVec;
 use super::{Node, NodeInputs, NodeOutput};
 
 /// Implementation of the vertex attributes for the vertex buffer
@@ -94,7 +95,7 @@ impl ShaderNode {
 }
 
 impl Node for ShaderNode {
-    fn render(&mut self, inputs: &NodeInputs) -> Result<Vec<NodeOutput>, Error> {
+    fn render(&mut self, inputs: &NodeInputs) -> Result<HashMap<String, NodeOutput>, Error> {
         if let &NodeInputs::Shader { ref uniforms } = inputs {
             let uniforms = {
                 let mut storage = UniformsStorageVec::new();
@@ -127,7 +128,12 @@ impl Node for ShaderNode {
                 },
             )?;
 
-            Ok(vec![NodeOutput::Texture2d(Rc::clone(&self.texture))])
+            let mut outputs = HashMap::new();
+            outputs.insert(
+                "texture".to_string(),
+                NodeOutput::Texture2d(Rc::clone(&self.texture)),
+            );
+            Ok(outputs)
         } else {
             bail!("Wrong input type for node");
         }

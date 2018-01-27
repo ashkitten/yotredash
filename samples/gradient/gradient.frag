@@ -2,10 +2,10 @@
 
 out vec4 color;
 
-uniform vec2 info_1;
+uniform vec2 info_resolution;
 
 void main() {
-    vec2 position = gl_FragCoord.xy / info_1;
+    vec2 position = gl_FragCoord.xy / info_resolution;
     color = mix(
         vec4(0.137255, 0.101961, 0.14902, 1.0),
         vec4(0.419608, 0.301961, 0.32549, 1.0),

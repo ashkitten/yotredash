@@ -1,12 +1,33 @@
 nodes:
-  __default__:
+  output:
+    type: output
+    texture:
+      node: fxaa
+      output: texture
+
+  fxaa:
     type: shader
     vertex: ../default.vert
     fragment: fxaa.frag
-    textures:
-      - node: raymarch
+    uniforms:
+      -
+        node: info
+        output: resolution
+      -
+        node: raymarch
+        output: texture
 
   raymarch:
     type: shader
     vertex: ../default.vert
     fragment: raymarch.frag
+    uniforms:
+      -
+        node: info
+        output: time
+      -
+        node: info
+        output: resolution
+
+  info:
+    type: info

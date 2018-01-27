@@ -13,7 +13,6 @@ pub mod text;
 
 use failure::Error;
 use glium::texture::Texture2d;
-use glium::uniforms::AsUniformValue;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -64,7 +63,7 @@ pub enum NodeOutput {
 /// A `Node` is something that takes input and returns an output
 pub trait Node {
     /// Does stuff and returns a `NodeOutputs`
-    fn render(&mut self, inputs: &NodeInputs) -> Result<Vec<NodeOutput>, Error>;
+    fn render(&mut self, inputs: &NodeInputs) -> Result<HashMap<String, NodeOutput>, Error>;
     /// Called on a window resize event
     fn resize(&mut self, width: u32, height: u32) -> Result<(), Error>;
 }

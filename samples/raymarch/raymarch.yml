@@ -1,5 +1,21 @@
 nodes:
-  __default__:
+  output:
+    type: output
+    texture:
+      node: raymarch
+      output: texture
+
+  raymarch:
     type: shader
     vertex: ../default.vert
     fragment: raymarch.frag
+    uniforms:
+      -
+        node: info
+        output: time
+      -
+        node: info
+        output: resolution
+
+  info:
+    type: info

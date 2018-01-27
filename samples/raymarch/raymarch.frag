@@ -4,8 +4,8 @@
 out vec4 color;
 
 //// Input variables
-uniform float time;
-uniform vec2 resolution;
+uniform float info_time;
+uniform vec2 info_resolution;
 
 //// Definitions
 
@@ -205,17 +205,17 @@ float softshadow(inout Ray ray, float softness) {
 void main() {
     //// Setup the viewport
     // Screen coords go from -1.0 to 1.0
-    vec2 uv = gl_FragCoord.xy / resolution.xy * 2.0 - 1.0;
+    vec2 uv = gl_FragCoord.xy / info_resolution.xy * 2.0 - 1.0;
     // Account for screen ratio
-    uv.x *= resolution.x / resolution.y;
+    uv.x *= info_resolution.x / info_resolution.y;
 
     //// Setup the camera
     // Init camera 5.0 up, rotating in a circle, looking at 0.0, 0.0, 0.0
     // Axes are flipped here I guess? Note the -vec3s
     Ray cameraRay = initRayToTarget(-vec3(
-        sin(time * CAMERA_SPEED) * 5.0,
+        sin(info_time * CAMERA_SPEED) * 5.0,
         5.0,
-        cos(time * CAMERA_SPEED) * 5.0), -vec3(0.0, 0.0, 0.0)
+        cos(info_time * CAMERA_SPEED) * 5.0), -vec3(0.0, 0.0, 0.0)
     );
     // Convert to screen coords
     // Global up direction

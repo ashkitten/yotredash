@@ -3,10 +3,7 @@ nodes:
     type: output
     texture:
       node: blend
-      output: 0
-
-  info:
-    type: info
+      output: texture
 
   blend:
     type: blend
@@ -14,10 +11,10 @@ nodes:
     textures:
       -
         node: gradient
-        output: 0
+        output: texture
       -
         node: pointer
-        output: 0
+        output: texture
 
   gradient:
     type: shader
@@ -26,7 +23,7 @@ nodes:
     uniforms:
       -
         node: info
-        output: 1
+        output: resolution
 
   pointer:
     type: shader
@@ -35,4 +32,7 @@ nodes:
     uniforms:
       -
         node: info
-        output: 2
+        output: pointer
+
+  info:
+    type: info

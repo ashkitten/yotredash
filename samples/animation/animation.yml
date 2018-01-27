@@ -1,4 +1,10 @@
 nodes:
-  __default__:
+  output:
+    type: output
+    texture:
+      node: animation
+      output: texture
+
+  animation:
     type: image
     path: animation.gif

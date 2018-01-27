@@ -7,6 +7,7 @@ use glium::index::{NoIndices, PrimitiveType};
 use glium::program::ProgramCreationInput;
 use glium::texture::Texture2d;
 use glium::{Program, Surface, VertexBuffer};
+use std::collections::HashMap;
 use std::rc::Rc;
 
 use config::nodes::{BlendConfig, BlendOp};
@@ -128,7 +129,7 @@ impl BlendNode {
 }
 
 impl Node for BlendNode {
-    fn render(&mut self, inputs: &NodeInputs) -> Result<Vec<NodeOutput>, Error> {
+    fn render(&mut self, inputs: &NodeInputs) -> Result<HashMap<String, NodeOutput>, Error> {
         if let &NodeInputs::Blend { ref textures } = inputs {
             let resolution = (self.texture.width() as f32, self.texture.height() as f32);
 
@@ -151,7 +152,12 @@ impl Node for BlendNode {
                 },
             )?;
 
-            Ok(vec![NodeOutput::Texture2d(Rc::clone(&self.texture))])
+            let mut outputs = HashMap::new();
+            outputs.insert(
+                "texture".to_string(),
+                NodeOutput::Texture2d(Rc::clone(&self.texture)),
+            );
+            Ok(outputs)
         } else {
             bail!("Wrong input type for node");
         }

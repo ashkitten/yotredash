@@ -4,7 +4,7 @@ use std::path::PathBuf;
 #[derive(Debug, Deserialize, Clone, PartialEq, Eq, Hash)]
 pub struct NodeConnection {
     pub node: String,
-    pub output: usize,
+    pub output: String,
 }
 
 /// Represents a parameter to a node which can either be a static value

@@ -3,7 +3,7 @@ nodes:
     type: output
     texture:
       node: gradient
-      output: 0
+      output: texture
 
   gradient:
     type: shader
@@ -12,7 +12,7 @@ nodes:
     uniforms:
       -
         node: info
-        output: 1
+        output: resolution
 
   info:
     type: info

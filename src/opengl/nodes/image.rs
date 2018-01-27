@@ -8,6 +8,7 @@ use glium::backend::Facade;
 use glium::texture::{MipmapsOption, RawImage2d, Texture2d};
 use image::ImageFormat::*;
 use image::{self, ImageDecoder};
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::prelude::*;
 use std::io::{BufReader, SeekFrom};
@@ -135,12 +136,15 @@ impl ImageNode {
 }
 
 impl Node for ImageNode {
-    fn render(&mut self, _inputs: &NodeInputs) -> Result<Vec<NodeOutput>, Error> {
+    fn render(&mut self, _inputs: &NodeInputs) -> Result<HashMap<String, NodeOutput>, Error> {
         self.update();
 
-        Ok(vec![
+        let mut outputs = HashMap::new();
+        outputs.insert(
+            "texture".to_string(),
             NodeOutput::Texture2d(Rc::clone(&self.textures[self.current_frame])),
-        ])
+        );
+        Ok(outputs)
     }
 
     fn resize(&mut self, _width: u32, _height: u32) -> Result<(), Error> {

@@ -3,7 +3,7 @@ nodes:
     type: output
     texture:
       node: pointer
-      output: 0
+      output: texture
 
   pointer:
     type: shader
@@ -12,7 +12,7 @@ nodes:
     uniforms:
       -
         node: info
-        output: 2
+        output: pointer
 
   info:
     type: info

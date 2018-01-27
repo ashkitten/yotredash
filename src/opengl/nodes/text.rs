@@ -4,6 +4,7 @@ use failure::Error;
 use glium::Surface;
 use glium::backend::Facade;
 use glium::texture::Texture2d;
+use std::collections::HashMap;
 use std::rc::Rc;
 
 use config::nodes::TextConfig;
@@ -46,7 +47,7 @@ impl TextNode {
 }
 
 impl Node for TextNode {
-    fn render(&mut self, inputs: &NodeInputs) -> Result<Vec<NodeOutput>, Error> {
+    fn render(&mut self, inputs: &NodeInputs) -> Result<HashMap<String, NodeOutput>, Error> {
         if let &NodeInputs::Text {
             ref text,
             ref position,
@@ -62,7 +63,12 @@ impl Node for TextNode {
             self.text_renderer
                 .draw_text(&mut surface, &text, position.clone(), color.clone())?;
 
-            Ok(vec![NodeOutput::Texture2d(Rc::clone(&self.texture))])
+            let mut outputs = HashMap::new();
+            outputs.insert(
+                "texture".to_string(),
+                NodeOutput::Texture2d(Rc::clone(&self.texture)),
+            );
+            Ok(outputs)
         } else {
             bail!("Wrong input type for node");
         }

@@ -5,6 +5,7 @@ use glium::program::{Program, ProgramCreationInput};
 use glium::vertex::VertexBuffer;
 use glium::index::{NoIndices, PrimitiveType};
 use glium::Surface;
+use std::collections::HashMap;
 use std::rc::Rc;
 
 use opengl::UniformsStorageVec;
@@ -82,7 +83,7 @@ impl OutputNode {
 }
 
 impl Node for OutputNode {
-    fn render(&mut self, inputs: &NodeInputs) -> Result<Vec<NodeOutput>, Error> {
+    fn render(&mut self, inputs: &NodeInputs) -> Result<HashMap<String, NodeOutput>, Error> {
         if let &NodeInputs::Output { ref texture } = inputs {
             let (width, height) = self.facade.get_context().get_framebuffer_dimensions();
 
@@ -106,13 +107,13 @@ impl Node for OutputNode {
                 .unwrap(); // For some reason if we return this error, it panicks because finish() is never called
             target.finish()?;
 
-            Ok(Vec::new())
+            Ok(HashMap::new())
         } else {
             bail!("Wrong input type for node");
         }
     }
 
-    fn resize(&mut self, width: u32, height: u32) -> Result<(), Error> {
+    fn resize(&mut self, _width: u32, _height: u32) -> Result<(), Error> {
         // Do nothing
 
         Ok(())
