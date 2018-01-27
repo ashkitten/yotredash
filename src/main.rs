@@ -41,11 +41,6 @@
 
 // Warn if things are missing documentation
 #![warn(missing_docs)]
-// So we don't run into issues with the error_chain macro
-#![recursion_limit = "128"]
-// Experimental features
-#![feature(type_ascription, refcell_replace_swap, inclusive_range_syntax, universal_impl_trait,
-           slice_patterns, get_type_id)]
 
 #[cfg(unix)]
 extern crate signal;

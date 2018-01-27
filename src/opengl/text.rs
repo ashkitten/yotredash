@@ -112,7 +112,7 @@ impl GlyphCache {
         };
 
         // Prerender all visible ascii characters
-        for i in 32..=127 {
+        for i in 32..128 {
             cache.insert(i)?;
         }
 
@@ -299,7 +299,7 @@ impl TextRenderer {
     where
         S: Surface,
     {
-        let [x, y] = pos;
+        let (x, y) = (pos[0], pos[1]);
         let mut advance = 0;
         for c in text.chars() {
             let glyph = self.glyph_cache.get(c as usize)?.clone();

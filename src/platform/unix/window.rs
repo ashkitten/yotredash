@@ -85,6 +85,7 @@ pub fn init(window: &Window, config: &Config) {
 
     unsafe {
         if config.platform_config.override_redirect {
+            info!("Setting override-redirect window attribute");
             // Set override-redirect attribute
             override_redirect(&x_connection, x_display, x_window);
             // After we set the override-redirect attribute, we need to remap the window for it to
@@ -95,10 +96,12 @@ pub fn init(window: &Window, config: &Config) {
         }
 
         if config.platform_config.lower_window {
+            info!("Lowering window to bottom of the stack");
             lower_window(&x_connection, x_display, x_window);
         }
 
         if config.platform_config.desktop {
+            info!("Using desktop window type");
             desktop_window(&x_connection, x_display, x_window);
         }
     }
