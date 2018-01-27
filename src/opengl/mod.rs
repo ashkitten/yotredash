@@ -31,6 +31,7 @@ impl<'name, 'uniform> UniformsStorageVec<'name, 'uniform> {
 }
 
 impl<'name, 'uniform> Uniforms for UniformsStorageVec<'name, 'uniform> {
+    #[cfg_attr(feature = "cargo-clippy", allow(needless_lifetimes))]
     #[inline]
     fn visit_values<'a, F: FnMut(&str, UniformValue<'a>)>(&'a self, mut output: F) {
         for &(ref name, ref uniform) in &self.0 {

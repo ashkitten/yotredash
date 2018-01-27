@@ -1,5 +1,7 @@
 //! Contains platform-specific functionality
 
+#![cfg_attr(feature = "cargo-clippy", allow(module_inception))]
+
 pub use self::platform::*;
 
 #[cfg(windows)]
