@@ -1,3 +1,5 @@
+//! A `Node` that takes a texture and draws it to the screen
+
 use failure::Error;
 use glium::backend::Facade;
 use glium::draw_parameters::{Blend, DrawParameters};
@@ -61,6 +63,7 @@ pub struct OutputNode {
 }
 
 impl OutputNode {
+    /// Create a new instance
     pub fn new(facade: &Rc<Facade>) -> Result<Self, Error> {
         let input = ProgramCreationInput::SourceCode {
             vertex_shader: &VERTEX,

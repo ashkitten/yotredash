@@ -1,9 +1,14 @@
+//! Configuration related to Nodes
+
 use std::default::Default;
 use std::path::PathBuf;
 
+/// A connection to a `Node` and one of its outputs
 #[derive(Debug, Deserialize, Clone, PartialEq, Eq, Hash)]
 pub struct NodeConnection {
+    /// The name of the `Node` to connect to
     pub node: String,
+    /// The output of the node
     pub output: String,
 }
 
@@ -147,12 +152,19 @@ pub enum BlendOp {
 #[serde(deny_unknown_fields)]
 #[serde(rename_all = "snake_case")]
 pub enum NodeConfig {
+    /// Configuration for the info node
     Info,
+    /// Configuration for the output node
     Output(OutputConfig),
+    /// Configuration for the image node
     Image(ImageConfig),
+    /// Configuration for the shader node
     Shader(ShaderConfig),
+    /// Configuration for the blend node
     Blend(BlendConfig),
+    /// Configuration for the text node
     Text(TextConfig),
+    /// Configuration for the FPS node
     Fps(FpsConfig),
 }
 

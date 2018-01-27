@@ -26,7 +26,6 @@ pub struct Config {
     pub _cwd: PathBuf,
 
     /// The node configurations, keyed by name
-    /// The node called `__default__` must be specified, as this is the output node
     #[serde(default)]
     pub nodes: HashMap<String, NodeConfig>,
 

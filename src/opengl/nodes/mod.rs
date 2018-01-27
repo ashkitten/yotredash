@@ -27,36 +27,65 @@ pub use self::shader::ShaderNode;
 pub use self::text::TextNode;
 pub use self::info::InfoNode;
 
+/// Inputs for each node
 pub enum NodeInputs {
+    /// Inputs for info node
     Info,
+
+    /// Inputs for output node
     Output {
+        /// Texture to render to the screen
         texture: Rc<Texture2d>,
     },
+
+    /// Inputs for image node
     Image,
+
+    /// Inputs for shader node
     Shader {
+        /// Node connections for uniforms as input for the shader program
         uniforms: HashMap<NodeConnection, NodeOutput>,
     },
+
+    /// Inputs for blend node
     Blend {
+        /// Textures to blend together
         textures: Vec<Rc<Texture2d>>,
     },
+
+    /// Inputs for text node
     Text {
+        /// Text to render
         text: Option<String>,
+        /// Position to render at
         position: Option<[f32; 2]>,
+        /// Color to render in
         color: Option<[f32; 4]>,
     },
+
+    /// Inputs for FPS counter node
     Fps {
+        /// Position to render at
         position: Option<[f32; 2]>,
+        /// Color to render in
         color: Option<[f32; 4]>,
     },
 }
 
+/// Enum of possible output types for nodes
 #[derive(Clone)]
 pub enum NodeOutput {
+    /// A color (RGBA)
     Color([f32; 4]),
+    /// An f32
     Float(f32),
+    /// An array of 2 f32 values
     Float2([f32; 2]),
+    /// An array of 4 f32 values
     Float4([f32; 4]),
+    /// A string
     Text(String),
+    /// A 2D texture
     Texture2d(Rc<Texture2d>),
 }
 

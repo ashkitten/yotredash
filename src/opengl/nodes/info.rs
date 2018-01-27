@@ -1,3 +1,5 @@
+//! A `Node` that produces values based on information about the renderer and window
+
 use failure::Error;
 use std::collections::HashMap;
 use std::sync::mpsc::Receiver;
@@ -6,6 +8,7 @@ use time::{self, Tm};
 use PointerEvent;
 use super::{Node, NodeInputs, NodeOutput};
 
+/// A `Node` that produces values based on information about the renderer and window
 pub struct InfoNode {
     pointer_receiver: Receiver<PointerEvent>,
     start: Tm,
@@ -14,6 +17,7 @@ pub struct InfoNode {
 }
 
 impl InfoNode {
+    /// Create a new instance
     pub fn new(pointer_receiver: Receiver<PointerEvent>, resolution: [f32; 2]) -> Self {
         Self {
             pointer_receiver,

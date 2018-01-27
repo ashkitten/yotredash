@@ -10,9 +10,23 @@
 //!
 //! ```yaml
 //! buffers:
-//!     __default__:
+//!     output:
+//!         type: output
+//!         texture:
+//!             node: shader
+//!             output: texture
+//!
+//!     shader:
+//!         type: shader
 //!         vertex: vertex_shader.vert
 //!         fragment: fragment_shader.frag
+//!         uniforms:
+//!             -
+//!                 node: info
+//!                 output: resolution
+//!
+//!     info:
+//!         type: info
 //! ```
 //!
 //! It also provides command line options which can be used to quickly override options in the
@@ -99,25 +113,40 @@ pub trait Renderer {
     fn swap_buffers(&self) -> Result<(), Error>;
 }
 
+/// Events related to the mouse pointer
 #[derive(Clone)]
 pub enum PointerEvent {
+    /// Pointer was moved to (x, y)
     Move(f32, f32),
+    /// Mouse was clicked
     Press,
+    /// Mouse was released
     Release,
 }
 
+/// Events related to the renderer
 pub enum RendererEvent {
+    /// Pointer event
     Pointer(PointerEvent),
+    /// Window was resized
     Resize(u32, u32),
+    /// Renderer should reload from a new configuration
     Reload(Config),
+    /// Renderer should capture an image to this file
     Capture(PathBuf),
 }
 
-enum Event {
+/// All events
+pub enum Event {
+    /// Pointer event
     Pointer(PointerEvent),
+    /// Window was resized
     Resize(u32, u32),
+    /// Renderer should reload
     Reload,
+    /// Renderer should capture an image
     Capture,
+    /// Close the window
     Close,
 }
 
