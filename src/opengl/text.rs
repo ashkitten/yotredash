@@ -74,7 +74,9 @@ pub struct GlyphData {
     /// Additional distance from top
     pub bearing_y: i32,
     /// Advance distance to start of next character
-    pub advance: f32,
+    pub advance: u32,
+    /// Line height
+    pub line_height: u32,
 }
 
 /// A cache of glyphs on the GPU
@@ -147,6 +149,7 @@ impl GlyphCache {
                     bearing_x: rendered.bearing_x,
                     bearing_y: rendered.bearing_y,
                     advance: rendered.advance,
+                    line_height: rendered.line_height,
                 },
             );
             return Ok(&self.cache[&key]);
@@ -231,6 +234,7 @@ impl GlyphCache {
                     bearing_x: rendered.bearing_x,
                     bearing_y: rendered.bearing_y,
                     advance: rendered.advance,
+                    line_height: rendered.line_height,
                 },
             );
             Ok(&self.cache[&key])
@@ -300,9 +304,17 @@ impl TextRenderer {
         S: Surface,
     {
         let (x, y) = (pos[0], pos[1]);
-        let mut advance = 0;
+        let mut advance_x = 0;
+        let mut advance_y = 0;
         for c in text.chars() {
             let glyph = self.glyph_cache.get(c as usize)?.clone();
+
+            // Special case for carriage return
+            if c == '\n' {
+                advance_y += glyph.line_height;
+                advance_x = 0;
+                continue;
+            }
 
             if glyph.width != 0 && glyph.height != 0 {
                 let (win_width, win_height) = surface.get_dimensions();
@@ -323,8 +335,8 @@ impl TextRenderer {
                 uniforms.push("glyphTexture", self.glyph_cache.texture.sampled());
                 uniforms.push("projection", projection);
 
-                let x = x + (glyph.bearing_x + advance) as f32;
-                let y = y - (glyph.height as f32 - glyph.bearing_y as f32);
+                let x = x + (glyph.bearing_x + advance_x) as f32;
+                let y = y - (glyph.height as f32 - glyph.bearing_y as f32 + advance_y as f32);
                 let w = glyph.width as f32;
                 let h = glyph.height as f32;
 
@@ -362,7 +374,7 @@ impl TextRenderer {
                 )?;
             }
 
-            advance += glyph.advance as i32;
+            advance_x += glyph.advance as i32;
         }
 
         Ok(())

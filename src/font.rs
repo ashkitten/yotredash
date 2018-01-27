@@ -32,7 +32,9 @@ pub struct RenderedGlyph {
     /// Additional distance from top
     pub bearing_y: i32,
     /// Advance distance to start of next character
-    pub advance: f32,
+    pub advance: u32,
+    /// Line height of font
+    pub line_height: u32,
 }
 
 /// Generic loader for glyphs
@@ -85,7 +87,11 @@ impl GlyphLoader for FreeTypeRasterizer {
             height: slot.bitmap().rows() as u32,
             bearing_x: slot.bitmap_left(),
             bearing_y: slot.bitmap_top(),
-            advance: from_freetype_26_6(slot.advance().x as isize),
+            advance: from_freetype_26_6(slot.advance().x as isize) as u32,
+            line_height: from_freetype_26_6(match self.face.size_metrics() {
+                Some(size_metrics) => size_metrics.height as isize,
+                None => self.face.height() as isize,
+            }) as u32,
         })
     }
 }
