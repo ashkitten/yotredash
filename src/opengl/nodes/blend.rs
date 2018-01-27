@@ -73,7 +73,7 @@ pub struct BlendNode {
 
 impl BlendNode {
     /// Create a new instance
-    pub fn new(facade: &Rc<Facade>, config: BlendConfig) -> Result<Self, Error> {
+    pub fn new(facade: &Rc<Facade>, config: &BlendConfig) -> Result<Self, Error> {
         let op_fmt = match config.operation {
             BlendOp::Min => "color = min(texture(%INPUT%, uv);",
             BlendOp::Max => "color = max(texture(%INPUT%, uv);",
@@ -103,7 +103,7 @@ impl BlendNode {
 
         let program = {
             let input = ProgramCreationInput::SourceCode {
-                vertex_shader: &VERTEX,
+                vertex_shader: VERTEX,
                 tessellation_control_shader: None,
                 tessellation_evaluation_shader: None,
                 geometry_shader: None,
@@ -130,7 +130,7 @@ impl BlendNode {
 
 impl Node for BlendNode {
     fn render(&mut self, inputs: &NodeInputs) -> Result<HashMap<String, NodeOutput>, Error> {
-        if let &NodeInputs::Blend { ref textures } = inputs {
+        if let NodeInputs::Blend { ref textures } = *inputs {
             let resolution = (self.texture.width() as f32, self.texture.height() as f32);
 
             let mut uniforms = UniformsStorageVec::new();

@@ -40,7 +40,7 @@ impl FpsNode {
 
 impl Node for FpsNode {
     fn render(&mut self, inputs: &NodeInputs) -> Result<HashMap<String, NodeOutput>, Error> {
-        if let &NodeInputs::Fps { position, color } = inputs {
+        if let NodeInputs::Fps { position, color } = *inputs {
             self.fps_counter.next_frame();
 
             let inputs = NodeInputs::Text {

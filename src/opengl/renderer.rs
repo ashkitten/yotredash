@@ -21,42 +21,39 @@ use config::Config;
 use config::nodes::{NodeConfig, NodeParameter};
 use super::nodes::*;
 
+type NodeMap = HashMap<String, Box<Node>>;
+type NodeConfigMap = HashMap<String, NodeConfig>;
+type PointerSender = Sender<PointerEvent>;
+
 /// An implementation of a `Renderer` which uses OpenGL
 pub struct OpenGLRenderer {
     /// The facade it uses to render
     facade: Rc<Facade>,
     /// Maps names to nodes
-    nodes: HashMap<String, Box<Node>>,
+    nodes: NodeMap,
     /// Node configurations for mapping outputs to inputs
-    node_configs: HashMap<String, NodeConfig>,
+    node_configs: NodeConfigMap,
     /// Order to render nodes in
     order: Vec<String>,
     /// Receiver for events
     event_receiver: Receiver<RendererEvent>,
     /// Sender for pointer events
-    pointer_senders: Vec<Sender<PointerEvent>>,
+    pointer_senders: Vec<PointerSender>,
 }
 
 fn init_nodes(
     config: &Config,
     facade: &Rc<Facade>,
-) -> Result<
-    (
-        HashMap<String, Box<Node>>,
-        Vec<String>,
-        Vec<Sender<PointerEvent>>,
-    ),
-    Error,
-> {
+) -> Result<(NodeMap, Vec<String>, Vec<PointerSender>), Error> {
     let mut pointer_senders = Vec::new();
 
-    let mut nodes: HashMap<String, Box<Node>> = HashMap::new();
+    let mut nodes: NodeMap = HashMap::new();
     let mut dep_graph: DepGraph<&str> = DepGraph::new();
     let mut output_node = "";
 
     for (name, node_config) in &config.nodes {
-        match node_config {
-            &NodeConfig::Info => {
+        match *node_config {
+            NodeConfig::Info => {
                 let (pointer_sender, pointer_receiver) = mpsc::channel();
                 pointer_senders.push(pointer_sender);
 
@@ -71,25 +68,25 @@ fn init_nodes(
                 );
             }
 
-            &NodeConfig::Output(ref output_config) => {
-                nodes.insert(name.to_string(), Box::new(OutputNode::new(&facade)?));
+            NodeConfig::Output(ref output_config) => {
+                nodes.insert(name.to_string(), Box::new(OutputNode::new(facade)?));
 
                 dep_graph.register_dependency(name, &output_config.texture.node);
 
                 output_node = name;
             }
 
-            &NodeConfig::Image(ref image_config) => {
+            NodeConfig::Image(ref image_config) => {
                 let mut image_config = image_config.clone();
                 image_config.path = config.path_to(&image_config.path);
 
                 nodes.insert(
                     name.to_string(),
-                    Box::new(ImageNode::new(&facade, image_config)?),
+                    Box::new(ImageNode::new(facade, image_config)?),
                 );
             }
 
-            &NodeConfig::Shader(ref shader_config) => {
+            NodeConfig::Shader(ref shader_config) => {
                 {
                     // Replace the paths with absolute paths
                     let mut shader_config = shader_config.clone();
@@ -98,7 +95,7 @@ fn init_nodes(
 
                     nodes.insert(
                         name.to_string(),
-                        Box::new(ShaderNode::new(&facade, shader_config)?),
+                        Box::new(ShaderNode::new(facade, shader_config)?),
                     );
                 }
 
@@ -112,10 +109,10 @@ fn init_nodes(
                 );
             }
 
-            &NodeConfig::Blend(ref blend_config) => {
+            NodeConfig::Blend(ref blend_config) => {
                 nodes.insert(
                     name.to_string(),
-                    Box::new(BlendNode::new(&facade, blend_config.clone())?),
+                    Box::new(BlendNode::new(facade, blend_config)?),
                 );
 
                 dep_graph.register_dependencies(
@@ -129,17 +126,17 @@ fn init_nodes(
             }
 
             // TODO: Color in a better format
-            &NodeConfig::Text(ref text_config) => {
+            NodeConfig::Text(ref text_config) => {
                 nodes.insert(
                     name.to_string(),
-                    Box::new(TextNode::new(&facade, text_config.clone())?),
+                    Box::new(TextNode::new(facade, text_config.clone())?),
                 );
             }
 
-            &NodeConfig::Fps(ref fps_config) => {
+            NodeConfig::Fps(ref fps_config) => {
                 nodes.insert(
                     name.to_string(),
-                    Box::new(FpsNode::new(&facade, fps_config.clone())?),
+                    Box::new(FpsNode::new(facade, fps_config.clone())?),
                 );
             }
         }
@@ -171,21 +168,21 @@ fn map_node_io(
     config: &NodeConfig,
     outputs: &HashMap<String, HashMap<String, NodeOutput>>,
 ) -> Result<NodeInputs, Error> {
-    Ok(match config {
-        &NodeConfig::Info => NodeInputs::Info,
+    Ok(match *config {
+        NodeConfig::Info => NodeInputs::Info,
 
-        &NodeConfig::Output(ref output_config) => {
-            match &outputs[&output_config.texture.node][&output_config.texture.output] {
-                &NodeOutput::Texture2d(ref texture) => NodeInputs::Output {
+        NodeConfig::Output(ref output_config) => {
+            match outputs[&output_config.texture.node][&output_config.texture.output] {
+                NodeOutput::Texture2d(ref texture) => NodeInputs::Output {
                     texture: Rc::clone(texture),
                 },
                 _ => bail!("Wrong input type for `texture`"),
             }
         }
 
-        &NodeConfig::Image(_) => NodeInputs::Image,
+        NodeConfig::Image(_) => NodeInputs::Image,
 
-        &NodeConfig::Shader(ref shader_config) => {
+        NodeConfig::Shader(ref shader_config) => {
             let mut uniforms = HashMap::new();
             for connection in &shader_config.uniforms {
                 uniforms.insert(
@@ -196,44 +193,44 @@ fn map_node_io(
             NodeInputs::Shader { uniforms }
         }
 
-        &NodeConfig::Blend(ref blend_config) => {
+        NodeConfig::Blend(ref blend_config) => {
             let mut textures = Vec::new();
             for connection in &blend_config.textures {
-                match &outputs[&connection.node][&connection.output] {
-                    &NodeOutput::Texture2d(ref texture) => textures.push(Rc::clone(texture)),
+                match outputs[&connection.node][&connection.output] {
+                    NodeOutput::Texture2d(ref texture) => textures.push(Rc::clone(texture)),
                     _ => bail!("Wrong input type for `uniforms`"),
                 };
             }
             NodeInputs::Blend { textures }
         }
 
-        &NodeConfig::Text(ref text_config) => {
-            let text = match &text_config.text {
-                &NodeParameter::NodeConnection(ref connection) => {
-                    match &outputs[&connection.node][&connection.output] {
-                        &NodeOutput::Text(ref text) => Some(text.to_string()),
+        NodeConfig::Text(ref text_config) => {
+            let text = match text_config.text {
+                NodeParameter::NodeConnection(ref connection) => {
+                    match outputs[&connection.node][&connection.output] {
+                        NodeOutput::Text(ref text) => Some(text.to_string()),
                         _ => bail!("Wrong input type for `text`"),
                     }
                 }
-                &NodeParameter::Static(_) => None,
+                NodeParameter::Static(_) => None,
             };
-            let position = match &text_config.position {
-                &NodeParameter::NodeConnection(ref connection) => {
-                    match &outputs[&connection.node][&connection.output] {
-                        &NodeOutput::Float2(ref position) => Some(position.clone()),
+            let position = match text_config.position {
+                NodeParameter::NodeConnection(ref connection) => {
+                    match outputs[&connection.node][&connection.output] {
+                        NodeOutput::Float2(ref position) => Some(*position),
                         _ => bail!("Wrong input type for `position`"),
                     }
                 }
-                &NodeParameter::Static(_) => None,
+                NodeParameter::Static(_) => None,
             };
-            let color = match &text_config.color {
-                &NodeParameter::NodeConnection(ref connection) => {
-                    match &outputs[&connection.node][&connection.output] {
-                        &NodeOutput::Color(ref color) => Some(color.clone()),
+            let color = match text_config.color {
+                NodeParameter::NodeConnection(ref connection) => {
+                    match outputs[&connection.node][&connection.output] {
+                        NodeOutput::Color(ref color) => Some(*color),
                         _ => bail!("Wrong input type for `position`"),
                     }
                 }
-                &NodeParameter::Static(_) => None,
+                NodeParameter::Static(_) => None,
             };
 
             NodeInputs::Text {
@@ -243,24 +240,24 @@ fn map_node_io(
             }
         }
 
-        &NodeConfig::Fps(ref fps_config) => {
-            let position = match &fps_config.position {
-                &NodeParameter::NodeConnection(ref connection) => {
-                    match &outputs[&connection.node][&connection.output] {
-                        &NodeOutput::Float2(ref position) => Some(position.clone()),
+        NodeConfig::Fps(ref fps_config) => {
+            let position = match fps_config.position {
+                NodeParameter::NodeConnection(ref connection) => {
+                    match outputs[&connection.node][&connection.output] {
+                        NodeOutput::Float2(ref position) => Some(*position),
                         _ => bail!("Wrong input type for `position`"),
                     }
                 }
-                &NodeParameter::Static(_) => None,
+                NodeParameter::Static(_) => None,
             };
-            let color = match &fps_config.color {
-                &NodeParameter::NodeConnection(ref connection) => {
-                    match &outputs[&connection.node][&connection.output] {
-                        &NodeOutput::Color(ref color) => Some(color.clone()),
+            let color = match fps_config.color {
+                NodeParameter::NodeConnection(ref connection) => {
+                    match outputs[&connection.node][&connection.output] {
+                        NodeOutput::Color(ref color) => Some(*color),
                         _ => bail!("Wrong input type for `position`"),
                     }
                 }
-                &NodeParameter::Static(_) => None,
+                NodeParameter::Static(_) => None,
             };
 
             NodeInputs::Fps { position, color }

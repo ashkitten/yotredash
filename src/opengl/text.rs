@@ -269,11 +269,11 @@ impl TextRenderer {
 
         let program = {
             let input = ProgramCreationInput::SourceCode {
-                vertex_shader: &VERTEX,
+                vertex_shader: VERTEX,
                 tessellation_control_shader: None,
                 tessellation_evaluation_shader: None,
                 geometry_shader: None,
-                fragment_shader: &FRAGMENT,
+                fragment_shader: FRAGMENT,
                 transform_feedback_varyings: None,
                 outputs_srgb: true,
                 uses_point_size: false,

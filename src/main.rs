@@ -318,7 +318,7 @@ fn run() -> Result<(), Error> {
             _ => (),
         }
 
-        for event in events.into_iter() {
+        for event in events {
             match event {
                 Event::Pointer(pointer_event) => {
                     event_sender.send(RendererEvent::Pointer(pointer_event))?;

@@ -48,20 +48,20 @@ impl TextNode {
 
 impl Node for TextNode {
     fn render(&mut self, inputs: &NodeInputs) -> Result<HashMap<String, NodeOutput>, Error> {
-        if let &NodeInputs::Text {
+        if let NodeInputs::Text {
             ref text,
             ref position,
             ref color,
-        } = inputs
+        } = *inputs
         {
-            let text = text.clone().unwrap_or(self.text.to_string());
+            let text = text.clone().unwrap_or_else(|| self.text.to_string());
             let position = position.unwrap_or(self.position);
             let color = color.unwrap_or(self.color);
 
             let mut surface = self.texture.as_surface();
             surface.clear_color(0.0, 0.0, 0.0, 0.0);
             self.text_renderer
-                .draw_text(&mut surface, &text, position.clone(), color.clone())?;
+                .draw_text(&mut surface, &text, position, color)?;
 
             let mut outputs = HashMap::new();
             outputs.insert(

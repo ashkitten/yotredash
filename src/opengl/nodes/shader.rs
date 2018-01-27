@@ -96,19 +96,18 @@ impl ShaderNode {
 
 impl Node for ShaderNode {
     fn render(&mut self, inputs: &NodeInputs) -> Result<HashMap<String, NodeOutput>, Error> {
-        if let &NodeInputs::Shader { ref uniforms } = inputs {
+        if let NodeInputs::Shader { ref uniforms } = *inputs {
             let uniforms = {
                 let mut storage = UniformsStorageVec::new();
                 for (connection, uniform) in uniforms {
                     let name = format!("{}_{}", connection.node, connection.output);
-                    match uniform {
-                        &NodeOutput::Color(ref uniform) => storage.push(name, uniform.clone()),
-                        &NodeOutput::Float(ref uniform) => storage.push(name, uniform.clone()),
-                        &NodeOutput::Float2(ref uniform) => storage.push(name, uniform.clone()),
-                        &NodeOutput::Float4(ref uniform) => storage.push(name, uniform.clone()),
-                        &NodeOutput::Texture2d(ref uniform) => {
-                            storage.push(name, uniform.sampled())
+                    match *uniform {
+                        NodeOutput::Float(ref uniform) => storage.push(name, uniform.clone()),
+                        NodeOutput::Float2(ref uniform) => storage.push(name, uniform.clone()),
+                        NodeOutput::Color(ref uniform) | NodeOutput::Float4(ref uniform) => {
+                            storage.push(name, uniform.clone())
                         }
+                        NodeOutput::Texture2d(ref uniform) => storage.push(name, uniform.sampled()),
                         _ => bail!("Wrong input type for `uniforms`"),
                     }
                 }

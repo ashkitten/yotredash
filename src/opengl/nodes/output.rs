@@ -66,11 +66,11 @@ impl OutputNode {
     /// Create a new instance
     pub fn new(facade: &Rc<Facade>) -> Result<Self, Error> {
         let input = ProgramCreationInput::SourceCode {
-            vertex_shader: &VERTEX,
+            vertex_shader: VERTEX,
             tessellation_control_shader: None,
             tessellation_evaluation_shader: None,
             geometry_shader: None,
-            fragment_shader: &FRAGMENT,
+            fragment_shader: FRAGMENT,
             transform_feedback_varyings: None,
             outputs_srgb: true,
             uses_point_size: false,
@@ -87,7 +87,7 @@ impl OutputNode {
 
 impl Node for OutputNode {
     fn render(&mut self, inputs: &NodeInputs) -> Result<HashMap<String, NodeOutput>, Error> {
-        if let &NodeInputs::Output { ref texture } = inputs {
+        if let NodeInputs::Output { ref texture } = *inputs {
             let (width, height) = self.facade.get_context().get_framebuffer_dimensions();
 
             let mut uniforms = UniformsStorageVec::new();
