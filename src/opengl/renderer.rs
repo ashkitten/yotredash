@@ -1,7 +1,6 @@
 //! An implementation of `Renderer` using OpenGL
 
-use failure::Error;
-use failure::SyncFailure;
+use failure::{Error, ResultExt, SyncFailure};
 use glium::backend::Facade;
 use glium::backend::glutin::Display;
 use glium::backend::glutin::headless::Headless;
@@ -18,7 +17,7 @@ use winit::EventsLoop;
 
 use {PointerEvent, Renderer, RendererEvent};
 use config::Config;
-use config::nodes::{NodeConfig, NodeParameter};
+use config::nodes::{NodeConfig, NodeConnection, NodeParameter};
 use super::nodes::*;
 
 type NodeMap = HashMap<String, Box<Node>>;
@@ -168,27 +167,36 @@ fn map_node_io(
     config: &NodeConfig,
     outputs: &HashMap<String, HashMap<String, NodeOutput>>,
 ) -> Result<NodeInputs, Error> {
+    let get_node_output = |connection: &NodeConnection| -> Result<_, Error> {
+        Ok(outputs
+            .get(&connection.node)
+            .ok_or_else(|| format_err!("No such node: {}", connection.node))?
+            .get(&connection.output)
+            .ok_or_else(|| {
+                format_err!(
+                    "No such output on node {}: {}",
+                    connection.node,
+                    connection.output
+                )
+            })?)
+    };
+
     Ok(match *config {
         NodeConfig::Info => NodeInputs::Info,
 
-        NodeConfig::Output(ref output_config) => {
-            match outputs[&output_config.texture.node][&output_config.texture.output] {
-                NodeOutput::Texture2d(ref texture) => NodeInputs::Output {
-                    texture: Rc::clone(texture),
-                },
-                _ => bail!("Wrong input type for `texture`"),
-            }
-        }
+        NodeConfig::Output(ref output_config) => match *get_node_output(&output_config.texture)? {
+            NodeOutput::Texture2d(ref texture) => NodeInputs::Output {
+                texture: Rc::clone(texture),
+            },
+            _ => bail!("Wrong input type for `texture`"),
+        },
 
         NodeConfig::Image(_) => NodeInputs::Image,
 
         NodeConfig::Shader(ref shader_config) => {
             let mut uniforms = HashMap::new();
             for connection in &shader_config.uniforms {
-                uniforms.insert(
-                    connection.clone(),
-                    outputs[&connection.node][&connection.output].clone(),
-                );
+                uniforms.insert(connection.clone(), get_node_output(connection)?.clone());
             }
             NodeInputs::Shader { uniforms }
         }
@@ -196,7 +204,7 @@ fn map_node_io(
         NodeConfig::Blend(ref blend_config) => {
             let mut textures = Vec::new();
             for connection in &blend_config.textures {
-                match outputs[&connection.node][&connection.output] {
+                match *get_node_output(connection)? {
                     NodeOutput::Texture2d(ref texture) => textures.push(Rc::clone(texture)),
                     _ => bail!("Wrong input type for `uniforms`"),
                 };
@@ -207,7 +215,7 @@ fn map_node_io(
         NodeConfig::Text(ref text_config) => {
             let text = match text_config.text {
                 NodeParameter::NodeConnection(ref connection) => {
-                    match outputs[&connection.node][&connection.output] {
+                    match *get_node_output(connection)? {
                         NodeOutput::Text(ref text) => Some(text.to_string()),
                         _ => bail!("Wrong input type for `text`"),
                     }
@@ -216,7 +224,7 @@ fn map_node_io(
             };
             let position = match text_config.position {
                 NodeParameter::NodeConnection(ref connection) => {
-                    match outputs[&connection.node][&connection.output] {
+                    match *get_node_output(connection)? {
                         NodeOutput::Float2(ref position) => Some(*position),
                         _ => bail!("Wrong input type for `position`"),
                     }
@@ -225,7 +233,7 @@ fn map_node_io(
             };
             let color = match text_config.color {
                 NodeParameter::NodeConnection(ref connection) => {
-                    match outputs[&connection.node][&connection.output] {
+                    match *get_node_output(connection)? {
                         NodeOutput::Color(ref color) => Some(*color),
                         _ => bail!("Wrong input type for `position`"),
                     }
@@ -243,7 +251,7 @@ fn map_node_io(
         NodeConfig::Fps(ref fps_config) => {
             let position = match fps_config.position {
                 NodeParameter::NodeConnection(ref connection) => {
-                    match outputs[&connection.node][&connection.output] {
+                    match *get_node_output(connection)? {
                         NodeOutput::Float2(ref position) => Some(*position),
                         _ => bail!("Wrong input type for `position`"),
                     }
@@ -252,7 +260,7 @@ fn map_node_io(
             };
             let color = match fps_config.color {
                 NodeParameter::NodeConnection(ref connection) => {
-                    match outputs[&connection.node][&connection.output] {
+                    match *get_node_output(connection)? {
                         NodeOutput::Color(ref color) => Some(*color),
                         _ => bail!("Wrong input type for `position`"),
                     }
@@ -382,7 +390,8 @@ impl Renderer for OpenGLRenderer {
                 name
             );
 
-            let inputs = map_node_io(&self.node_configs[name], &outputs)?;
+            let inputs = map_node_io(&self.node_configs[name], &outputs)
+                .context(format!("Error on node {}", name))?;
 
             outputs.insert(
                 name.to_string(),
