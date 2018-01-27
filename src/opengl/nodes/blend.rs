@@ -9,8 +9,10 @@ use glium::texture::Texture2d;
 use glium::{Program, Surface, VertexBuffer};
 use std::collections::HashMap;
 use std::rc::Rc;
+use std::sync::mpsc::Receiver;
 
 use config::nodes::{BlendConfig, BlendOp};
+use event::RendererEvent;
 use opengl::UniformsStorageVec;
 use super::{Node, NodeInputs, NodeOutput};
 
@@ -69,11 +71,17 @@ pub struct BlendNode {
     vertex_buffer: VertexBuffer<Vertex>,
     /// Index buffer for the shader
     index_buffer: NoIndices,
+    /// Receiver for events
+    receiver: Receiver<RendererEvent>,
 }
 
 impl BlendNode {
     /// Create a new instance
-    pub fn new(facade: &Rc<Facade>, config: &BlendConfig) -> Result<Self, Error> {
+    pub fn new(
+        facade: &Rc<Facade>,
+        config: &BlendConfig,
+        receiver: Receiver<RendererEvent>,
+    ) -> Result<Self, Error> {
         let op_fmt = match config.operation {
             BlendOp::Min => "color = min(texture(%INPUT%, uv);",
             BlendOp::Max => "color = max(texture(%INPUT%, uv);",
@@ -124,12 +132,22 @@ impl BlendNode {
             program,
             vertex_buffer: VertexBuffer::new(&**facade, &VERTICES)?,
             index_buffer: NoIndices(PrimitiveType::TrianglesList),
+            receiver,
         })
     }
 }
 
 impl Node for BlendNode {
     fn render(&mut self, inputs: &NodeInputs) -> Result<HashMap<String, NodeOutput>, Error> {
+        if let Ok(event) = self.receiver.try_recv() {
+            match event {
+                RendererEvent::Resize(width, height) => {
+                    self.texture = Rc::new(Texture2d::empty(&*self.facade, width, height)?);
+                }
+                _ => (),
+            }
+        }
+
         if let NodeInputs::Blend { ref textures } = *inputs {
             let resolution = (self.texture.width() as f32, self.texture.height() as f32);
 
@@ -161,11 +179,5 @@ impl Node for BlendNode {
         } else {
             bail!("Wrong input type for node");
         }
-    }
-
-    fn resize(&mut self, width: u32, height: u32) -> Result<(), Error> {
-        self.texture = Rc::new(Texture2d::empty(&*self.facade, width, height)?);
-
-        Ok(())
     }
 }

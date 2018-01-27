@@ -4,8 +4,10 @@ use failure::Error;
 use glium::backend::Facade;
 use std::collections::HashMap;
 use std::rc::Rc;
+use std::sync::mpsc::Receiver;
 
 use config::nodes::{FpsConfig, NodeParameter, TextConfig};
+use event::RendererEvent;
 use super::{Node, NodeInputs, NodeOutput, TextNode};
 use util::FpsCounter;
 
@@ -19,7 +21,11 @@ pub struct FpsNode {
 
 impl FpsNode {
     /// Create a new instance
-    pub fn new(facade: &Rc<Facade>, config: FpsConfig) -> Result<Self, Error> {
+    pub fn new(
+        facade: &Rc<Facade>,
+        config: FpsConfig,
+        receiver: Receiver<RendererEvent>,
+    ) -> Result<Self, Error> {
         Ok(Self {
             text_node: TextNode::new(
                 facade,
@@ -30,6 +36,7 @@ impl FpsNode {
                     font_name: config.font_name,
                     font_size: config.font_size,
                 },
+                receiver,
             )?,
             fps_counter: FpsCounter::new(config.interval),
             position: config.position.or_default(),
@@ -53,9 +60,5 @@ impl Node for FpsNode {
         } else {
             bail!("Wrong input type for node");
         }
-    }
-
-    fn resize(&mut self, width: u32, height: u32) -> Result<(), Error> {
-        self.text_node.resize(width, height)
     }
 }

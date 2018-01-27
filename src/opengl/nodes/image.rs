@@ -146,10 +146,4 @@ impl Node for ImageNode {
         );
         Ok(outputs)
     }
-
-    fn resize(&mut self, _width: u32, _height: u32) -> Result<(), Error> {
-        // Do nothing
-
-        Ok(())
-    }
 }

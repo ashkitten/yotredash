@@ -115,10 +115,4 @@ impl Node for OutputNode {
             bail!("Wrong input type for node");
         }
     }
-
-    fn resize(&mut self, _width: u32, _height: u32) -> Result<(), Error> {
-        // Do nothing
-
-        Ok(())
-    }
 }

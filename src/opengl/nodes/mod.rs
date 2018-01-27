@@ -93,6 +93,4 @@ pub enum NodeOutput {
 pub trait Node {
     /// Does stuff and returns a `NodeOutputs`
     fn render(&mut self, inputs: &NodeInputs) -> Result<HashMap<String, NodeOutput>, Error>;
-    /// Called on a window resize event
-    fn resize(&mut self, width: u32, height: u32) -> Result<(), Error>;
 }

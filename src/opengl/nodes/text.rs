@@ -6,8 +6,10 @@ use glium::backend::Facade;
 use glium::texture::Texture2d;
 use std::collections::HashMap;
 use std::rc::Rc;
+use std::sync::mpsc::Receiver;
 
 use config::nodes::TextConfig;
+use event::RendererEvent;
 use opengl::text::TextRenderer;
 use super::{Node, NodeInputs, NodeOutput};
 
@@ -25,11 +27,17 @@ pub struct TextNode {
     position: [f32; 2],
     /// The color of the text in RGBA format
     color: [f32; 4],
+    /// Receiver for events
+    receiver: Receiver<RendererEvent>,
 }
 
 impl TextNode {
     /// Create a new instance
-    pub fn new(facade: &Rc<Facade>, config: TextConfig) -> Result<Self, Error> {
+    pub fn new(
+        facade: &Rc<Facade>,
+        config: TextConfig,
+        receiver: Receiver<RendererEvent>,
+    ) -> Result<Self, Error> {
         let (width, height) = facade.get_context().get_framebuffer_dimensions();
         let texture = Rc::new(Texture2d::empty(&**facade, width, height)?);
 
@@ -42,12 +50,22 @@ impl TextNode {
             text: config.text.or_default(),
             position: config.position.or_default(),
             color: config.color.or_default(),
+            receiver,
         })
     }
 }
 
 impl Node for TextNode {
     fn render(&mut self, inputs: &NodeInputs) -> Result<HashMap<String, NodeOutput>, Error> {
+        if let Ok(event) = self.receiver.try_recv() {
+            match event {
+                RendererEvent::Resize(width, height) => {
+                    self.texture = Rc::new(Texture2d::empty(&*self.facade, width, height)?);
+                }
+                _ => (),
+            }
+        }
+
         if let NodeInputs::Text {
             ref text,
             ref position,
@@ -72,11 +90,5 @@ impl Node for TextNode {
         } else {
             bail!("Wrong input type for node");
         }
-    }
-
-    fn resize(&mut self, width: u32, height: u32) -> Result<(), Error> {
-        self.texture = Rc::new(Texture2d::empty(&*self.facade, width, height)?);
-
-        Ok(())
     }
 }

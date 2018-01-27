@@ -14,8 +14,10 @@ use std::fs::File;
 use std::io::BufReader;
 use std::io::prelude::*;
 use std::rc::Rc;
+use std::sync::mpsc::Receiver;
 
 use config::nodes::ShaderConfig;
+use event::RendererEvent;
 use opengl::UniformsStorageVec;
 use super::{Node, NodeInputs, NodeOutput};
 
@@ -49,11 +51,17 @@ pub struct ShaderNode {
     vertex_buffer: VertexBuffer<Vertex>,
     /// Index buffer
     index_buffer: NoIndices,
+    /// Receiver for events
+    receiver: Receiver<RendererEvent>,
 }
 
 impl ShaderNode {
     /// Create a new instance
-    pub fn new(facade: &Rc<Facade>, config: ShaderConfig) -> Result<Self, Error> {
+    pub fn new(
+        facade: &Rc<Facade>,
+        config: ShaderConfig,
+        receiver: Receiver<RendererEvent>,
+    ) -> Result<Self, Error> {
         let file = File::open(config.vertex).context("Could not open vertex shader file")?;
         let mut buf_reader = BufReader::new(file);
         let mut vertex_source = String::new();
@@ -90,12 +98,22 @@ impl ShaderNode {
             program,
             vertex_buffer: VertexBuffer::new(&**facade, &VERTICES)?,
             index_buffer: NoIndices(PrimitiveType::TrianglesList),
+            receiver,
         })
     }
 }
 
 impl Node for ShaderNode {
     fn render(&mut self, inputs: &NodeInputs) -> Result<HashMap<String, NodeOutput>, Error> {
+        if let Ok(event) = self.receiver.try_recv() {
+            match event {
+                RendererEvent::Resize(width, height) => {
+                    self.texture = Rc::new(Texture2d::empty(&*self.facade, width, height)?);
+                }
+                _ => (),
+            }
+        }
+
         if let NodeInputs::Shader { ref uniforms } = *inputs {
             let uniforms = {
                 let mut storage = UniformsStorageVec::new();
@@ -136,11 +154,5 @@ impl Node for ShaderNode {
         } else {
             bail!("Wrong input type for node");
         }
-    }
-
-    fn resize(&mut self, width: u32, height: u32) -> Result<(), Error> {
-        self.texture = Rc::new(Texture2d::empty(&*self.facade, width, height)?);
-
-        Ok(())
     }
 }

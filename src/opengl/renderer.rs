@@ -15,14 +15,14 @@ use std::rc::Rc;
 use std::sync::mpsc::{self, Receiver, Sender};
 use winit::EventsLoop;
 
-use {PointerEvent, Renderer, RendererEvent};
+use Renderer;
 use config::Config;
 use config::nodes::{NodeConfig, NodeConnection, NodeParameter};
+use event::RendererEvent;
 use super::nodes::*;
 
 type NodeMap = HashMap<String, Box<Node>>;
 type NodeConfigMap = HashMap<String, NodeConfig>;
-type PointerSender = Sender<PointerEvent>;
 
 /// An implementation of a `Renderer` which uses OpenGL
 pub struct OpenGLRenderer {
@@ -35,16 +35,16 @@ pub struct OpenGLRenderer {
     /// Order to render nodes in
     order: Vec<String>,
     /// Receiver for events
-    event_receiver: Receiver<RendererEvent>,
+    receiver: Receiver<RendererEvent>,
     /// Sender for pointer events
-    pointer_senders: Vec<PointerSender>,
+    senders: Vec<Sender<RendererEvent>>,
 }
 
 fn init_nodes(
     config: &Config,
     facade: &Rc<Facade>,
-) -> Result<(NodeMap, Vec<String>, Vec<PointerSender>), Error> {
-    let mut pointer_senders = Vec::new();
+) -> Result<(NodeMap, Vec<String>, Vec<Sender<RendererEvent>>), Error> {
+    let mut senders = Vec::new();
 
     let mut nodes: NodeMap = HashMap::new();
     let mut dep_graph: DepGraph<&str> = DepGraph::new();
@@ -53,17 +53,14 @@ fn init_nodes(
     for (name, node_config) in &config.nodes {
         match *node_config {
             NodeConfig::Info => {
-                let (pointer_sender, pointer_receiver) = mpsc::channel();
-                pointer_senders.push(pointer_sender);
+                let (sender, receiver) = mpsc::channel();
+                senders.push(sender);
 
                 let (width, height) = facade.get_context().get_framebuffer_dimensions();
 
                 nodes.insert(
                     name.to_string(),
-                    Box::new(InfoNode::new(
-                        pointer_receiver,
-                        [width as f32, height as f32],
-                    )),
+                    Box::new(InfoNode::new(receiver, [width as f32, height as f32])),
                 );
             }
 
@@ -93,9 +90,12 @@ fn init_nodes(
                     shader_config.vertex = config.path_to(&shader_config.vertex);
                     shader_config.fragment = config.path_to(&shader_config.fragment);
 
+                    let (sender, receiver) = mpsc::channel();
+                    senders.push(sender);
+
                     nodes.insert(
                         name.to_string(),
-                        Box::new(ShaderNode::new(facade, shader_config)?),
+                        Box::new(ShaderNode::new(facade, shader_config, receiver)?),
                     );
                 }
 
@@ -110,9 +110,12 @@ fn init_nodes(
             }
 
             NodeConfig::Blend(ref blend_config) => {
+                let (sender, receiver) = mpsc::channel();
+                senders.push(sender);
+
                 nodes.insert(
                     name.to_string(),
-                    Box::new(BlendNode::new(facade, blend_config)?),
+                    Box::new(BlendNode::new(facade, blend_config, receiver)?),
                 );
 
                 dep_graph.register_dependencies(
@@ -127,16 +130,22 @@ fn init_nodes(
 
             // TODO: Color in a better format
             NodeConfig::Text(ref text_config) => {
+                let (sender, receiver) = mpsc::channel();
+                senders.push(sender);
+
                 nodes.insert(
                     name.to_string(),
-                    Box::new(TextNode::new(facade, text_config.clone())?),
+                    Box::new(TextNode::new(facade, text_config.clone(), receiver)?),
                 );
             }
 
             NodeConfig::Fps(ref fps_config) => {
+                let (sender, receiver) = mpsc::channel();
+                senders.push(sender);
+
                 nodes.insert(
                     name.to_string(),
-                    Box::new(FpsNode::new(facade, fps_config.clone())?),
+                    Box::new(FpsNode::new(facade, fps_config.clone(), receiver)?),
                 );
             }
         }
@@ -161,7 +170,7 @@ fn init_nodes(
         warn!("Dangling nodes: {}", dangling_nodes.join(", "));
     }
 
-    Ok((nodes, order, pointer_senders))
+    Ok((nodes, order, senders))
 }
 
 fn map_node_io(
@@ -279,7 +288,7 @@ impl OpenGLRenderer {
     pub fn new(
         config: Config,
         events_loop: &EventsLoop,
-        event_receiver: Receiver<RendererEvent>,
+        receiver: Receiver<RendererEvent>,
     ) -> Result<Self, Error> {
         let facade: Rc<Facade> = if !config.headless {
             let window_builder = WindowBuilder::new()
@@ -312,41 +321,32 @@ impl OpenGLRenderer {
             facade.get_context().get_opengl_version_string()
         );
 
-        let (nodes, order, pointer_senders) = init_nodes(&config, &facade)?;
+        let (nodes, order, senders) = init_nodes(&config, &facade)?;
 
         Ok(Self {
             facade,
             nodes,
             node_configs: config.nodes,
             order,
-            event_receiver,
-            pointer_senders,
+            receiver,
+            senders,
         })
     }
 }
 
 impl Renderer for OpenGLRenderer {
     fn render(&mut self) -> Result<(), Error> {
-        while let Ok(event) = self.event_receiver.try_recv() {
+        while let Ok(event) = self.receiver.try_recv() {
             match event {
-                RendererEvent::Pointer(pointer_event) => for sender in &self.pointer_senders {
-                    sender.send(pointer_event.clone())?;
-                },
-                RendererEvent::Resize(width, height) => {
-                    debug!("Resized window to {}x{}", width, height);
-
-                    for node in self.nodes.values_mut() {
-                        node.resize(width, height)?;
-                    }
-                }
                 RendererEvent::Reload(config) => {
                     info!("Reloading config");
 
-                    let (nodes, order, pointer_senders) = init_nodes(&config, &self.facade)?;
+                    let (nodes, order, senders) = init_nodes(&config, &self.facade)?;
                     self.nodes = nodes;
                     self.order = order;
-                    self.pointer_senders = pointer_senders;
+                    self.senders = senders;
                 }
+
                 RendererEvent::Capture(path) => {
                     let (width, height) = self.facade.get_context().get_framebuffer_dimensions();
                     let texture = Texture2d::empty_with_mipmaps(
@@ -379,6 +379,10 @@ impl Renderer for OpenGLRenderer {
                     let raw: RawImage2d<u8> = texture.read();
                     image::save_buffer(path, &raw.data, raw.width, raw.height, image::RGBA(8))?;
                 }
+
+                event => for sender in &self.senders {
+                    sender.send(event.clone())?;
+                },
             }
         }
 

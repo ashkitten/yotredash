@@ -77,6 +77,7 @@ extern crate gif_dispose;
 extern crate image;
 
 pub mod config;
+pub mod event;
 pub mod font;
 pub mod platform;
 pub mod util;
@@ -85,7 +86,7 @@ pub mod util;
 pub mod opengl;
 
 use notify::Watcher;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::mpsc;
 use failure::Error;
 
@@ -99,6 +100,7 @@ use opengl::renderer::OpenGLRenderer;
 
 use config::Config;
 use config::nodes::NodeConfig;
+use event::*;
 
 /// Renders a configured shader
 pub trait Renderer {
@@ -106,43 +108,6 @@ pub trait Renderer {
     fn render(&mut self) -> Result<(), Error>;
     /// Tells the renderer to swap buffers (only applicable to buffered renderers)
     fn swap_buffers(&self) -> Result<(), Error>;
-}
-
-/// Events related to the mouse pointer
-#[derive(Clone)]
-pub enum PointerEvent {
-    /// Pointer was moved to (x, y)
-    Move(f32, f32),
-    /// Mouse was clicked
-    Press,
-    /// Mouse was released
-    Release,
-}
-
-/// Events related to the renderer
-pub enum RendererEvent {
-    /// Pointer event
-    Pointer(PointerEvent),
-    /// Window was resized
-    Resize(u32, u32),
-    /// Renderer should reload from a new configuration
-    Reload(Config),
-    /// Renderer should capture an image to this file
-    Capture(PathBuf),
-}
-
-/// All events
-pub enum Event {
-    /// Pointer event
-    Pointer(PointerEvent),
-    /// Window was resized
-    Resize(u32, u32),
-    /// Renderer should reload
-    Reload,
-    /// Renderer should capture an image
-    Capture,
-    /// Close the window
-    Close,
 }
 
 fn setup_watches(
