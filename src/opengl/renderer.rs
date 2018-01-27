@@ -6,6 +6,10 @@ use glium::backend::Facade;
 use glium::backend::glutin::Display;
 use glium::backend::glutin::headless::Headless;
 use glium::glutin::{ContextBuilder, GlProfile, HeadlessRendererBuilder, WindowBuilder};
+use glium::texture::{MipmapsOption, RawImage2d, Texture2d};
+use glium::uniforms::MagnifySamplerFilter;
+use glium::{BlitTarget, Rect, Surface};
+use image;
 use solvent::DepGraph;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -337,8 +341,37 @@ impl Renderer for OpenGLRenderer {
                     self.order = order;
                     self.pointer_senders = pointer_senders;
                 }
-                RendererEvent::Capture(_path) => {
-                    unimplemented!();
+                RendererEvent::Capture(path) => {
+                    let (width, height) = self.facade.get_context().get_framebuffer_dimensions();
+                    let texture = Texture2d::empty_with_mipmaps(
+                        &*self.facade,
+                        MipmapsOption::NoMipmap,
+                        width,
+                        height,
+                    )?;
+
+                    let source_rect = Rect {
+                        left: 0,
+                        bottom: 0,
+                        width,
+                        height,
+                    };
+
+                    let target_rect = BlitTarget {
+                        left: 0,
+                        bottom: height,
+                        width: width as i32,
+                        height: -(height as i32),
+                    };
+
+                    texture.as_surface().blit_from_frame(
+                        &source_rect,
+                        &target_rect,
+                        MagnifySamplerFilter::Nearest,
+                    );
+
+                    let raw: RawImage2d<u8> = texture.read();
+                    image::save_buffer(path, &raw.data, raw.width, raw.height, image::RGBA(8))?;
                 }
             }
         }
