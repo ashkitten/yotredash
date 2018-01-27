@@ -1,5 +1,18 @@
 nodes:
-  __default__:
+  output:
+    type: output
+    texture:
+      node: pointer
+      output: texture
+
+  pointer:
     type: shader
     vertex: ../default.vert
     fragment: pointer.frag
+    uniforms:
+      -
+        node: info
+        output: pointer
+
+  info:
+    type: info

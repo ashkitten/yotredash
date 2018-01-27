@@ -1,4 +1,4 @@
-//! A `Shader` contains a `Program` and renders it to an inner texture with input uniforms from
+//! A `Shader` contains a `Program` and renders it to an inner texture with inputs from
 //! `Source`s and other `Shader` dependencies
 
 use failure::Error;
@@ -7,19 +7,27 @@ use glium::backend::Facade;
 use glium::draw_parameters::{Blend, DrawParameters};
 use glium::index::{NoIndices, PrimitiveType};
 use glium::program::ProgramCreationInput;
-use glium::texture::{RawImage2d, Texture2d};
+use glium::texture::Texture2d;
 use glium::{Program, Surface, VertexBuffer};
-use image;
-use owning_ref::OwningHandle;
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::BufReader;
 use std::io::prelude::*;
-use std::path::Path;
 use std::rc::Rc;
+use std::sync::mpsc::Receiver;
 
-use opengl::{MapAsUniform, UniformsStorageVec, Vertex};
-use super::Node;
-use util::DerefInner;
+use config::nodes::ShaderConfig;
+use event::RendererEvent;
+use opengl::UniformsStorageVec;
+use super::{Node, NodeInputs, NodeOutput};
+
+/// Implementation of the vertex attributes for the vertex buffer
+#[derive(Copy, Clone)]
+pub struct Vertex {
+    /// Position of the vertex in 2D space
+    position: [f32; 2],
+}
+implement_vertex!(Vertex, position);
 
 #[cfg_attr(rustfmt, rustfmt_skip)]
 const VERTICES: [Vertex; 6] = [
@@ -33,8 +41,6 @@ const VERTICES: [Vertex; 6] = [
 
 /// A node that renders a shader program
 pub struct ShaderNode {
-    /// The name of the node
-    name: String,
     /// The Facade it uses to work with the OpenGL context
     facade: Rc<Facade>,
     /// The inner texture which it renders to
@@ -45,24 +51,25 @@ pub struct ShaderNode {
     vertex_buffer: VertexBuffer<Vertex>,
     /// Index buffer
     index_buffer: NoIndices,
+    /// Receiver for events
+    receiver: Receiver<RendererEvent>,
 }
 
 impl ShaderNode {
     /// Create a new instance
     pub fn new(
         facade: &Rc<Facade>,
-        name: String,
-        vertex: &Path,
-        fragment: &Path,
+        config: ShaderConfig,
+        receiver: Receiver<RendererEvent>,
     ) -> Result<Self, Error> {
-        let file = File::open(vertex).context("Could not open vertex shader file")?;
+        let file = File::open(config.vertex).context("Could not open vertex shader file")?;
         let mut buf_reader = BufReader::new(file);
         let mut vertex_source = String::new();
         buf_reader
             .read_to_string(&mut vertex_source)
             .context("Could not read vertex shader file")?;
 
-        let file = File::open(fragment).context("Could not open fragment shader file")?;
+        let file = File::open(config.fragment).context("Could not open fragment shader file")?;
         let mut buf_reader = BufReader::new(file);
         let mut fragment_source = String::new();
         buf_reader
@@ -86,82 +93,66 @@ impl ShaderNode {
         let texture = Rc::new(Texture2d::empty(&**facade, width, height)?);
 
         Ok(Self {
-            name,
             facade: Rc::clone(facade),
             texture,
             program,
             vertex_buffer: VertexBuffer::new(&**facade, &VERTICES)?,
             index_buffer: NoIndices(PrimitiveType::TrianglesList),
+            receiver,
         })
     }
 }
 
 impl Node for ShaderNode {
-    fn render(&mut self, uniforms: &mut UniformsStorageVec) -> Result<(), Error> {
-        let mut surface = self.texture.as_surface();
+    fn render(&mut self, inputs: &NodeInputs) -> Result<HashMap<String, NodeOutput>, Error> {
+        if let Ok(event) = self.receiver.try_recv() {
+            match event {
+                RendererEvent::Resize(width, height) => {
+                    self.texture = Rc::new(Texture2d::empty(&*self.facade, width, height)?);
+                }
+                _ => (),
+            }
+        }
 
-        surface.clear_color(0.0, 0.0, 0.0, 0.0);
-        surface
-            .draw(
+        if let NodeInputs::Shader { ref uniforms } = *inputs {
+            let uniforms = {
+                let mut storage = UniformsStorageVec::new();
+                for (connection, uniform) in uniforms {
+                    let name = format!("{}_{}", connection.node, connection.output);
+                    match *uniform {
+                        NodeOutput::Float(ref uniform) => storage.push(name, uniform.clone()),
+                        NodeOutput::Float2(ref uniform) => storage.push(name, uniform.clone()),
+                        NodeOutput::Color(ref uniform) | NodeOutput::Float4(ref uniform) => {
+                            storage.push(name, uniform.clone())
+                        }
+                        NodeOutput::Texture2d(ref uniform) => storage.push(name, uniform.sampled()),
+                        _ => bail!("Wrong input type for `uniforms`"),
+                    }
+                }
+                storage
+            };
+
+            let mut surface = self.texture.as_surface();
+            surface.clear_color(0.0, 0.0, 0.0, 0.0);
+            surface.draw(
                 &self.vertex_buffer,
                 &self.index_buffer,
                 &self.program,
-                uniforms,
+                &uniforms,
                 &DrawParameters {
                     blend: Blend::alpha_blending(),
                     ..Default::default()
                 },
-            )
-            .unwrap();
+            )?;
 
-        let sampled = OwningHandle::new_with_fn(self.texture.clone(), |t| unsafe {
-            DerefInner((*t).sampled())
-        });
-        let sampled = MapAsUniform(sampled, |s| &**s);
-
-        uniforms.push(self.name.clone(), sampled);
-
-        Ok(())
-    }
-
-    fn present(&mut self, uniforms: &mut UniformsStorageVec) -> Result<(), Error> {
-        let mut target = self.facade.draw();
-        target.clear_color(0.0, 0.0, 0.0, 0.0);
-        target
-            .draw(
-                &self.vertex_buffer,
-                &self.index_buffer,
-                &self.program,
-                uniforms,
-                &DrawParameters {
-                    blend: Blend::alpha_blending(),
-                    ..Default::default()
-                },
-            )
-            .unwrap(); // For some reason if we return this error, it panicks because finish() is never called
-        target.finish()?;
-
-        Ok(())
-    }
-
-    fn render_to_file(
-        &mut self,
-        uniforms: &mut UniformsStorageVec,
-        path: &Path,
-    ) -> Result<(), Error> {
-        self.render(uniforms)?;
-
-        let raw: RawImage2d<u8> = self.texture.read();
-        let raw = RawImage2d::from_raw_rgba_reversed(&raw.data, (raw.width, raw.height));
-
-        image::save_buffer(path, &raw.data, raw.width, raw.height, image::RGBA(8))?;
-
-        Ok(())
-    }
-
-    fn resize(&mut self, width: u32, height: u32) -> Result<(), Error> {
-        self.texture = Rc::new(Texture2d::empty(&*self.facade, width, height)?);
-
-        Ok(())
+            let mut outputs = HashMap::new();
+            outputs.insert(
+                "texture".to_string(),
+                NodeOutput::Texture2d(Rc::clone(&self.texture)),
+            );
+            Ok(outputs)
+        } else {
+            bail!("Wrong input type for node");
+        }
     }
 }

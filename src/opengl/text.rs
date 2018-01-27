@@ -112,7 +112,7 @@ impl GlyphCache {
         };
 
         // Prerender all visible ascii characters
-        for i in 32..=127 {
+        for i in 32..128 {
             cache.insert(i)?;
         }
 
@@ -269,11 +269,11 @@ impl TextRenderer {
 
         let program = {
             let input = ProgramCreationInput::SourceCode {
-                vertex_shader: &VERTEX,
+                vertex_shader: VERTEX,
                 tessellation_control_shader: None,
                 tessellation_evaluation_shader: None,
                 geometry_shader: None,
-                fragment_shader: &FRAGMENT,
+                fragment_shader: FRAGMENT,
                 transform_feedback_varyings: None,
                 outputs_srgb: true,
                 uses_point_size: false,
@@ -299,7 +299,7 @@ impl TextRenderer {
     where
         S: Surface,
     {
-        let [x, y] = pos;
+        let (x, y) = (pos[0], pos[1]);
         let mut advance = 0;
         for c in text.chars() {
             let glyph = self.glyph_cache.get(c as usize)?.clone();

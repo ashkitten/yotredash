@@ -1,146 +1,160 @@
 //! An implementation of `Renderer` using OpenGL
 
-use failure::Error;
-use failure::SyncFailure;
+use failure::{Error, ResultExt, SyncFailure};
 use glium::backend::Facade;
 use glium::backend::glutin::Display;
 use glium::backend::glutin::headless::Headless;
 use glium::glutin::{ContextBuilder, GlProfile, HeadlessRendererBuilder, WindowBuilder};
+use glium::texture::{MipmapsOption, RawImage2d, Texture2d};
+use glium::uniforms::MagnifySamplerFilter;
+use glium::{BlitTarget, Rect, Surface};
+use image;
 use solvent::DepGraph;
 use std::collections::HashMap;
-use std::path::Path;
 use std::rc::Rc;
+use std::sync::mpsc::{self, Receiver, Sender};
 use winit::EventsLoop;
 
 use Renderer;
-use config::{Config, NodeConfig};
-use super::UniformsStorageVec;
+use config::Config;
+use config::nodes::{NodeConfig, NodeConnection, NodeParameter};
+use event::RendererEvent;
 use super::nodes::*;
+
+type NodeMap = HashMap<String, Box<Node>>;
+type NodeConfigMap = HashMap<String, NodeConfig>;
 
 /// An implementation of a `Renderer` which uses OpenGL
 pub struct OpenGLRenderer {
     /// The facade it uses to render
     facade: Rc<Facade>,
     /// Maps names to nodes
-    nodes: HashMap<String, Box<Node>>,
+    nodes: NodeMap,
+    /// Node configurations for mapping outputs to inputs
+    node_configs: NodeConfigMap,
     /// Order to render nodes in
     order: Vec<String>,
+    /// Receiver for events
+    receiver: Receiver<RendererEvent>,
+    /// Sender for pointer events
+    senders: Vec<Sender<RendererEvent>>,
 }
 
 fn init_nodes(
     config: &Config,
     facade: &Rc<Facade>,
-) -> Result<(HashMap<String, Box<Node>>, Vec<String>), Error> {
-    ensure!(
-        config.nodes.contains_key("__default__"),
-        "Config does not contain node __default__"
-    );
+) -> Result<(NodeMap, Vec<String>, Vec<Sender<RendererEvent>>), Error> {
+    let mut senders = Vec::new();
 
-    let mut nodes: HashMap<String, Box<Node>> = HashMap::new();
+    let mut nodes: NodeMap = HashMap::new();
     let mut dep_graph: DepGraph<&str> = DepGraph::new();
-    dep_graph.register_node("__default__");
+    let mut output_node = "";
 
-    for (name, node_config) in config.nodes.iter() {
+    for (name, node_config) in &config.nodes {
         match *node_config {
-            NodeConfig::Image { ref path } => {
+            NodeConfig::Info => {
+                let (sender, receiver) = mpsc::channel();
+                senders.push(sender);
+
+                let (width, height) = facade.get_context().get_framebuffer_dimensions();
+
                 nodes.insert(
                     name.to_string(),
-                    Box::new(ImageNode::new(
-                        &facade,
-                        name.to_string(),
-                        &config.path_to(path),
-                    )?),
+                    Box::new(InfoNode::new(receiver, [width as f32, height as f32])),
                 );
             }
 
-            NodeConfig::Shader {
-                ref vertex,
-                ref fragment,
-                ref inputs,
-            } => {
+            NodeConfig::Output(ref output_config) => {
+                nodes.insert(name.to_string(), Box::new(OutputNode::new(facade)?));
+
+                dep_graph.register_dependency(name, &output_config.texture.node);
+
+                ensure!(output_node.is_empty(), "There can only be one output node");
+                output_node = name;
+            }
+
+            NodeConfig::Image(ref image_config) => {
+                let mut image_config = image_config.clone();
+                image_config.path = config.path_to(&image_config.path);
+
                 nodes.insert(
                     name.to_string(),
-                    Box::new(ShaderNode::new(
-                        &facade,
+                    Box::new(ImageNode::new(facade, image_config)?),
+                );
+            }
+
+            NodeConfig::Shader(ref shader_config) => {
+                {
+                    // Replace the paths with absolute paths
+                    let mut shader_config = shader_config.clone();
+                    shader_config.vertex = config.path_to(&shader_config.vertex);
+                    shader_config.fragment = config.path_to(&shader_config.fragment);
+
+                    let (sender, receiver) = mpsc::channel();
+                    senders.push(sender);
+
+                    nodes.insert(
                         name.to_string(),
-                        &config.path_to(vertex),
-                        &config.path_to(fragment),
-                    )?),
+                        Box::new(ShaderNode::new(facade, shader_config, receiver)?),
+                    );
+                }
+
+                dep_graph.register_dependencies(
+                    name,
+                    shader_config
+                        .uniforms
+                        .iter()
+                        .map(|connection| connection.node.as_str())
+                        .collect(),
+                );
+            }
+
+            NodeConfig::Blend(ref blend_config) => {
+                let (sender, receiver) = mpsc::channel();
+                senders.push(sender);
+
+                nodes.insert(
+                    name.to_string(),
+                    Box::new(BlendNode::new(facade, blend_config, receiver)?),
                 );
 
                 dep_graph.register_dependencies(
                     name,
-                    inputs.iter().map(|input| input.as_str()).collect(),
-                );
-            }
-
-            NodeConfig::Blend {
-                ref operation,
-                ref inputs,
-            } => {
-                nodes.insert(
-                    name.to_string(),
-                    Box::new(BlendNode::new(
-                        &facade,
-                        name.to_string(),
-                        operation.clone(),
-                        inputs.clone(),
-                    )?),
-                );
-
-                dep_graph.register_dependencies(
-                    name,
-                    inputs.iter().map(|input| input.as_str()).collect(),
+                    blend_config
+                        .textures
+                        .iter()
+                        .map(|connection| connection.node.as_str())
+                        .collect(),
                 );
             }
 
             // TODO: Color in a better format
-            NodeConfig::Text {
-                ref text,
-                ref position,
-                ref color,
-                ref font_name,
-                ref font_size,
-            } => {
+            NodeConfig::Text(ref text_config) => {
+                let (sender, receiver) = mpsc::channel();
+                senders.push(sender);
+
                 nodes.insert(
                     name.to_string(),
-                    Box::new(TextNode::new(
-                        &facade,
-                        name.to_string(),
-                        text.to_string(),
-                        position.clone(),
-                        color.clone(),
-                        font_name,
-                        font_size.clone(),
-                    )?),
+                    Box::new(TextNode::new(facade, text_config.clone(), receiver)?),
                 );
             }
 
-            NodeConfig::Fps {
-                ref position,
-                ref color,
-                ref font_name,
-                ref font_size,
-                ref interval,
-            } => {
+            NodeConfig::Fps(ref fps_config) => {
+                let (sender, receiver) = mpsc::channel();
+                senders.push(sender);
+
                 nodes.insert(
                     name.to_string(),
-                    Box::new(FpsNode::new(
-                        &facade,
-                        name.to_string(),
-                        position.clone(),
-                        color.clone(),
-                        font_name,
-                        font_size.clone(),
-                        interval.clone(),
-                    )?),
+                    Box::new(FpsNode::new(facade, fps_config.clone(), receiver)?),
                 );
             }
         }
     }
 
+    ensure!(!output_node.is_empty(), "No output node specified");
+
     let mut order = Vec::new();
-    for node in dep_graph.dependencies_of(&"__default__")? {
+    for node in dep_graph.dependencies_of(&output_node)? {
         order.push(node?.to_string());
     }
     debug!("Render order: {}", order.join(", "));
@@ -156,11 +170,126 @@ fn init_nodes(
         warn!("Dangling nodes: {}", dangling_nodes.join(", "));
     }
 
-    Ok((nodes, order))
+    Ok((nodes, order, senders))
 }
 
-impl Renderer for OpenGLRenderer {
-    fn new(config: Config, events_loop: &EventsLoop) -> Result<Self, Error> {
+fn map_node_io(
+    config: &NodeConfig,
+    outputs: &HashMap<String, HashMap<String, NodeOutput>>,
+) -> Result<NodeInputs, Error> {
+    let get_node_output = |connection: &NodeConnection| -> Result<_, Error> {
+        Ok(outputs
+            .get(&connection.node)
+            .ok_or_else(|| format_err!("No such node: {}", connection.node))?
+            .get(&connection.output)
+            .ok_or_else(|| {
+                format_err!(
+                    "No such output on node {}: {}",
+                    connection.node,
+                    connection.output
+                )
+            })?)
+    };
+
+    Ok(match *config {
+        NodeConfig::Info => NodeInputs::Info,
+
+        NodeConfig::Output(ref output_config) => match *get_node_output(&output_config.texture)? {
+            NodeOutput::Texture2d(ref texture) => NodeInputs::Output {
+                texture: Rc::clone(texture),
+            },
+            _ => bail!("Wrong input type for `texture`"),
+        },
+
+        NodeConfig::Image(_) => NodeInputs::Image,
+
+        NodeConfig::Shader(ref shader_config) => {
+            let mut uniforms = HashMap::new();
+            for connection in &shader_config.uniforms {
+                uniforms.insert(connection.clone(), get_node_output(connection)?.clone());
+            }
+            NodeInputs::Shader { uniforms }
+        }
+
+        NodeConfig::Blend(ref blend_config) => {
+            let mut textures = Vec::new();
+            for connection in &blend_config.textures {
+                match *get_node_output(connection)? {
+                    NodeOutput::Texture2d(ref texture) => textures.push(Rc::clone(texture)),
+                    _ => bail!("Wrong input type for `uniforms`"),
+                };
+            }
+            NodeInputs::Blend { textures }
+        }
+
+        NodeConfig::Text(ref text_config) => {
+            let text = match text_config.text {
+                NodeParameter::NodeConnection(ref connection) => {
+                    match *get_node_output(connection)? {
+                        NodeOutput::Text(ref text) => Some(text.to_string()),
+                        _ => bail!("Wrong input type for `text`"),
+                    }
+                }
+                NodeParameter::Static(_) => None,
+            };
+            let position = match text_config.position {
+                NodeParameter::NodeConnection(ref connection) => {
+                    match *get_node_output(connection)? {
+                        NodeOutput::Float2(ref position) => Some(*position),
+                        _ => bail!("Wrong input type for `position`"),
+                    }
+                }
+                NodeParameter::Static(_) => None,
+            };
+            let color = match text_config.color {
+                NodeParameter::NodeConnection(ref connection) => {
+                    match *get_node_output(connection)? {
+                        NodeOutput::Color(ref color) => Some(*color),
+                        _ => bail!("Wrong input type for `position`"),
+                    }
+                }
+                NodeParameter::Static(_) => None,
+            };
+
+            NodeInputs::Text {
+                text,
+                position,
+                color,
+            }
+        }
+
+        NodeConfig::Fps(ref fps_config) => {
+            let position = match fps_config.position {
+                NodeParameter::NodeConnection(ref connection) => {
+                    match *get_node_output(connection)? {
+                        NodeOutput::Float2(ref position) => Some(*position),
+                        _ => bail!("Wrong input type for `position`"),
+                    }
+                }
+                NodeParameter::Static(_) => None,
+            };
+            let color = match fps_config.color {
+                NodeParameter::NodeConnection(ref connection) => {
+                    match *get_node_output(connection)? {
+                        NodeOutput::Color(ref color) => Some(*color),
+                        _ => bail!("Wrong input type for `position`"),
+                    }
+                }
+                NodeParameter::Static(_) => None,
+            };
+
+            NodeInputs::Fps { position, color }
+        }
+    })
+}
+
+impl OpenGLRenderer {
+    /// Create a new instance
+    pub fn new(
+        config: Config,
+        events_loop: &EventsLoop,
+        receiver: Receiver<RendererEvent>,
+    ) -> Result<Self, Error> {
         let facade: Rc<Facade> = if !config.headless {
             let window_builder = WindowBuilder::new()
                 .with_dimensions(config.width, config.height)
@@ -192,36 +321,87 @@ impl Renderer for OpenGLRenderer {
             facade.get_context().get_opengl_version_string()
         );
 
-        let (nodes, order) = init_nodes(&config, &facade)?;
+        let (nodes, order, senders) = init_nodes(&config, &facade)?;
 
         Ok(Self {
             facade,
             nodes,
+            node_configs: config.nodes,
             order,
+            receiver,
+            senders,
         })
     }
+}
 
-    fn render(&mut self, time: ::time::Duration, pointer: [f32; 4]) -> Result<(), Error> {
-        let (width, height) = self.facade.get_context().get_framebuffer_dimensions();
-        let time = (time.num_nanoseconds().unwrap() as f32) / 1000_000_000.0 % 4096.0;
-        let pointer = [
-            pointer[0],
-            height as f32 - pointer[1],
-            pointer[2],
-            height as f32 - pointer[3],
-        ];
+impl Renderer for OpenGLRenderer {
+    fn render(&mut self) -> Result<(), Error> {
+        while let Ok(event) = self.receiver.try_recv() {
+            match event {
+                RendererEvent::Reload(config) => {
+                    info!("Reloading config");
 
-        let mut uniforms = UniformsStorageVec::new();
-        uniforms.push("time", time);
-        uniforms.push("pointer", pointer);
-        uniforms.push("resolution", (width as f32, height as f32));
+                    let (nodes, order, senders) = init_nodes(&config, &self.facade)?;
+                    self.nodes = nodes;
+                    self.order = order;
+                    self.senders = senders;
+                }
+
+                RendererEvent::Capture(path) => {
+                    let (width, height) = self.facade.get_context().get_framebuffer_dimensions();
+                    let texture = Texture2d::empty_with_mipmaps(
+                        &*self.facade,
+                        MipmapsOption::NoMipmap,
+                        width,
+                        height,
+                    )?;
+
+                    let source_rect = Rect {
+                        left: 0,
+                        bottom: 0,
+                        width,
+                        height,
+                    };
+
+                    let target_rect = BlitTarget {
+                        left: 0,
+                        bottom: height,
+                        width: width as i32,
+                        height: -(height as i32),
+                    };
+
+                    texture.as_surface().blit_from_frame(
+                        &source_rect,
+                        &target_rect,
+                        MagnifySamplerFilter::Nearest,
+                    );
+
+                    let raw: RawImage2d<u8> = texture.read();
+                    image::save_buffer(path, &raw.data, raw.width, raw.height, image::RGBA(8))?;
+                }
+
+                event => for sender in &self.senders {
+                    sender.send(event.clone())?;
+                },
+            }
+        }
+
+        let mut outputs: HashMap<String, HashMap<String, NodeOutput>> = HashMap::new();
 
         for name in &self.order {
-            if name == "__default__" {
-                self.nodes.get_mut(name).unwrap().present(&mut uniforms)?;
-            } else {
-                self.nodes.get_mut(name).unwrap().render(&mut uniforms)?;
-            }
+            ensure!(
+                self.node_configs.contains_key(name),
+                "No such node: {}",
+                name
+            );
+
+            let inputs = map_node_io(&self.node_configs[name], &outputs)
+                .context(format!("Error on node {}", name))?;
+
+            outputs.insert(
+                name.to_string(),
+                self.nodes.get_mut(name).unwrap().render(&inputs)?,
+            );
         }
 
         Ok(())
@@ -229,60 +409,6 @@ impl Renderer for OpenGLRenderer {
 
     fn swap_buffers(&self) -> Result<(), Error> {
         self.facade.get_context().swap_buffers()?;
-        Ok(())
-    }
-
-    fn reload(&mut self, config: &Config) -> Result<(), Error> {
-        info!("Reloading config");
-
-        let (nodes, order) = init_nodes(config, &self.facade)?;
-        self.nodes = nodes;
-        self.order = order;
-
-        Ok(())
-    }
-
-    fn resize(&mut self, width: u32, height: u32) -> Result<(), Error> {
-        debug!("Resized window to {}x{}", width, height);
-
-        for node in self.nodes.values_mut() {
-            node.resize(width, height)?;
-        }
-
-        Ok(())
-    }
-
-    fn render_to_file(
-        &mut self,
-        time: ::time::Duration,
-        pointer: [f32; 4],
-        path: &Path,
-    ) -> Result<(), Error> {
-        let (width, height) = self.facade.get_context().get_framebuffer_dimensions();
-        let time = (time.num_nanoseconds().unwrap() as f32) / 1000_000_000.0 % 4096.0;
-        let pointer = [
-            pointer[0],
-            height as f32 - pointer[1],
-            pointer[2],
-            height as f32 - pointer[3],
-        ];
-
-        let mut uniforms = UniformsStorageVec::new();
-        uniforms.push("time", time);
-        uniforms.push("pointer", pointer);
-        uniforms.push("resolution", (width as f32, height as f32));
-
-        for name in &self.order {
-            if name == "__default__" {
-                self.nodes
-                    .get_mut(name)
-                    .unwrap()
-                    .render_to_file(&mut uniforms, path)?;
-            } else {
-                self.nodes.get_mut(name).unwrap().render(&mut uniforms)?;
-            }
-        }
-
         Ok(())
     }
 }

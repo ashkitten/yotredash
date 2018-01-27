@@ -10,9 +10,23 @@
 //!
 //! ```yaml
 //! buffers:
-//!     __default__:
+//!     output:
+//!         type: output
+//!         texture:
+//!             node: shader
+//!             output: texture
+//!
+//!     shader:
+//!         type: shader
 //!         vertex: vertex_shader.vert
 //!         fragment: fragment_shader.frag
+//!         uniforms:
+//!             -
+//!                 node: info
+//!                 output: resolution
+//!
+//!     info:
+//!         type: info
 //! ```
 //!
 //! It also provides command line options which can be used to quickly override options in the
@@ -27,11 +41,6 @@
 
 // Warn if things are missing documentation
 #![warn(missing_docs)]
-// So we don't run into issues with the error_chain macro
-#![recursion_limit = "128"]
-// Experimental features
-#![feature(type_ascription, refcell_replace_swap, inclusive_range_syntax, universal_impl_trait,
-           slice_patterns)]
 
 #[cfg(unix)]
 extern crate signal;
@@ -68,6 +77,7 @@ extern crate gif_dispose;
 extern crate image;
 
 pub mod config;
+pub mod event;
 pub mod font;
 pub mod platform;
 pub mod util;
@@ -78,7 +88,6 @@ pub mod opengl;
 use notify::Watcher;
 use std::path::Path;
 use std::sync::mpsc;
-use winit::EventsLoop;
 use failure::Error;
 
 #[cfg(unix)]
@@ -89,37 +98,16 @@ use signal::trap::Trap;
 #[cfg(feature = "opengl")]
 use opengl::renderer::OpenGLRenderer;
 
-use config::{Config, NodeConfig};
+use config::Config;
+use config::nodes::NodeConfig;
+use event::*;
 
 /// Renders a configured shader
 pub trait Renderer {
-    /// Create a new renderer
-    fn new(config: Config, events_loop: &EventsLoop) -> Result<Self, Error>
-    where
-        Self: Sized;
     /// Render the current frame
-    fn render(&mut self, time: time::Duration, pointer: [f32; 4]) -> Result<(), Error>;
-    /// Render the current frame to a file
-    fn render_to_file(
-        &mut self,
-        time: time::Duration,
-        pointer: [f32; 4],
-        path: &Path,
-    ) -> Result<(), Error>;
+    fn render(&mut self) -> Result<(), Error>;
     /// Tells the renderer to swap buffers (only applicable to buffered renderers)
     fn swap_buffers(&self) -> Result<(), Error>;
-    /// Reload the renderer from a new configuration
-    fn reload(&mut self, config: &Config) -> Result<(), Error>;
-    /// Resize the renderer's output without reloading
-    fn resize(&mut self, width: u32, height: u32) -> Result<(), Error>;
-}
-
-#[derive(PartialEq)]
-enum RendererAction {
-    Resize(u32, u32),
-    Reload,
-    Snapshot,
-    Close,
 }
 
 fn setup_watches(
@@ -138,21 +126,17 @@ fn setup_watches(
 
         for node in config.nodes.values() {
             match *node {
-                NodeConfig::Image { ref path } => watcher.watch(
-                    config.path_to(Path::new(path)),
+                NodeConfig::Image(ref image_config) => watcher.watch(
+                    config.path_to(Path::new(&image_config.path)),
                     notify::RecursiveMode::NonRecursive,
                 )?,
-                NodeConfig::Shader {
-                    ref vertex,
-                    ref fragment,
-                    ..
-                } => {
+                NodeConfig::Shader(ref shader_config) => {
                     watcher.watch(
-                        config.path_to(Path::new(vertex)),
+                        config.path_to(Path::new(&shader_config.vertex)),
                         notify::RecursiveMode::NonRecursive,
                     )?;
                     watcher.watch(
-                        config.path_to(Path::new(fragment)),
+                        config.path_to(Path::new(&shader_config.fragment)),
                         notify::RecursiveMode::NonRecursive,
                     )?;
                 }
@@ -180,30 +164,26 @@ fn run() -> Result<(), Error> {
 
     // Creates an appropriate renderer for the configuration, exits with an error if that fails
     let mut events_loop = winit::EventsLoop::new();
+    let (event_sender, event_receiver) = mpsc::channel();
     let mut renderer: Box<Renderer> = match config.renderer.as_ref() as &str {
         #[cfg(feature = "opengl")]
-        "opengl" => Box::new(OpenGLRenderer::new(config.clone(), &events_loop)?),
+        "opengl" => Box::new(OpenGLRenderer::new(
+            config.clone(),
+            &events_loop,
+            event_receiver,
+        )?),
         other => {
             error!("Renderer {} does not exist", other);
             std::process::exit(1);
         }
     };
 
-    let mut time = time::Duration::zero();
-    let mut last_frame = time::now();
-    let mut pointer = [0.0; 4];
-
     let mut paused = false;
     loop {
-        let mut actions: Vec<RendererAction> = Vec::new();
+        let mut events: Vec<Event> = Vec::new();
 
         if !paused {
-            let delta = time::now() - last_frame;
-
-            time = time + delta;
-            last_frame = time::now();
-
-            renderer.render(time, pointer)?;
+            renderer.render()?;
         } else {
             renderer.swap_buffers()?;
         }
@@ -216,7 +196,7 @@ fn run() -> Result<(), Error> {
                 match signal.unwrap() {
                     Signal::SIGUSR1 => paused = true,
                     Signal::SIGUSR2 => paused = false,
-                    Signal::SIGHUP => actions.push(RendererAction::Reload),
+                    Signal::SIGHUP => events.push(Event::Reload),
                     _ => (),
                 }
             }
@@ -228,10 +208,10 @@ fn run() -> Result<(), Error> {
 
                 match event {
                     WindowEvent::Resized(width, height) => {
-                        actions.push(RendererAction::Resize(width, height))
+                        events.push(Event::Resize(width, height))
                     }
 
-                    WindowEvent::Closed => actions.push(RendererAction::Close),
+                    WindowEvent::Closed => events.push(Event::Close),
 
                     WindowEvent::KeyboardInput {
                         input:
@@ -242,16 +222,18 @@ fn run() -> Result<(), Error> {
                             },
                         ..
                     } => match keycode {
-                        winit::VirtualKeyCode::Escape => actions.push(RendererAction::Close),
-                        winit::VirtualKeyCode::F2 => actions.push(RendererAction::Snapshot),
-                        winit::VirtualKeyCode::F5 => actions.push(RendererAction::Reload),
+                        winit::VirtualKeyCode::Escape => events.push(Event::Close),
+                        winit::VirtualKeyCode::F2 => events.push(Event::Capture),
+                        winit::VirtualKeyCode::F5 => events.push(Event::Reload),
                         winit::VirtualKeyCode::F6 => paused = !paused,
                         _ => (),
                     },
 
                     WindowEvent::CursorMoved { position, .. } => {
-                        pointer[0] = position.0 as f32;
-                        pointer[1] = position.1 as f32;
+                        events.push(Event::Pointer(PointerEvent::Move(
+                            position.0 as f32,
+                            position.1 as f32,
+                        )));
                     }
 
                     WindowEvent::MouseInput {
@@ -260,12 +242,10 @@ fn run() -> Result<(), Error> {
                         ..
                     } => match state {
                         winit::ElementState::Pressed => {
-                            pointer[2] = pointer[0];
-                            pointer[3] = pointer[1];
+                            events.push(Event::Pointer(PointerEvent::Press));
                         }
                         winit::ElementState::Released => {
-                            pointer[2] = 0.0;
-                            pointer[3] = 0.0;
+                            events.push(Event::Pointer(PointerEvent::Release));
                         }
                     },
 
@@ -291,17 +271,22 @@ fn run() -> Result<(), Error> {
                         info!("Detected file change, reloading...");
                     }
 
-                    actions.push(RendererAction::Reload);
+                    events.push(Event::Reload);
                 }
             }
             Err(mpsc::TryRecvError::Disconnected) => error!("Filesystem watcher disconnected"),
             _ => (),
         }
 
-        for action in &actions {
-            match *action {
-                RendererAction::Resize(width, height) => renderer.resize(width, height)?,
-                RendererAction::Reload => {
+        for event in events {
+            match event {
+                Event::Pointer(pointer_event) => {
+                    event_sender.send(RendererEvent::Pointer(pointer_event))?;
+                }
+                Event::Resize(width, height) => {
+                    event_sender.send(RendererEvent::Resize(width, height))?;
+                }
+                Event::Reload => {
                     config = Config::parse(&config_path)?;
 
                     // TODO: When destructuring assignment is added, change this
@@ -309,14 +294,14 @@ fn run() -> Result<(), Error> {
                     _watcher = watcher_;
                     receiver = receiver_;
 
-                    renderer.reload(&config)?;
+                    event_sender.send(RendererEvent::Reload(config))?;
                 }
-                RendererAction::Snapshot => {
+                Event::Capture => {
                     let path =
                         Path::new(&format!("{}.png", time::now().strftime("%F_%T")?)).to_path_buf();
-                    renderer.render_to_file(time, pointer, &path)?
+                    event_sender.send(RendererEvent::Capture(path))?;
                 }
-                RendererAction::Close => return Ok(()),
+                Event::Close => return Ok(()),
             }
         }
     }

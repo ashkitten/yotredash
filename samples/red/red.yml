@@ -1,5 +1,11 @@
 nodes:
-  __default__:
+  output:
+    type: output
+    texture:
+      node: red
+      output: texture
+
+  red:
     type: shader
     vertex: ../default.vert
     fragment: red.frag

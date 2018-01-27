@@ -1,4 +1,10 @@
 nodes:
-  __default__:
+  output:
+    type: output
+    texture:
+      node: texture
+      output: texture
+
+  texture:
     type: image
     path: texture.png
