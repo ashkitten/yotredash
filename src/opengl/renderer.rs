@@ -10,6 +10,7 @@ use glium::uniforms::MagnifySamplerFilter;
 use glium::{BlitTarget, Rect, Surface};
 use image;
 use solvent::DepGraph;
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::mpsc::{self, Receiver, Sender};
@@ -20,6 +21,7 @@ use config::Config;
 use config::nodes::{NodeConfig, NodeConnection, NodeParameter};
 use event::RendererEvent;
 use super::nodes::*;
+use super::text::TextRenderer;
 
 type NodeMap = HashMap<String, Box<Node>>;
 type NodeConfigMap = HashMap<String, NodeConfig>;
@@ -38,6 +40,40 @@ pub struct OpenGLRenderer {
     receiver: Receiver<RendererEvent>,
     /// Sender for pointer events
     senders: Vec<Sender<RendererEvent>>,
+    /// `TextRenderer` for displaying errors
+    error_renderer: Rc<RefCell<TextRenderer>>,
+}
+
+fn draw_errors<T: Default>(
+    facade: Rc<Facade>,
+    text_renderer: Rc<RefCell<TextRenderer>>,
+    closure: &mut FnMut() -> Result<T, Error>,
+) -> Result<T, Error> {
+    match closure() {
+        Err(error) => {
+            let mut causes = error.causes();
+            let text = format!(
+                "{}\n{}",
+                causes.next().unwrap(),
+                causes
+                    .map(|cause| format!("Caused by: {}\n", cause))
+                    .fold("".to_string(), |x, y| x + &y)
+            );
+
+            let mut target = facade.draw();
+            target.clear_color(0.0, 0.0, 0.0, 0.0);
+            text_renderer.borrow_mut().draw_text(
+                &mut target,
+                &text,
+                [0.0, 0.0],
+                [1.0, 0.3, 0.3, 1.0],
+            )?;
+            target.finish()?;
+
+            Ok(Default::default())
+        }
+        result => result,
+    }
 }
 
 fn init_nodes(
@@ -165,9 +201,9 @@ fn init_nodes(
         .cloned()
         .collect();
     if dangling_nodes.len() == 1 {
-        warn!("Dangling node: {}", dangling_nodes[0]);
+        warn!("Dangling node: `{}`", dangling_nodes[0]);
     } else if dangling_nodes.len() > 1 {
-        warn!("Dangling nodes: {}", dangling_nodes.join(", "));
+        warn!("Dangling nodes: `{}`", dangling_nodes.join(", "));
     }
 
     Ok((nodes, order, senders))
@@ -180,11 +216,11 @@ fn map_node_io(
     let get_node_output = |connection: &NodeConnection| -> Result<_, Error> {
         Ok(outputs
             .get(&connection.node)
-            .ok_or_else(|| format_err!("No such node: {}", connection.node))?
+            .ok_or_else(|| format_err!("No such node: `{}`", connection.node))?
             .get(&connection.output)
             .ok_or_else(|| {
                 format_err!(
-                    "No such output on node {}: {}",
+                    "No such output on node `{}`: `{}`",
                     connection.node,
                     connection.output
                 )
@@ -321,7 +357,12 @@ impl OpenGLRenderer {
             facade.get_context().get_opengl_version_string()
         );
 
-        let (nodes, order, senders) = init_nodes(&config, &facade)?;
+        let error_renderer = Rc::new(RefCell::new(TextRenderer::new(facade.clone(), "", 20.0)?));
+
+        let (nodes, order, senders) =
+            draw_errors(facade.clone(), error_renderer.clone(), &mut || {
+                init_nodes(&config, &facade)
+            })?;
 
         Ok(Self {
             facade,
@@ -330,6 +371,7 @@ impl OpenGLRenderer {
             order,
             receiver,
             senders,
+            error_renderer,
         })
     }
 }
@@ -339,12 +381,22 @@ impl Renderer for OpenGLRenderer {
         while let Ok(event) = self.receiver.try_recv() {
             match event {
                 RendererEvent::Reload(config) => {
-                    info!("Reloading config");
+                    info!("Reloading renderer");
 
-                    let (nodes, order, senders) = init_nodes(&config, &self.facade)?;
-                    self.nodes = nodes;
-                    self.order = order;
-                    self.senders = senders;
+                    draw_errors(
+                        self.facade.clone(),
+                        self.error_renderer.clone(),
+                        &mut || {
+                            let (nodes, order, senders) = init_nodes(&config, &self.facade)?;
+                            self.nodes = nodes;
+                            self.order = order;
+                            self.senders = senders;
+
+                            Ok(())
+                        },
+                    )?;
+
+                    self.node_configs = config.nodes;
                 }
 
                 RendererEvent::Capture(path) => {
@@ -388,21 +440,29 @@ impl Renderer for OpenGLRenderer {
 
         let mut outputs: HashMap<String, HashMap<String, NodeOutput>> = HashMap::new();
 
-        for name in &self.order {
-            ensure!(
-                self.node_configs.contains_key(name),
-                "No such node: {}",
-                name
-            );
+        draw_errors(
+            self.facade.clone(),
+            self.error_renderer.clone(),
+            &mut || {
+                for name in &self.order {
+                    ensure!(
+                        self.node_configs.contains_key(name),
+                        "No such node: `{}`",
+                        name
+                    );
 
-            let inputs = map_node_io(&self.node_configs[name], &outputs)
-                .context(format!("Error on node {}", name))?;
+                    let inputs = map_node_io(&self.node_configs[name], &outputs)
+                        .context(format!("Error on node `{}`", name))?;
 
-            outputs.insert(
-                name.to_string(),
-                self.nodes.get_mut(name).unwrap().render(&inputs)?,
-            );
-        }
+                    outputs.insert(
+                        name.to_string(),
+                        self.nodes.get_mut(name).unwrap().render(&inputs)?,
+                    );
+                }
+
+                Ok(())
+            },
+        )?;
 
         Ok(())
     }
