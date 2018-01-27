@@ -39,18 +39,3 @@ impl<'name, 'uniform> Uniforms for UniformsStorageVec<'name, 'uniform> {
         }
     }
 }
-
-/// Implements `AsUniformValue` for a closure
-pub struct MapAsUniform<T>(pub T, pub fn(&T) -> UniformValue);
-
-impl<T> AsUniformValue for MapAsUniform<T> {
-    fn as_uniform_value(&self) -> UniformValue {
-        (self.1)(&self.0)
-    }
-}
-
-impl<'a, T> AsUniformValue for &'a MapAsUniform<T> {
-    fn as_uniform_value(&self) -> UniformValue {
-        (self.1)(&self.0)
-    }
-}
