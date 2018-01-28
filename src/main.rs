@@ -104,10 +104,26 @@ use event::*;
 
 /// Renders a configured shader
 pub trait Renderer {
+    /// Do stuff like handle event queue, reload, etc
+    fn update(&mut self) -> Result<(), Error>;
     /// Render the current frame
     fn render(&mut self) -> Result<(), Error>;
     /// Tells the renderer to swap buffers (only applicable to buffered renderers)
     fn swap_buffers(&self) -> Result<(), Error>;
+    /// Draw an error message
+    fn draw_error(&mut self, error: &Error) -> Result<(), Error>;
+}
+
+fn format_error(error: &Error) -> String {
+    let mut causes = error.causes();
+    format!(
+        "{}{}",
+        causes.next().unwrap(),
+        causes
+            .map(|cause| format!("\nCaused by: {}", cause))
+            .collect::<Vec<String>>()
+            .join("")
+    )
 }
 
 fn setup_watches(
@@ -157,10 +173,10 @@ fn run() -> Result<(), Error> {
 
     // Get configuration
     let config_path = Config::get_path()?;
-    let mut config = Config::parse(&config_path)?;
+    let config = Config::parse(&config_path)?;
 
     // Setup filesystem watches
-    let (mut _watcher, mut receiver) = setup_watches(&config_path, &config)?;
+    let (mut watcher, mut receiver) = setup_watches(&config_path, &config)?;
 
     // Creates an appropriate renderer for the configuration, exits with an error if that fails
     let mut events_loop = winit::EventsLoop::new();
@@ -179,13 +195,33 @@ fn run() -> Result<(), Error> {
     };
 
     let mut paused = false;
+    let mut error = None;
     loop {
         let mut events: Vec<Event> = Vec::new();
 
-        if !paused {
-            renderer.render()?;
-        } else {
-            renderer.swap_buffers()?;
+        renderer.update()?;
+
+        match error {
+            None => {
+                if !paused {
+                    match renderer.render() {
+                        Err(e) => {
+                            error!("{}", format_error(&e));
+                            error = Some(e);
+                        }
+                        _ => (),
+                    }
+                } else {
+                    match renderer.swap_buffers() {
+                        Err(e) => {
+                            error!("{}", format_error(&e));
+                            error = Some(e);
+                        }
+                        _ => (),
+                    }
+                }
+            }
+            Some(ref error) => renderer.draw_error(error)?,
         }
 
         #[cfg(unix)]
@@ -262,7 +298,7 @@ fn run() -> Result<(), Error> {
                 // remove the file and write a new one in its place, and on Linux this will also
                 // remove the watch, so we won't ever receive a WRITE event in this case
                 if op.intersects(notify::op::WRITE | notify::op::REMOVE) {
-                    if let Some(path) = path {
+                    if let Some(ref path) = path {
                         info!(
                             "Detected file change for {}, reloading...",
                             path.to_str().unwrap()
@@ -272,6 +308,15 @@ fn run() -> Result<(), Error> {
                     }
 
                     events.push(Event::Reload);
+                }
+
+                // If the file was removed and replaced (how certain editors save files)
+                if op.contains(notify::op::REMOVE) {
+                    if let Some(path) = path {
+                        if path.exists() {
+                            watcher.watch(path, notify::RecursiveMode::NonRecursive)?;
+                        }
+                    }
                 }
             }
             Err(mpsc::TryRecvError::Disconnected) => error!("Filesystem watcher disconnected"),
@@ -287,14 +332,22 @@ fn run() -> Result<(), Error> {
                     event_sender.send(RendererEvent::Resize(width, height))?;
                 }
                 Event::Reload => {
-                    config = Config::parse(&config_path)?;
+                    match Config::parse(&config_path) {
+                        Ok(config) => {
+                            // TODO: When destructuring assignment is added, change this
+                            let (watcher_, receiver_) = setup_watches(&config_path, &config)?;
+                            watcher = watcher_;
+                            receiver = receiver_;
 
-                    // TODO: When destructuring assignment is added, change this
-                    let (watcher_, receiver_) = setup_watches(&config_path, &config)?;
-                    _watcher = watcher_;
-                    receiver = receiver_;
+                            event_sender.send(RendererEvent::Reload(config))?;
 
-                    event_sender.send(RendererEvent::Reload(config))?;
+                            error = None;
+                        }
+                        Err(e) => {
+                            error!("{}", format_error(&e));
+                            error = Some(e);
+                        }
+                    }
                 }
                 Event::Capture => {
                     let path =

@@ -20,6 +20,7 @@ use config::Config;
 use config::nodes::{NodeConfig, NodeConnection, NodeParameter};
 use event::RendererEvent;
 use super::nodes::*;
+use super::text::TextRenderer;
 
 type NodeMap = HashMap<String, Box<Node>>;
 type NodeConfigMap = HashMap<String, NodeConfig>;
@@ -38,6 +39,8 @@ pub struct OpenGLRenderer {
     receiver: Receiver<RendererEvent>,
     /// Sender for pointer events
     senders: Vec<Sender<RendererEvent>>,
+    /// `TextRenderer` for displaying errors
+    error_renderer: TextRenderer,
 }
 
 fn init_nodes(
@@ -165,9 +168,9 @@ fn init_nodes(
         .cloned()
         .collect();
     if dangling_nodes.len() == 1 {
-        warn!("Dangling node: {}", dangling_nodes[0]);
+        warn!("Dangling node: `{}`", dangling_nodes[0]);
     } else if dangling_nodes.len() > 1 {
-        warn!("Dangling nodes: {}", dangling_nodes.join(", "));
+        warn!("Dangling nodes: `{}`", dangling_nodes.join(", "));
     }
 
     Ok((nodes, order, senders))
@@ -180,11 +183,11 @@ fn map_node_io(
     let get_node_output = |connection: &NodeConnection| -> Result<_, Error> {
         Ok(outputs
             .get(&connection.node)
-            .ok_or_else(|| format_err!("No such node: {}", connection.node))?
+            .ok_or_else(|| format_err!("No such node: `{}`", connection.node))?
             .get(&connection.output)
             .ok_or_else(|| {
                 format_err!(
-                    "No such output on node {}: {}",
+                    "No such output on node `{}`: `{}`",
                     connection.node,
                     connection.output
                 )
@@ -321,7 +324,12 @@ impl OpenGLRenderer {
             facade.get_context().get_opengl_version_string()
         );
 
-        let (nodes, order, senders) = init_nodes(&config, &facade)?;
+        let error_renderer = TextRenderer::new(facade.clone(), "", 20.0)?;
+
+        let (nodes, order, senders) = match init_nodes(&config, &facade) {
+            Err(_) => Default::default(),
+            Ok(result) => result,
+        };
 
         Ok(Self {
             facade,
@@ -330,21 +338,23 @@ impl OpenGLRenderer {
             order,
             receiver,
             senders,
+            error_renderer,
         })
     }
 }
 
 impl Renderer for OpenGLRenderer {
-    fn render(&mut self) -> Result<(), Error> {
+    fn update(&mut self) -> Result<(), Error> {
         while let Ok(event) = self.receiver.try_recv() {
             match event {
                 RendererEvent::Reload(config) => {
-                    info!("Reloading config");
+                    info!("Reloading renderer");
 
                     let (nodes, order, senders) = init_nodes(&config, &self.facade)?;
                     self.nodes = nodes;
                     self.order = order;
                     self.senders = senders;
+                    self.node_configs = config.nodes;
                 }
 
                 RendererEvent::Capture(path) => {
@@ -386,17 +396,21 @@ impl Renderer for OpenGLRenderer {
             }
         }
 
+        Ok(())
+    }
+
+    fn render(&mut self) -> Result<(), Error> {
         let mut outputs: HashMap<String, HashMap<String, NodeOutput>> = HashMap::new();
 
         for name in &self.order {
             ensure!(
                 self.node_configs.contains_key(name),
-                "No such node: {}",
+                "No such node: `{}`",
                 name
             );
 
             let inputs = map_node_io(&self.node_configs[name], &outputs)
-                .context(format!("Error on node {}", name))?;
+                .context(format!("Error on node `{}`", name))?;
 
             outputs.insert(
                 name.to_string(),
@@ -409,6 +423,20 @@ impl Renderer for OpenGLRenderer {
 
     fn swap_buffers(&self) -> Result<(), Error> {
         self.facade.get_context().swap_buffers()?;
+        Ok(())
+    }
+
+    fn draw_error(&mut self, error: &Error) -> Result<(), Error> {
+        let mut target = self.facade.draw();
+        target.clear_color(0.0, 0.0, 0.0, 0.0);
+        self.error_renderer.draw_text(
+            &mut target,
+            &::format_error(error),
+            [0.0, 0.0],
+            [1.0, 0.3, 0.3, 1.0],
+        )?;
+        target.finish()?;
+
         Ok(())
     }
 }
