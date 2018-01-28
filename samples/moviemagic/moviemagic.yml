@@ -1,31 +1,75 @@
-buffers:
-  __default__:
+nodes:
+  output:
+    type: output
+    texture:
+      node: fxaa
+      output: texture
+
+  fxaa:
+    type: shader
     vertex: ../default.vert
     fragment: fxaa.frag
-    depends:
-      - compositing
+    uniforms:
+      -
+        node: info
+        output: resolution
+      -
+        node: compositing
+        output: texture
 
   compositing:
+    type: shader
     vertex: ../default.vert
     fragment: compositing.frag
-    depends:
-      - vbloom
-      - render
+    uniforms:
+      -
+        node: info
+        output: time
+      -
+        node: info
+        output: resolution
+      -
+        node: vbloom
+        output: texture
+      -
+        node: render
+        output: texture
 
   vbloom:
+    type: shader
     vertex: ../default.vert
     fragment: vbloom.frag
-    depends:
-      - hbloom  
+    uniforms:
+      -
+        node: info
+        output: resolution
+      -
+        node: hbloom  
+        output: texture
 
   hbloom:
+    type: shader
     vertex: ../default.vert
     fragment: hbloom.frag
-    depends:
-      - render
+    uniforms:
+      -
+        node: info
+        output: resolution
+      -
+        node: render
+        output: texture
 
   render:
+    type: shader
     vertex: ../default.vert
     fragment: render.frag
+    uniforms:
+      -
+        node: info
+        output: time
+      -
+        node: info
+        output: resolution
 
-fps: true
+  info:
+    type: info

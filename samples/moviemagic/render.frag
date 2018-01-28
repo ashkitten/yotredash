@@ -7,8 +7,8 @@
 // Dedicated to the public domain under CC0 1.0 Universal
 //  https://creativecommons.org/publicdomain/zero/1.0/legalcode
 
-uniform float time;
-uniform vec2 resolution;
+uniform float info_time;
+uniform vec2 info_resolution;
 
 out vec4 fragColor;
 
@@ -50,8 +50,8 @@ float fbm2(vec3 x)
 // pos is assumed to be normalized
 vec4 glitch(vec2 pos)
 {
-    float glitchAmount = saturate(pow(abs(sin(time * 0.2)), 8.0)) * 0.8;
-    float t = time * 0.4;
+    float glitchAmount = saturate(pow(abs(sin(info_time * 0.2)), 8.0)) * 0.8;
+    float t = info_time * 0.4;
 
     vec2 cellIndex1 = floor(pos / vec2(0.07, 0.04));
     float offsetX = step(0.8, fbm(vec3(cellIndex1, t)));
@@ -225,9 +225,9 @@ vec3 waveform(vec2 pos, vec3 color1, vec3 color2, float res, float scale, float 
 
 void main() {
     vec2 pixelPos = gl_FragCoord.xy;
-    vec2 res = resolution.xy;
+    vec2 res = info_resolution.xy;
     
-    float fade = min(time * 0.35, 1.0);
+    float fade = min(info_time * 0.35, 1.0);
     
     vec4 glitchedPixelPosAddAmountDarkAmount = glitch(pixelPos / res) * vec4(res, 1.0, 1.0);
     pixelPos = glitchedPixelPosAddAmountDarkAmount.xy;
@@ -239,18 +239,18 @@ void main() {
     float elementSize = res.y * 0.4;
 
     color += rings(
-        (pixelPos - (res / 2.0 - vec2(elementSize / 2.0) + vec2(-1.0,  1.0) * elementSize * vec2(1.2, 0.6))) / elementSize, vec3(0.2, 0.7, 1.0), vec3(1.0, 0.6, 0.2), 14.0, 4.0, 26.0, fade, 0.0, time) * 3.0;
+        (pixelPos - (res / 2.0 - vec2(elementSize / 2.0) + vec2(-1.0,  1.0) * elementSize * vec2(1.2, 0.6))) / elementSize, vec3(0.2, 0.7, 1.0), vec3(1.0, 0.6, 0.2), 14.0, 4.0, 26.0, fade, 0.0, info_time) * 3.0;
     color += code(
-        (pixelPos - (res / 2.0 - vec2(elementSize / 2.0) + vec2( 0.0,  1.0) * elementSize * vec2(1.2, 0.6))) / elementSize, 40.0, 2.0, fade, 0.0, time * 0.8) * 3.0;
+        (pixelPos - (res / 2.0 - vec2(elementSize / 2.0) + vec2( 0.0,  1.0) * elementSize * vec2(1.2, 0.6))) / elementSize, 40.0, 2.0, fade, 0.0, info_time * 0.8) * 3.0;
     color += waveform(
-        (pixelPos - (res / 2.0 - vec2(elementSize / 2.0) + vec2( 1.0,  1.0) * elementSize * vec2(1.2, 0.6))) / elementSize, vec3(0.2, 0.7, 1.0), vec3(1.0, 0.05, 0.05), 24.0, 0.6, fade, -12.0, time * 0.9) * 3.0;
+        (pixelPos - (res / 2.0 - vec2(elementSize / 2.0) + vec2( 1.0,  1.0) * elementSize * vec2(1.2, 0.6))) / elementSize, vec3(0.2, 0.7, 1.0), vec3(1.0, 0.05, 0.05), 24.0, 0.6, fade, -12.0, info_time * 0.9) * 3.0;
 
     color += code(
-        (pixelPos - (res / 2.0 - vec2(elementSize / 2.0) + vec2(-1.0, -1.0) * elementSize * vec2(1.2, 0.6))) / elementSize, 16.0, 7.0, fade, 80.0, time * 0.3) * 3.0;
+        (pixelPos - (res / 2.0 - vec2(elementSize / 2.0) + vec2(-1.0, -1.0) * elementSize * vec2(1.2, 0.6))) / elementSize, 16.0, 7.0, fade, 80.0, info_time * 0.3) * 3.0;
     color += waveform(
-        (pixelPos - (res / 2.0 - vec2(elementSize / 2.0) + vec2( 0.0, -1.0) * elementSize * vec2(1.2, 0.6))) / elementSize, vec3(0.2, 0.7, 1.0), vec3(1.0, 0.6, 0.2), 20.0, 0.2, fade, -80.0, time * 1.2) * 3.0;
+        (pixelPos - (res / 2.0 - vec2(elementSize / 2.0) + vec2( 0.0, -1.0) * elementSize * vec2(1.2, 0.6))) / elementSize, vec3(0.2, 0.7, 1.0), vec3(1.0, 0.6, 0.2), 20.0, 0.2, fade, -80.0, info_time * 1.2) * 3.0;
     color += rings(
-        (pixelPos - (res / 2.0 - vec2(elementSize / 2.0) + vec2( 1.0, -1.0) * elementSize * vec2(1.2, 0.6))) / elementSize, vec3(0.1, 1.0, 0.3), vec3(1.0, 0.12, 0.02), 8.0, 4.0, 16.0, fade, 10.0, time * 0.3) * 3.0;
+        (pixelPos - (res / 2.0 - vec2(elementSize / 2.0) + vec2( 1.0, -1.0) * elementSize * vec2(1.2, 0.6))) / elementSize, vec3(0.1, 1.0, 0.3), vec3(1.0, 0.12, 0.02), 8.0, 4.0, 16.0, fade, 10.0, info_time * 0.3) * 3.0;
     
     color *= 2.0;
 
