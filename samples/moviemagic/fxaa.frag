@@ -2087,10 +2087,6 @@ void main() {
                         0.0,
                         0.0,
                         vec4(0.0));
-
-    // The original shader assumes that it will be rendered on an opaque texture.
-    // To account for this in Yotredash, we need to manually set the alpha value to 1.0
-    fragColor.a = 1.0;
 }
 
 #else
@@ -2098,10 +2094,6 @@ void main() {
 void main() {
     vec2 uv = gl_FragCoord.xy / info_resolution.xy;
     fragColor = texture(compositing_texture, uv);
-
-    // The original shader assumes that it will be rendered on an opaque texture.
-    // To account for this in Yotredash, we need to manually set the alpha value to 1.0
-    fragColor.a = 1.0;
 }
 
 #endif

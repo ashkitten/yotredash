@@ -2,7 +2,6 @@
 
 use failure::Error;
 use glium::backend::Facade;
-use glium::draw_parameters::{Blend, DrawParameters};
 use glium::program::{Program, ProgramCreationInput};
 use glium::vertex::VertexBuffer;
 use glium::index::{NoIndices, PrimitiveType};
@@ -95,17 +94,14 @@ impl Node for OutputNode {
             uniforms.push("texture0", &**texture);
 
             let mut target = self.facade.draw();
-            target.clear_color(0.0, 0.0, 0.0, 0.0);
+            target.clear_color(0.0, 0.0, 0.0, 1.0);
             target
                 .draw(
                     &self.vertex_buffer,
                     &self.index_buffer,
                     &self.program,
                     &uniforms,
-                    &DrawParameters {
-                        blend: Blend::alpha_blending(),
-                        ..Default::default()
-                    },
+                    &Default::default(),
                 )
                 .unwrap(); // For some reason if we return this error, it panicks because finish() is never called
             target.finish()?;

@@ -2,7 +2,6 @@
 
 use failure::Error;
 use glium::backend::Facade;
-use glium::draw_parameters::{Blend, DrawParameters};
 use glium::index::{NoIndices, PrimitiveType};
 use glium::program::ProgramCreationInput;
 use glium::texture::Texture2d;
@@ -164,10 +163,7 @@ impl Node for BlendNode {
                 &self.index_buffer,
                 &self.program,
                 &uniforms,
-                &DrawParameters {
-                    blend: Blend::alpha_blending(),
-                    ..Default::default()
-                },
+                &Default::default(),
             )?;
 
             let mut outputs = HashMap::new();
