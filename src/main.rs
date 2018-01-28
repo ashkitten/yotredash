@@ -167,13 +167,23 @@ fn setup_watches(
 fn run() -> Result<(), Error> {
     env_logger::try_init()?;
 
+    // For catching and displaying errors
+    let mut error = None;
+
     // Register signal handler (unix only)
     #[cfg(unix)]
     let trap = Trap::trap(&[Signal::SIGUSR1, Signal::SIGUSR2, Signal::SIGHUP]);
 
     // Get configuration
     let config_path = Config::get_path()?;
-    let config = Config::parse(&config_path)?;
+    let config = match Config::parse(&config_path) {
+        Ok(config) => config,
+        Err(e) => {
+            error!("{}", format_error(&e));
+            error = Some(e);
+            Config::backup()?
+        }
+    };
 
     // Setup filesystem watches
     let (mut watcher, mut receiver) = setup_watches(&config_path, &config)?;
@@ -189,13 +199,12 @@ fn run() -> Result<(), Error> {
             event_receiver,
         )?),
         other => {
-            error!("Renderer {} does not exist", other);
+            error!("Renderer {} is not built in", other);
             std::process::exit(1);
         }
     };
 
     let mut paused = false;
-    let mut error = None;
     loop {
         let mut events: Vec<Event> = Vec::new();
 

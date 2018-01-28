@@ -66,6 +66,24 @@ pub struct Config {
     pub platform_config: PlatformSpecificConfig,
 }
 
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            _cwd: Default::default(),
+            nodes: Default::default(),
+            width: default_width(),
+            height: default_height(),
+            maximize: default_maximize(),
+            fullscreen: default_fullscreen(),
+            vsync: default_vsync(),
+            renderer: default_renderer(),
+            headless: default_headless(),
+            autoreload: default_autoreload(),
+            platform_config: Default::default(),
+        }
+    }
+}
+
 /// A function that returns the default value of the `width` field
 fn default_width() -> u32 {
     640
@@ -93,7 +111,13 @@ fn default_vsync() -> bool {
 
 /// A function that returns the default value of the `renderer` field
 fn default_renderer() -> String {
-    "opengl".to_string()
+    // If opengl is built in, use it as default
+    #[cfg(feature = "opengl")]
+    return "opengl".to_string();
+
+    // If no renderers are built in, panic
+    #[cfg(not(any(feature = "opengl")))]
+    panic!("No renderers built in");
 }
 
 /// A function that returns the default value of the `headless` field
@@ -217,6 +241,17 @@ impl Config {
         let args = app.get_matches();
 
         let mut config = Self::from_file(path)?;
+        config.merge_args(&args)?;
+
+        Ok(config)
+    }
+
+    /// Gets a backup config without sourcing a file
+    pub fn backup() -> Result<Self, Error> {
+        let app = PlatformSpecificConfig::build_cli();
+        let args = app.get_matches();
+
+        let mut config = Self::default();
         config.merge_args(&args)?;
 
         Ok(config)
