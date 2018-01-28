@@ -428,7 +428,7 @@ impl Renderer for OpenGLRenderer {
 
     fn draw_error(&mut self, error: &Error) -> Result<(), Error> {
         let mut target = self.facade.draw();
-        target.clear_color(0.0, 0.0, 0.0, 0.0);
+        target.clear_color(0.0, 0.0, 0.0, 1.0);
         self.error_renderer.draw_text(
             &mut target,
             &::format_error(error),

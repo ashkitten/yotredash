@@ -77,7 +77,7 @@ impl Node for TextNode {
             let color = color.unwrap_or(self.color);
 
             let mut surface = self.texture.as_surface();
-            surface.clear_color(0.0, 0.0, 0.0, 0.0);
+            surface.clear_color(0.0, 0.0, 0.0, 1.0);
             self.text_renderer
                 .draw_text(&mut surface, &text, position, color)?;
 

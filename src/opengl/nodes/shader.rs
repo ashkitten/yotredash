@@ -132,7 +132,7 @@ impl Node for ShaderNode {
             };
 
             let mut surface = self.texture.as_surface();
-            surface.clear_color(0.0, 0.0, 0.0, 0.0);
+            surface.clear_color(0.0, 0.0, 0.0, 1.0);
             surface.draw(
                 &self.vertex_buffer,
                 &self.index_buffer,
