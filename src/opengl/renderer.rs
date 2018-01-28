@@ -319,6 +319,15 @@ impl OpenGLRenderer {
             Rc::new(Headless::new(context)?)
         };
 
+        Self::new_with_facade(config, facade, receiver)
+    }
+
+    /// Create a new instance on an existing Facade
+    pub fn new_with_facade(
+        config: Config,
+        facade: Rc<Facade>,
+        receiver: Receiver<RendererEvent>,
+    ) -> Result<Self, Error> {
         debug!(
             "OpenGL backend: {}",
             facade.get_context().get_opengl_version_string()
