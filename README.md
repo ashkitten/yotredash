@@ -14,3 +14,7 @@ A shader demotool written in Rust
 There is a git pre-commit hook in the `hooks` directory which runs `cargo fmt -- --write-mode=diff` before commit, which will fail the commit if it doesn't match the format guidelines. You can link the hook into your `.git` directory either by running the `hooks/link` script or with `ln -sf` on your own.
 
 We have a Discord community! Follow this link: https://discord.gg/svfZWE3
+
+# Support Me
+
+I do a lot of work on this project and others. If you want to support me and my work so I can keep maintaining these projects, please consider becoming a patron: https://patreon.com/ashkitten
