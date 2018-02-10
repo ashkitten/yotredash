@@ -32,7 +32,7 @@ impl Audio {
     pub fn run(&mut self) -> Result<(), Error> {
         let consumer = self.sample_buffer.consumer();
         thread::spawn(move || {
-			// TODO: Replace with Default::default() when const generics are a thing
+            // TODO: Replace with Default::default() when const generics are a thing
             let mut buf: [Sample; FRAMES_PER_BUFFER as usize] =
                 [Default::default(); FRAMES_PER_BUFFER as usize];
 
@@ -41,8 +41,8 @@ impl Audio {
 
                 // TODO: Analyze audio (libfftw)
 
-				// just a test, remove this
-				let x: f32 = buf.iter().sum();
+                // just a test, remove this
+                let x: f32 = buf.iter().sum();
             }
         });
 
@@ -77,8 +77,8 @@ pub fn setup() -> Result<Audio, Error> {
     let sample_buffer = SpscRb::new(SAMPLE_BUFFER_LENGTH);
     let producer = sample_buffer.producer();
     let callback = move |InputStreamCallbackArgs { buffer, .. }| {
-		// TODO: Handle overruns gracefully instead of panic!()ing.
-		producer.write(&buffer).unwrap();
+        // TODO: Handle overruns gracefully instead of panic!()ing.
+        producer.write(&buffer).unwrap();
 
         portaudio::Continue
     };
