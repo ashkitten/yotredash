@@ -76,6 +76,9 @@ pub enum NodeInputs {
         /// Color to render in
         color: Option<[f32; 4]>,
     },
+
+    /// Inputs for audio node
+    Audio,
 }
 
 /// Enum of possible output types for nodes

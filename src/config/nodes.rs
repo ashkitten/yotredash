@@ -169,6 +169,8 @@ pub enum NodeConfig {
     Text(TextConfig),
     /// Configuration for the FPS node
     Fps(FpsConfig),
+    /// Configuration for the audio node
+    Audio,
 }
 
 fn text_default_color() -> NodeParameter<[f32; 4]> {

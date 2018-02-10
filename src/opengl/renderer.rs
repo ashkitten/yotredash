@@ -149,6 +149,10 @@ fn init_nodes(
                     Box::new(FpsNode::new(facade, fps_config.clone(), receiver)?),
                 );
             }
+
+            NodeConfig::Audio => {
+                nodes.insert(name.to_string(), Box::new(AudioNode::new()?));
+            }
         }
     }
 
@@ -281,6 +285,8 @@ fn map_node_io(
 
             NodeInputs::Fps { position, color }
         }
+
+        NodeConfig::Audio => NodeInputs::Audio,
     })
 }
 
