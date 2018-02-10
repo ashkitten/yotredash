@@ -9,7 +9,6 @@ use failure::Error;
 // Only deal with a single channel, we don't want to mixdown (yet)
 // Also sidesteps phase cancellation
 const CHANNELS: i32 = 1;
-const SAMPLE_RATE: f64 = 44_100.0; // 44.1kHz. TODO: don't hardcode
 const FRAMES_PER_BUFFER: u32 = 256; // how many sample frames to pass to each callback
 const SAMPLE_BUFFER_LENGTH: usize = FRAMES_PER_BUFFER as usize * 4;
 
@@ -70,7 +69,10 @@ pub fn setup() -> Result<Audio, Error> {
         StreamParameters::new(input, CHANNELS, INTERLEAVED, latency)
     };
 
-    let input_settings = InputStreamSettings::new(input_params, SAMPLE_RATE, FRAMES_PER_BUFFER);
+    let input_settings = {
+        let sample_rate = pa.device_info(input)?.default_sample_rate;
+        InputStreamSettings::new(input_params, sample_rate, FRAMES_PER_BUFFER)
+    };
 
     let sample_buffer = SpscRb::new(SAMPLE_BUFFER_LENGTH);
     let producer = sample_buffer.producer();
