@@ -45,7 +45,7 @@ glob = "0.2.11"
 default = ["opengl", "image-src", "audio"]
 opengl = ["glium"]
 image-src = ["gif", "gif-dispose", "image"]
-audio = ["portaudio", "rb", "fftw", "num-traits"]
+audio = ["opengl", "portaudio", "rb", "fftw", "num-traits"]
 
 [replace]
 "servo-fontconfig-sys:4.0.4" = { git = "https://github.com/ashkitten/libfontconfig" }

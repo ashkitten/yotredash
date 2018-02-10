@@ -1,13 +1,19 @@
-//! The audio subsystem.
+//! The audio node recieves audio input from PortAudio and analyzes it, outputting
+//! the power spectrum of the audio as a Texture1d.
 use portaudio::{self, Input, InputStreamCallbackArgs, InputStreamSettings, NonBlocking, PortAudio,
                 Stream, StreamParameters};
 use rb::{RbConsumer, RbProducer, SpscRb, RB};
+use fftw::plan::{R2CPlan, R2CPlan32};
+use fftw::types::{Flag, c32};
+use num_traits::Zero;
 use std::default::Default;
 use std::thread;
+use std::time;
+use std::sync::{Arc, RwLock};
 use failure::Error;
 
-// Only deal with a single channel, we don't want to mixdown (yet)
-// Also sidesteps phase cancellation
+// Only deal with a single channel, we don't want to mixdown (yet).
+// Also sidesteps phase cancellation.
 const CHANNELS: i32 = 1;
 const FRAMES_PER_BUFFER: u32 = 256; // how many sample frames to pass to each callback
 const SAMPLE_BUFFER_LENGTH: usize = FRAMES_PER_BUFFER as usize * 4;
@@ -16,8 +22,9 @@ const SAMPLE_BUFFER_LENGTH: usize = FRAMES_PER_BUFFER as usize * 4;
 type Sample = f32;
 
 /// Encapsulates the lifetime of the audio system, owning the PortAudio connection and stream.
-pub struct Audio {
+pub struct AudioNode {
     /// Our connection to PortAudio.
+    #[allow(dead_code)]
     pa: PortAudio,
 
     /// The input stream we recieve samples from.
@@ -26,23 +33,42 @@ pub struct Audio {
     /// A ringbuffer of samples, produced by the PortAudio callback and consumed by the
     /// analysis thread.
     sample_buffer: SpscRb<Sample>,
+
+    /// The current computed complex spectrum.
+    spectrum: Arc<RwLock<Vec<c32>>>,
 }
 
-impl Audio {
+impl AudioNode {
+    /// Launches the audio thread.
     pub fn run(&mut self) -> Result<(), Error> {
         let consumer = self.sample_buffer.consumer();
+        // TODO: Replace with Default::default() when const generics are a thing
+        let mut buf: [Sample; FRAMES_PER_BUFFER as usize] =
+            [Default::default(); FRAMES_PER_BUFFER as usize];
+
+        let n = FRAMES_PER_BUFFER as usize;
+
+        let spectrum_lock = Arc::clone(&self.spectrum);
         thread::spawn(move || {
-            // TODO: Replace with Default::default() when const generics are a thing
-            let mut buf: [Sample; FRAMES_PER_BUFFER as usize] =
-                [Default::default(); FRAMES_PER_BUFFER as usize];
+            let mut plan: R2CPlan32 = {
+                R2CPlan::new(
+                    &[n],
+                    &mut buf,
+                    &mut *spectrum_lock.write().unwrap(),
+                    Flag::Estimate,
+                ).unwrap()
+            };
 
             loop {
-                consumer.read_blocking(&mut buf).unwrap();
+                if let None = consumer.read_blocking(&mut buf) {
+                    warn!("urun in reciever");
+                }
 
-                // TODO: Analyze audio (libfftw)
-
-                // just a test, remove this
-                let x: f32 = buf.iter().sum();
+                {
+                    if let Err(e) = plan.r2c(&mut buf, &mut *spectrum_lock.write().unwrap()) {
+                        error!("fftw plan failed to execute: {:?}", e);
+                    }
+                }
             }
         });
 
@@ -78,7 +104,9 @@ pub fn setup() -> Result<Audio, Error> {
     let producer = sample_buffer.producer();
     let callback = move |InputStreamCallbackArgs { buffer, .. }| {
         // TODO: Handle overruns gracefully instead of panic!()ing.
-        producer.write(&buffer).unwrap();
+        if let Err(_) = producer.write(&buffer) {
+            warn!("xrun in producer");
+        }
 
         portaudio::Continue
     };
@@ -89,5 +117,6 @@ pub fn setup() -> Result<Audio, Error> {
         stream,
         pa,
         sample_buffer,
+        spectrum: Arc::new(RwLock::new(vec![c32::zero(); SAMPLE_BUFFER_LENGTH / 2 + 1])),
     })
 }

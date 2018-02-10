@@ -4,6 +4,9 @@
 #[cfg(feature = "image-src")]
 pub mod image;
 
+#[cfg(feature = "audio")]
+pub mod audio;
+
 pub mod blend;
 pub mod fps;
 pub mod info;
@@ -18,6 +21,9 @@ use std::rc::Rc;
 
 #[cfg(feature = "image-src")]
 pub use self::image::ImageNode;
+
+#[cfg(feature = "audio")]
+pub use self::audio::AudioNode;
 
 use config::nodes::NodeConnection;
 pub use self::blend::BlendNode;
