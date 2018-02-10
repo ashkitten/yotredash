@@ -15,7 +15,7 @@ pub mod shader;
 pub mod text;
 
 use failure::Error;
-use glium::texture::Texture2d;
+use glium::texture::{Texture1d, Texture2d};
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -93,6 +93,8 @@ pub enum NodeOutput {
     Text(String),
     /// A 2D texture
     Texture2d(Rc<Texture2d>),
+    /// A 1D texture
+    Texture1d(Rc<Texture1d>),
 }
 
 /// A `Node` is something that takes input and returns an output

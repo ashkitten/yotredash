@@ -129,6 +129,7 @@ impl Node for ShaderNode {
                             storage.push(name, uniform.clone())
                         }
                         NodeOutput::Texture2d(ref uniform) => storage.push(name, uniform.sampled()),
+                        NodeOutput::Texture1d(ref uniform) => storage.push(name, uniform.sampled()),
                         _ => bail!("Wrong input type for `uniforms`"),
                     }
                 }
