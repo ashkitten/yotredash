@@ -32,6 +32,8 @@ image = { version = "0.18.0", optional = true }
 # Needed by audio feature
 portaudio = { version = "0.7.0", optional = true }
 rb = { version = "0.3.1", optional = true }
+fftw = { version = "0.4.0", optional = true }
+num-traits = { version = "0.2.0", optional = true }
 
 [target.'cfg(unix)'.dependencies]
 signal = "0.4.0"
@@ -43,7 +45,7 @@ glob = "0.2.11"
 default = ["opengl", "image-src", "audio"]
 opengl = ["glium"]
 image-src = ["gif", "gif-dispose", "image"]
-audio = ["portaudio", "rb"]
+audio = ["portaudio", "rb", "fftw", "num-traits"]
 
 [replace]
 "servo-fontconfig-sys:4.0.4" = { git = "https://github.com/ashkitten/libfontconfig" }
