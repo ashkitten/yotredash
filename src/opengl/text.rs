@@ -265,7 +265,7 @@ pub struct TextRenderer {
 
 impl TextRenderer {
     /// Create a new instance using a specified font and size
-    pub fn new(facade: Rc<Facade>, font: &str, font_size: f32) -> Result<Self, Error> {
+    pub fn new(facade: &Rc<Facade>, font: &str, font_size: f32) -> Result<Self, Error> {
         let glyph_cache = GlyphCache::new(
             &Rc::clone(&facade),
             Rc::new(FreeTypeRasterizer::new(font, font_size)?),
@@ -282,13 +282,13 @@ impl TextRenderer {
                 outputs_srgb: true,
                 uses_point_size: false,
             };
-            Program::new(&*facade, input)?
+            Program::new(&**facade, input)?
         };
 
         Ok(Self {
-            facade: facade,
-            glyph_cache: glyph_cache,
-            program: program,
+            facade: Rc::clone(facade),
+            glyph_cache,
+            program,
         })
     }
 

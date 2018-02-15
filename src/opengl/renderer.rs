@@ -15,12 +15,12 @@ use std::rc::Rc;
 use std::sync::mpsc::{self, Receiver, Sender};
 use winit::EventsLoop;
 
-use Renderer;
 use config::Config;
 use config::nodes::{NodeConfig, NodeConnection, NodeParameter};
 use event::RendererEvent;
 use super::nodes::*;
 use super::text::TextRenderer;
+use {DebugRenderer, Renderer};
 
 type NodeMap = HashMap<String, Box<Node>>;
 type NodeConfigMap = HashMap<String, NodeConfig>;
@@ -39,8 +39,6 @@ pub struct OpenGLRenderer {
     receiver: Receiver<RendererEvent>,
     /// Sender for pointer events
     senders: Vec<Sender<RendererEvent>>,
-    /// `TextRenderer` for displaying errors
-    error_renderer: TextRenderer,
 }
 
 fn init_nodes(
@@ -287,45 +285,10 @@ fn map_node_io(
 }
 
 impl OpenGLRenderer {
-    /// Create a new instance
-    pub fn new(
-        config: Config,
-        events_loop: &EventsLoop,
-        receiver: Receiver<RendererEvent>,
-    ) -> Result<Self, Error> {
-        let facade: Rc<Facade> = if !config.headless {
-            let window_builder = WindowBuilder::new()
-                .with_dimensions(config.width, config.height)
-                .with_title("yotredash")
-                .with_maximized(config.maximize)
-                .with_fullscreen(if config.fullscreen {
-                    Some(events_loop.get_primary_monitor())
-                } else {
-                    None
-                });
-            let context_builder = ContextBuilder::new()
-                .with_vsync(config.vsync)
-                .with_srgb(false);
-            let display = Display::new(window_builder, context_builder, events_loop)
-                .map_err(SyncFailure::new)?;
-            ::platform::window::init(display.gl_window().window(), &config);
-
-            Rc::new(display)
-        } else {
-            let context = HeadlessRendererBuilder::new(config.width, config.height)
-                .with_gl_profile(GlProfile::Core)
-                .build()
-                .map_err(SyncFailure::new)?;
-            Rc::new(Headless::new(context)?)
-        };
-
-        Self::new_with_facade(config, facade, receiver)
-    }
-
     /// Create a new instance on an existing Facade
-    pub fn new_with_facade(
-        config: Config,
-        facade: Rc<Facade>,
+    pub fn new(
+        config: &Config,
+        facade: &Rc<Facade>,
         receiver: Receiver<RendererEvent>,
     ) -> Result<Self, Error> {
         debug!(
@@ -333,21 +296,15 @@ impl OpenGLRenderer {
             facade.get_context().get_opengl_version_string()
         );
 
-        let error_renderer = TextRenderer::new(facade.clone(), "", 20.0)?;
-
-        let (nodes, order, senders) = match init_nodes(&config, &facade) {
-            Err(_) => Default::default(),
-            Ok(result) => result,
-        };
+        let (nodes, order, senders) = init_nodes(config, facade)?;
 
         Ok(Self {
-            facade,
+            facade: Rc::clone(facade),
             nodes,
-            node_configs: config.nodes,
+            node_configs: config.nodes.clone(),
             order,
             receiver,
             senders,
-            error_renderer,
         })
     }
 }
@@ -356,16 +313,6 @@ impl Renderer for OpenGLRenderer {
     fn update(&mut self) -> Result<(), Error> {
         while let Ok(event) = self.receiver.try_recv() {
             match event {
-                RendererEvent::Reload(config) => {
-                    info!("Reloading renderer");
-
-                    let (nodes, order, senders) = init_nodes(&config, &self.facade)?;
-                    self.nodes = nodes;
-                    self.order = order;
-                    self.senders = senders;
-                    self.node_configs = config.nodes;
-                }
-
                 RendererEvent::Capture(path) => {
                     let (width, height) = self.facade.get_context().get_framebuffer_dimensions();
                     let texture = Texture2d::empty_with_mipmaps(
@@ -434,7 +381,27 @@ impl Renderer for OpenGLRenderer {
         self.facade.get_context().swap_buffers()?;
         Ok(())
     }
+}
 
+/// Renders errors
+pub struct OpenGLDebugRenderer {
+    /// Facade for interacting with OpenGL
+    facade: Rc<Facade>,
+    /// `TextRenderer` for displaying errors
+    error_renderer: TextRenderer,
+}
+
+impl OpenGLDebugRenderer {
+    /// Create a new instance
+    pub fn new(facade: &Rc<Facade>) -> Result<Self, Error> {
+        Ok(Self {
+            facade: Rc::clone(facade),
+            error_renderer: TextRenderer::new(facade, "", 20.0)?,
+        })
+    }
+}
+
+impl DebugRenderer for OpenGLDebugRenderer {
     fn draw_error(&mut self, error: &Error) -> Result<(), Error> {
         let mut target = self.facade.draw();
         target.clear_color(0.0, 0.0, 0.0, 1.0);
@@ -447,5 +414,34 @@ impl Renderer for OpenGLRenderer {
         target.finish()?;
 
         Ok(())
+    }
+}
+
+/// Create an appropriate Facade
+pub fn new_facade(config: &Config, events_loop: &EventsLoop) -> Result<Rc<Facade>, Error> {
+    if !config.headless {
+        let window_builder = WindowBuilder::new()
+            .with_dimensions(config.width, config.height)
+            .with_title("yotredash")
+            .with_maximized(config.maximize)
+            .with_fullscreen(if config.fullscreen {
+                Some(events_loop.get_primary_monitor())
+            } else {
+                None
+            });
+        let context_builder = ContextBuilder::new()
+            .with_vsync(config.vsync)
+            .with_srgb(false);
+        let display =
+            Display::new(window_builder, context_builder, events_loop).map_err(SyncFailure::new)?;
+        ::platform::window::init(display.gl_window().window(), &config);
+
+        Ok(Rc::new(display))
+    } else {
+        let context = HeadlessRendererBuilder::new(config.width, config.height)
+            .with_gl_profile(GlProfile::Core)
+            .build()
+            .map_err(SyncFailure::new)?;
+        Ok(Rc::new(Headless::new(context)?))
     }
 }

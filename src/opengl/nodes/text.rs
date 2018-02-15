@@ -41,7 +41,7 @@ impl TextNode {
         let (width, height) = facade.get_context().get_framebuffer_dimensions();
         let texture = Rc::new(Texture2d::empty(&**facade, width, height)?);
 
-        let text_renderer = TextRenderer::new(facade.clone(), &config.font_name, config.font_size)?;
+        let text_renderer = TextRenderer::new(facade, &config.font_name, config.font_size)?;
 
         Ok(Self {
             facade: Rc::clone(facade),

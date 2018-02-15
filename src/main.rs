@@ -85,10 +85,10 @@ pub mod util;
 #[cfg(feature = "opengl")]
 pub mod opengl;
 
+use failure::Error;
 use notify::Watcher;
 use std::path::Path;
 use std::sync::mpsc;
-use failure::Error;
 
 #[cfg(unix)]
 use signal::Signal;
@@ -96,7 +96,7 @@ use signal::Signal;
 use signal::trap::Trap;
 
 #[cfg(feature = "opengl")]
-use opengl::renderer::OpenGLRenderer;
+use opengl::renderer::{OpenGLDebugRenderer, OpenGLRenderer};
 
 use config::Config;
 use config::nodes::NodeConfig;
@@ -110,7 +110,11 @@ pub trait Renderer {
     fn render(&mut self) -> Result<(), Error>;
     /// Tells the renderer to swap buffers (only applicable to buffered renderers)
     fn swap_buffers(&self) -> Result<(), Error>;
-    /// Draw an error message
+}
+
+/// Renders errors
+pub trait DebugRenderer {
+    /// Draw an error on the window
     fn draw_error(&mut self, error: &Error) -> Result<(), Error>;
 }
 
@@ -188,19 +192,29 @@ fn run() -> Result<(), Error> {
     // Setup filesystem watches
     let (mut watcher, mut receiver) = setup_watches(&config_path, &config)?;
 
-    // Creates an appropriate renderer for the configuration, exits with an error if that fails
     let mut events_loop = winit::EventsLoop::new();
-    let (event_sender, event_receiver) = mpsc::channel();
-    let mut renderer: Box<Renderer> = match config.renderer.as_ref() as &str {
+
+    let (mut event_sender, event_receiver) = mpsc::channel();
+    // TODO: return something renderer-independent instead of Facade
+    let (mut renderer, mut debug_renderer, facade) = match config.renderer.as_ref() as &str {
         #[cfg(feature = "opengl")]
-        "opengl" => Box::new(OpenGLRenderer::new(
-            config.clone(),
-            &events_loop,
-            event_receiver,
-        )?),
+        "opengl" => {
+            let facade = opengl::renderer::new_facade(&config, &events_loop)?;
+            let renderer = match OpenGLRenderer::new(&config, &facade, event_receiver) {
+                Ok(r) => Some(Box::new(r)),
+                Err(e) => {
+                    error = Some(e);
+                    None
+                }
+            };
+            let debug_renderer = OpenGLDebugRenderer::new(&facade)?;
+            (renderer, Box::new(debug_renderer), facade)
+        }
         other => {
-            error!("Renderer {} is not built in", other);
-            std::process::exit(1);
+            let facade = opengl::renderer::new_facade(&config, &events_loop)?;
+            let debug_renderer = OpenGLDebugRenderer::new(&facade)?;
+            error = Some(format_err!("Renderer {} is not built in", other));
+            (None, Box::new(debug_renderer), facade)
         }
     };
 
@@ -208,29 +222,33 @@ fn run() -> Result<(), Error> {
     loop {
         let mut events: Vec<Event> = Vec::new();
 
-        renderer.update()?;
+        if let Some(ref mut renderer) = renderer {
+            renderer.update()?;
+        }
 
         match error {
             None => {
-                if !paused {
-                    match renderer.render() {
-                        Err(e) => {
-                            error!("{}", format_error(&e));
-                            error = Some(e);
+                if let Some(ref mut renderer) = renderer {
+                    if !paused {
+                        match renderer.render() {
+                            Err(e) => {
+                                error!("{}", format_error(&e));
+                                error = Some(e);
+                            }
+                            _ => (),
                         }
-                        _ => (),
-                    }
-                } else {
-                    match renderer.swap_buffers() {
-                        Err(e) => {
-                            error!("{}", format_error(&e));
-                            error = Some(e);
+                    } else {
+                        match renderer.swap_buffers() {
+                            Err(e) => {
+                                error!("{}", format_error(&e));
+                                error = Some(e);
+                            }
+                            _ => (),
                         }
-                        _ => (),
                     }
                 }
             }
-            Some(ref error) => renderer.draw_error(error)?,
+            Some(ref error) => debug_renderer.draw_error(error)?,
         }
 
         #[cfg(unix)]
@@ -335,10 +353,14 @@ fn run() -> Result<(), Error> {
         for event in events {
             match event {
                 Event::Pointer(pointer_event) => {
-                    event_sender.send(RendererEvent::Pointer(pointer_event))?;
+                    if renderer.is_some() {
+                        event_sender.send(RendererEvent::Pointer(pointer_event))?;
+                    }
                 }
                 Event::Resize(width, height) => {
-                    event_sender.send(RendererEvent::Resize(width, height))?;
+                    if renderer.is_some() {
+                        event_sender.send(RendererEvent::Resize(width, height))?;
+                    }
                 }
                 Event::Reload => {
                     match Config::parse(&config_path) {
@@ -348,9 +370,28 @@ fn run() -> Result<(), Error> {
                             watcher = watcher_;
                             receiver = receiver_;
 
-                            event_sender.send(RendererEvent::Reload(config))?;
+                            let (event_sender_, event_receiver) = mpsc::channel();
+                            event_sender = event_sender_;
 
-                            error = None;
+                            renderer = match config.renderer.as_ref() as &str {
+                                #[cfg(feature = "opengl")]
+                                "opengl" => {
+                                    match OpenGLRenderer::new(&config, &facade, event_receiver) {
+                                        Ok(r) => {
+                                            error = None;
+                                            Some(Box::new(r))
+                                        }
+                                        Err(e) => {
+                                            error = Some(e);
+                                            None
+                                        }
+                                    }
+                                }
+                                other => {
+                                    error = Some(format_err!("Renderer {} is not built in", other));
+                                    None
+                                }
+                            }
                         }
                         Err(e) => {
                             error!("{}", format_error(&e));
