@@ -151,7 +151,7 @@ fn init_nodes(
             }
 
             NodeConfig::Audio => {
-                nodes.insert(name.to_string(), Box::new(AudioNode::new()?));
+                nodes.insert(name.to_string(), Box::new(AudioNode::new(facade)?));
             }
         }
     }

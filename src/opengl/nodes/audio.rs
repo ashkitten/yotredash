@@ -5,9 +5,12 @@ use portaudio::{self, Input, InputStreamCallbackArgs, InputStreamSettings, NonBl
 use rb::{RbConsumer, RbProducer, SpscRb, RB};
 use fftw::plan::{R2CPlan, R2CPlan32};
 use fftw::types::{Flag, c32};
+use glium::backend::Facade;
+use glium::texture::Texture1d;
 use num_traits::Zero;
 use std::default::Default;
 use std::thread;
+use std::rc::Rc;
 use std::sync::{Arc, RwLock};
 use std::collections::HashMap;
 use failure::Error;
@@ -18,6 +21,7 @@ use super::{Node, NodeInputs, NodeOutput};
 const CHANNELS: i32 = 1;
 const FRAMES_PER_BUFFER: u32 = 256; // how many sample frames to pass to each callback
 const SAMPLE_BUFFER_LENGTH: usize = FRAMES_PER_BUFFER as usize * 4;
+const SPECTRUM_LENGTH: usize = SAMPLE_BUFFER_LENGTH / 2 + 1;
 
 /// The type of individual samples returned by PortAudio.
 type Sample = f32;
@@ -28,6 +32,9 @@ pub struct AudioNode {
     #[allow(dead_code)]
     pa: PortAudio,
 
+    /// Our OpenGL context.
+    facade: Rc<Facade>,
+
     /// The input stream we recieve samples from.
     stream: Stream<NonBlocking, Input<Sample>>,
 
@@ -37,11 +44,14 @@ pub struct AudioNode {
 
     /// The current computed complex spectrum.
     spectrum: Arc<RwLock<Vec<c32>>>,
+
+    /// The current power spectrum texture
+    power_spectrum_texture: Rc<Texture1d>,
 }
 
 impl AudioNode {
     /// Set up our connection to PortAudio
-    pub fn new() -> Result<AudioNode, Error> {
+    pub fn new(facade: &Rc<Facade>) -> Result<AudioNode, Error> {
         let pa = PortAudio::new()?;
 
         debug!("PortAudio version: {} {}", pa.version(), pa.version_text()?);
@@ -79,7 +89,9 @@ impl AudioNode {
             stream,
             pa,
             sample_buffer,
-            spectrum: Arc::new(RwLock::new(vec![c32::zero(); SAMPLE_BUFFER_LENGTH / 2 + 1])),
+            facade: Rc::clone(facade),
+            spectrum: Arc::new(RwLock::new(vec![c32::zero(); SPECTRUM_LENGTH])),
+            power_spectrum_texture: Rc::new(Texture1d::empty(&**facade, SPECTRUM_LENGTH as u32)?),
         };
 
         node.run()?;
@@ -137,8 +149,13 @@ impl Node for AudioNode {
                 .collect()
         };
 
-        let mut outputs = HashMap::new();
+        self.power_spectrum_texture = Rc::new(Texture1d::new(&*self.facade, power_spectrum)?);
 
+        let mut outputs = HashMap::new();
+        outputs.insert(
+            "spectrum".to_string(),
+            NodeOutput::Texture1d(Rc::clone(&self.power_spectrum_texture)),
+        );
         Ok(outputs)
     }
 }
