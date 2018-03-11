@@ -26,6 +26,15 @@ const SPECTRUM_LENGTH: usize = SAMPLE_BUFFER_LENGTH / 2 + 1;
 /// The type of individual samples returned by PortAudio.
 type Sample = f32;
 
+/// Computes the Hann window of size `size`.
+fn hann(size: usize) -> Vec<f32> {
+    use std::f32::consts::PI;
+
+    (0..size)
+        .map(|n| 0.5 * (1.0 - (2.0 * PI * (n as f32) / (size as f32 - 1.0)).cos()))
+        .collect::<Vec<f32>>()
+}
+
 /// Encapsulates the lifetime of the audio system, owning the PortAudio connection and stream.
 pub struct AudioNode {
     /// Our connection to PortAudio.
@@ -37,6 +46,9 @@ pub struct AudioNode {
 
     /// The input stream we recieve samples from.
     stream: Stream<NonBlocking, Input<Sample>>,
+
+    /// A precomputed window function
+    window: Vec<Sample>,
 
     /// A ringbuffer of samples, produced by the PortAudio callback and consumed by the
     /// analysis thread.
@@ -89,6 +101,7 @@ impl AudioNode {
             stream,
             pa,
             sample_buffer,
+            window: hann(FRAMES_PER_BUFFER as usize),
             facade: Rc::clone(facade),
             spectrum: Arc::new(RwLock::new(vec![c32::zero(); SPECTRUM_LENGTH])),
             power_spectrum_texture: Rc::new(Texture1d::empty(&**facade, SPECTRUM_LENGTH as u32)?),
@@ -105,6 +118,11 @@ impl AudioNode {
         // TODO: Replace with Default::default() when const generics are a thing
         let mut buf: [Sample; FRAMES_PER_BUFFER as usize] =
             [Default::default(); FRAMES_PER_BUFFER as usize];
+
+        // window the buffer
+        for i in 1..FRAMES_PER_BUFFER as usize {
+            buf[i] *= self.window[i];
+        }
 
         let n = FRAMES_PER_BUFFER as usize;
 
