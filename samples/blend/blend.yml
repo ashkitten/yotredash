@@ -24,6 +24,7 @@ nodes:
       -
         node: info
         output: resolution
+        name: resolution
 
   pointer:
     type: shader
@@ -33,6 +34,7 @@ nodes:
       -
         node: info
         output: pointer
+        name: pointer
 
   info:
     type: info

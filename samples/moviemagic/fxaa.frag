@@ -1,7 +1,7 @@
 #version 400
 
-uniform vec2 info_resolution;
-uniform sampler2D compositing_texture;
+uniform vec2 resolution;
+uniform sampler2D compositing;
 
 out vec4 fragColor;
 
@@ -2069,13 +2069,13 @@ half4 FxaaPixelShader(
 #endif
 
 void main() {
-    vec2 rcpFrame = vec2(1.0) / info_resolution.xy;
+    vec2 rcpFrame = vec2(1.0) / resolution.xy;
     fragColor =
-        FxaaPixelShader(gl_FragCoord.xy / info_resolution.xy,
+        FxaaPixelShader(gl_FragCoord.xy / resolution.xy,
                         vec4(0.0),
-                        compositing_texture,
-                        compositing_texture,
-                        compositing_texture,
+                        compositing,
+                        compositing,
+                        compositing,
                         rcpFrame,
                         vec4(0.0),
                         vec4(0.0),
@@ -2092,8 +2092,8 @@ void main() {
 #else
 
 void main() {
-    vec2 uv = gl_FragCoord.xy / info_resolution.xy;
-    fragColor = texture(compositing_texture, uv);
+    vec2 uv = gl_FragCoord.xy / resolution.xy;
+    fragColor = texture(compositing, uv);
 }
 
 #endif

@@ -13,6 +13,7 @@ nodes:
       -
         node: info
         output: pointer
+        name: pointer
 
   info:
     type: info

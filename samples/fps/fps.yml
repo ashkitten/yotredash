@@ -24,9 +24,11 @@ nodes:
       -
         node: info
         output: time
+        name: time
       -
         node: info
         output: resolution
+        name: resolution
 
   fps:
     type: fps

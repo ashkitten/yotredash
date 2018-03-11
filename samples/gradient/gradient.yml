@@ -13,6 +13,7 @@ nodes:
       -
         node: info
         output: resolution
+        name: resolution
 
   info:
     type: info

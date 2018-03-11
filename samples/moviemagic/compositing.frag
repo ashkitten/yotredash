@@ -7,10 +7,10 @@
 // Dedicated to the public domain under CC0 1.0 Universal
 //  https://creativecommons.org/publicdomain/zero/1.0/legalcode
 
-uniform float info_time;
-uniform vec2 info_resolution;
-uniform sampler2D vbloom_texture;
-uniform sampler2D render_texture;
+uniform float time;
+uniform vec2 resolution;
+uniform sampler2D vbloom;
+uniform sampler2D render;
 
 out vec4 fragColor;
 
@@ -54,11 +54,11 @@ vec3 tonemap(vec3 rawColor, float exposure)
 }
 
 void main() {
-    vec2 uv = gl_FragCoord.xy / info_resolution.xy;
+    vec2 uv = gl_FragCoord.xy / resolution.xy;
     
     float bloomAmount = 0.07;
-    vec3 original = texture(render_texture, uv).xyz;
-    vec3 bloom = texture(vbloom_texture, uv).xyz;
+    vec3 original = texture(render, uv).xyz;
+    vec3 bloom = texture(vbloom, uv).xyz;
     vec3 inputColor = original + bloom * bloomAmount;
     
     // Vignette
@@ -72,7 +72,7 @@ void main() {
     float grainAmount = 1.0;
     float grainStrength = 50.0 * grainAmount;
 
-    float x = (uv.x + 4.0) * (uv.y + 4.0) * (info_time + 10.0) * 10.0;
+    float x = (uv.x + 4.0) * (uv.y + 4.0) * (time + 10.0) * 10.0;
     float grain = clamp(mod((mod(x, 13.0) + 1.0) * (mod(x, 123.0) + 1.0), 0.01) - 0.005, 0.0, 1.0) * grainStrength;
     
     inputColor *= 1.0 - grain;

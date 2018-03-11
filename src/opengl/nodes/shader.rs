@@ -117,7 +117,11 @@ impl Node for ShaderNode {
             let uniforms = {
                 let mut storage = UniformsStorageVec::new();
                 for (connection, uniform) in uniforms {
-                    let name = format!("{}_{}", connection.node, connection.output);
+                    ensure!(
+                        !connection.name.is_empty(),
+                        "Connections for shader nodes must have a name"
+                    );
+                    let name = connection.name.clone();
                     match *uniform {
                         NodeOutput::Float(ref uniform) => storage.push(name, uniform.clone()),
                         NodeOutput::Float2(ref uniform) => storage.push(name, uniform.clone()),

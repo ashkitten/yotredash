@@ -13,9 +13,11 @@ nodes:
       -
         node: info
         output: resolution
+        name: resolution
       -
         node: compositing
         output: texture
+        name: compositing
 
   compositing:
     type: shader
@@ -25,15 +27,19 @@ nodes:
       -
         node: info
         output: time
+        name: time
       -
         node: info
         output: resolution
+        name: resolution
       -
         node: vbloom
         output: texture
+        name: vbloom
       -
         node: render
         output: texture
+        name: render
 
   vbloom:
     type: shader
@@ -43,9 +49,11 @@ nodes:
       -
         node: info
         output: resolution
+        name: resolution
       -
-        node: hbloom  
+        node: hbloom
         output: texture
+        name: hbloom
 
   hbloom:
     type: shader
@@ -55,9 +63,11 @@ nodes:
       -
         node: info
         output: resolution
+        name: resolution
       -
         node: render
         output: texture
+        name: render
 
   render:
     type: shader
@@ -67,9 +77,11 @@ nodes:
       -
         node: info
         output: time
+        name: time
       -
         node: info
         output: resolution
+        name: resolution
 
   info:
     type: info

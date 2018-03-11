@@ -13,9 +13,11 @@ nodes:
       -
         node: info
         output: resolution
+        name: resolution
       -
         node: raymarch
         output: texture
+        name: raymarch
 
   raymarch:
     type: shader
@@ -25,9 +27,11 @@ nodes:
       -
         node: info
         output: time
+        name: time
       -
         node: info
         output: resolution
+        name: resolution
 
   info:
     type: info

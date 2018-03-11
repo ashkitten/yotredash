@@ -9,13 +9,13 @@
 
 out vec4 color;
 
-uniform vec2 info_resolution;
-uniform sampler2D hbloom_texture;
+uniform vec2 resolution;
+uniform sampler2D hbloom;
 
 void main() {
     vec3 acc = vec3(0.0);
     
-    vec2 uv = gl_FragCoord.xy / info_resolution.xy;
+    vec2 uv = gl_FragCoord.xy / resolution.xy;
     
     // Manually expanded weights/iteration to please inferior shader compilers
     const int steps = 7;
@@ -29,20 +29,20 @@ void main() {
     
     vec2 direction = vec2(0.0, 1.0);
     
-    vec2 offset0 = direction * float(0 - steps / 2) / info_resolution.xy;
-    acc += texture(hbloom_texture, uv + offset0).xyz * weights0;
-    vec2 offset1 = direction * float(1 - steps / 2) / info_resolution.xy;
-    acc += texture(hbloom_texture, uv + offset1).xyz * weights1;
-    vec2 offset2 = direction * float(2 - steps / 2) / info_resolution.xy;
-    acc += texture(hbloom_texture, uv + offset2).xyz * weights2;
-    vec2 offset3 = direction * float(3 - steps / 2) / info_resolution.xy;
-    acc += texture(hbloom_texture, uv + offset3).xyz * weights3;
-    vec2 offset4 = direction * float(4 - steps / 2) / info_resolution.xy;
-    acc += texture(hbloom_texture, uv + offset4).xyz * weights4;
-    vec2 offset5 = direction * float(5 - steps / 2) / info_resolution.xy;
-    acc += texture(hbloom_texture, uv + offset5).xyz * weights5;
-    vec2 offset6 = direction * float(6 - steps / 2) / info_resolution.xy;
-    acc += texture(hbloom_texture, uv + offset6).xyz * weights6;
+    vec2 offset0 = direction * float(0 - steps / 2) / resolution.xy;
+    acc += texture(hbloom, uv + offset0).xyz * weights0;
+    vec2 offset1 = direction * float(1 - steps / 2) / resolution.xy;
+    acc += texture(hbloom, uv + offset1).xyz * weights1;
+    vec2 offset2 = direction * float(2 - steps / 2) / resolution.xy;
+    acc += texture(hbloom, uv + offset2).xyz * weights2;
+    vec2 offset3 = direction * float(3 - steps / 2) / resolution.xy;
+    acc += texture(hbloom, uv + offset3).xyz * weights3;
+    vec2 offset4 = direction * float(4 - steps / 2) / resolution.xy;
+    acc += texture(hbloom, uv + offset4).xyz * weights4;
+    vec2 offset5 = direction * float(5 - steps / 2) / resolution.xy;
+    acc += texture(hbloom, uv + offset5).xyz * weights5;
+    vec2 offset6 = direction * float(6 - steps / 2) / resolution.xy;
+    acc += texture(hbloom, uv + offset6).xyz * weights6;
     
     color = vec4(acc, 1.0);
 }

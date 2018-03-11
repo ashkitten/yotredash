@@ -10,6 +10,9 @@ pub struct NodeConnection {
     pub node: String,
     /// The output of the node
     pub output: String,
+    /// The name of the connection
+    #[serde(default)]
+    pub name: String,
 }
 
 /// Represents a parameter to a node which can either be a static value
