@@ -183,6 +183,8 @@ impl Config {
 
     /// Parses the configuration from command-line arguments
     fn merge_args(&mut self, args: &ArgMatches) -> Result<(), Error> {
+        self.platform_config = PlatformSpecificConfig::from_args(args);
+
         if let Some(value) = args.value_of("width") {
             self.width = value.parse::<u32>()?;
         }
