@@ -1,0 +1,27 @@
+nodes:
+  output:
+    type: output
+    texture:
+      node: starnest
+      output: texture
+
+  starnest:
+    type: shader
+    vertex: ../default.vert
+    fragment: starnest.frag
+    uniforms:
+      -
+        node: info
+        output: resolution
+        name: resolution
+      -
+        node: info
+        output: time
+        name: time
+      -
+        node: info
+        output: pointer
+        name: pointer
+
+  info:
+    type: info
