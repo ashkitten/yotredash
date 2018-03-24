@@ -44,6 +44,11 @@ fn blackman(size: usize, alpha: f32) -> Vec<f32> {
     (0..size).map(|n| w(n as f32)).collect::<Vec<f32>>()
 }
 
+/// Converts raw power (|X̂[k]|) to dB.
+fn power_to_db(x: f32) -> f32 {
+    20.0 * x.log10()
+}
+
 /// Encapsulates the lifetime of the audio system, owning the PortAudio connection and stream.
 pub struct AudioNode {
     /// Our connection to PortAudio.
@@ -66,8 +71,8 @@ pub struct AudioNode {
     /// The current computed complex spectrum.
     spectrum: Arc<RwLock<Vec<c32>>>,
 
-    /// The current power spectrum texture
-    power_spectrum_texture: Rc<Texture1d>,
+    /// The current spectrum texture
+    spectrum_texture: Rc<Texture1d>,
 }
 
 impl AudioNode {
@@ -114,7 +119,7 @@ impl AudioNode {
             window: blackman(FRAMES_PER_BUFFER as usize, 0.16),
             facade: Rc::clone(facade),
             spectrum: Arc::new(RwLock::new(vec![c32::zero(); SPECTRUM_LENGTH])),
-            power_spectrum_texture: Rc::new(Texture1d::empty(&**facade, SPECTRUM_LENGTH as u32)?),
+            spectrum_texture: Rc::new(Texture1d::empty(&**facade, SPECTRUM_LENGTH as u32)?),
         };
 
         node.run()?;
@@ -168,21 +173,22 @@ impl AudioNode {
 
 impl Node for AudioNode {
     fn render(&mut self, _inputs: &NodeInputs) -> Result<HashMap<String, NodeOutput>, Error> {
-        let power_spectrum: Vec<f32> = {
+        let db_spectrum: Vec<f32> = {
             self.spectrum
                 .read()
                 .unwrap()
                 .iter()
                 .map(|c| c.norm())
+                .map(|x| power_to_db(x))
                 .collect()
         };
 
-        self.power_spectrum_texture = Rc::new(Texture1d::new(&*self.facade, power_spectrum)?);
+        self.spectrum_texture = Rc::new(Texture1d::new(&*self.facade, db_spectrum)?);
 
         let mut outputs = HashMap::new();
         outputs.insert(
             "spectrum".to_string(),
-            NodeOutput::Texture1d(Rc::clone(&self.power_spectrum_texture)),
+            NodeOutput::Texture1d(Rc::clone(&self.spectrum_texture)),
         );
         Ok(outputs)
     }
