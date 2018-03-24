@@ -178,8 +178,8 @@ impl Node for AudioNode {
                 .read()
                 .unwrap()
                 .iter()
-                .map(|c| c.norm())
-                .map(|x| power_to_db(x))
+                .map(c32::norm)
+                .map(power_to_db)
                 .collect()
         };
 
