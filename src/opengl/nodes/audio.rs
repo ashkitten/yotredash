@@ -20,8 +20,9 @@ use super::{Node, NodeInputs, NodeOutput};
 // Also sidesteps phase cancellation.
 const CHANNELS: i32 = 1;
 const FRAMES_PER_BUFFER: u32 = 256; // how many sample frames to pass to each callback
-const SAMPLE_BUFFER_LENGTH: usize = FRAMES_PER_BUFFER as usize * 4;
-const SPECTRUM_LENGTH: usize = SAMPLE_BUFFER_LENGTH / 2 + 1;
+const SAMPLE_BUFFER_LENGTH: usize = FRAMES_PER_BUFFER as usize * 10;
+const FFT_SIZE: usize = 512;
+const SPECTRUM_LENGTH: usize = FFT_SIZE / 2;
 
 /// The type of individual samples returned by PortAudio.
 type Sample = f32;
@@ -126,15 +127,14 @@ impl AudioNode {
     pub fn run(&mut self) -> Result<(), Error> {
         let consumer = self.sample_buffer.consumer();
         // TODO: Replace with Default::default() when const generics are a thing
-        let mut buf: [Sample; FRAMES_PER_BUFFER as usize] =
-            [Default::default(); FRAMES_PER_BUFFER as usize];
+        let mut buf: [Sample; FFT_SIZE as usize] = [Default::default(); FFT_SIZE as usize];
 
-        let n = FRAMES_PER_BUFFER as usize;
+        let n = FFT_SIZE as usize;
 
         let spectrum_lock = Arc::clone(&self.spectrum);
         thread::spawn(move || {
             // Use the window from §1.8.6 of the Web Audio API specification
-            let window = blackman(FRAMES_PER_BUFFER as usize, 0.16);
+            let window = blackman(n, 0.16);
 
             let mut plan: R2CPlan32 = {
                 R2CPlan::new(
