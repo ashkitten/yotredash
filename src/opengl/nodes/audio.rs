@@ -26,13 +26,22 @@ const SPECTRUM_LENGTH: usize = SAMPLE_BUFFER_LENGTH / 2 + 1;
 /// The type of individual samples returned by PortAudio.
 type Sample = f32;
 
-/// Computes the Hann window of size `size`.
-fn hann(size: usize) -> Vec<f32> {
+/// Computes a Blackman window of size `size` with α=`alpha`.
+#[allow(non_snake_case)]
+fn blackman(size: usize, alpha: f32) -> Vec<f32> {
     use std::f32::consts::PI;
 
-    (0..size)
-        .map(|n| 0.5 * (1.0 - (2.0 * PI * (n as f32) / (size as f32 - 1.0)).cos()))
-        .collect::<Vec<f32>>()
+    let N = size as f32;
+    let alpha_0 = (1.0 - alpha) / 2.0;
+    let alpha_1 = 0.5;
+    let alpha_2 = alpha / 2.0;
+
+    let w = |n: f32| {
+        alpha_0 - alpha_1 * ((2.0 * PI * n) / (N - 1.0)).cos()
+            + alpha_2 * ((4.0 * PI * n) / (N - 1.0)).cos()
+    };
+
+    (0..size).map(|n| w(n as f32)).collect::<Vec<f32>>()
 }
 
 /// Encapsulates the lifetime of the audio system, owning the PortAudio connection and stream.
@@ -101,7 +110,8 @@ impl AudioNode {
             stream,
             pa,
             sample_buffer,
-            window: hann(FRAMES_PER_BUFFER as usize),
+            // Use the window from §1.8.6 of the Web Audio API specification
+            window: blackman(FRAMES_PER_BUFFER as usize, 0.16),
             facade: Rc::clone(facade),
             spectrum: Arc::new(RwLock::new(vec![c32::zero(); SPECTRUM_LENGTH])),
             power_spectrum_texture: Rc::new(Texture1d::empty(&**facade, SPECTRUM_LENGTH as u32)?),
