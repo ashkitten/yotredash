@@ -23,6 +23,9 @@ const FRAMES_PER_BUFFER: u32 = 256; // how many sample frames to pass to each ca
 const SAMPLE_BUFFER_LENGTH: usize = FRAMES_PER_BUFFER as usize * 10;
 const FFT_SIZE: usize = 512;
 const SPECTRUM_LENGTH: usize = FFT_SIZE / 2;
+const SMOOTHING: f32 = 0.8;
+const MIN_DB: f32 = -100.0;
+const MAX_DB: f32 = -30.0;
 
 /// The type of individual samples returned by PortAudio.
 type Sample = f32;
@@ -45,11 +48,6 @@ fn blackman(size: usize, alpha: f32) -> Vec<f32> {
     (0..size).map(|n| w(n as f32)).collect::<Vec<f32>>()
 }
 
-/// Converts raw power (|X̂[k]|) to dB.
-fn power_to_db(x: f32) -> f32 {
-    20.0 * x.log10()
-}
-
 /// Encapsulates the lifetime of the audio system, owning the PortAudio connection and stream.
 pub struct AudioNode {
     /// Our connection to PortAudio.
@@ -66,10 +64,13 @@ pub struct AudioNode {
     /// analysis thread.
     sample_buffer: SpscRb<Sample>,
 
-    /// The current computed complex spectrum.
+    /// The current computed complex spectrum (X).
     spectrum: Arc<RwLock<Vec<c32>>>,
 
-    /// The current spectrum texture
+    /// The last computed smoothed spectrum; retained for smoothing (X̂).
+    spectrum_smoothed: Vec<f32>,
+
+    /// The current spectrum texture.
     spectrum_texture: Rc<Texture1d>,
 }
 
@@ -115,6 +116,7 @@ impl AudioNode {
             sample_buffer,
             facade: Rc::clone(facade),
             spectrum: Arc::new(RwLock::new(vec![c32::zero(); SPECTRUM_LENGTH])),
+            spectrum_smoothed: vec![0.0; SPECTRUM_LENGTH],
             spectrum_texture: Rc::new(Texture1d::empty(&**facade, SPECTRUM_LENGTH as u32)?),
         };
 
@@ -171,17 +173,18 @@ impl AudioNode {
 
 impl Node for AudioNode {
     fn render(&mut self, _inputs: &NodeInputs) -> Result<HashMap<String, NodeOutput>, Error> {
-        let db_spectrum: Vec<f32> = {
-            self.spectrum
-                .read()
-                .unwrap()
+        self.spectrum_smoothed = {
+            (&self.spectrum).read().unwrap()
                 .iter()
-                .map(c32::norm)
-                .map(power_to_db)
+                .zip(&self.spectrum_smoothed) // zip in old smoothed spectrum
+                .map(|(x, x_old)| SMOOTHING * x_old + (1.0-SMOOTHING) * c32::norm(x))
                 .collect()
         };
 
-        self.spectrum_texture = Rc::new(Texture1d::new(&*self.facade, db_spectrum)?);
+        self.spectrum_texture = Rc::new(Texture1d::new(
+            &*self.facade,
+            self.spectrum_smoothed.clone(),
+        )?);
 
         let mut outputs = HashMap::new();
         outputs.insert(
