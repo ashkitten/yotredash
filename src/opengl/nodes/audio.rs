@@ -61,9 +61,6 @@ pub struct AudioNode {
     /// The input stream we recieve samples from.
     stream: Stream<NonBlocking, Input<Sample>>,
 
-    /// A precomputed window function
-    window: Vec<Sample>,
-
     /// A ringbuffer of samples, produced by the PortAudio callback and consumed by the
     /// analysis thread.
     sample_buffer: SpscRb<Sample>,
@@ -115,8 +112,6 @@ impl AudioNode {
             stream,
             pa,
             sample_buffer,
-            // Use the window from §1.8.6 of the Web Audio API specification
-            window: blackman(FRAMES_PER_BUFFER as usize, 0.16),
             facade: Rc::clone(facade),
             spectrum: Arc::new(RwLock::new(vec![c32::zero(); SPECTRUM_LENGTH])),
             spectrum_texture: Rc::new(Texture1d::empty(&**facade, SPECTRUM_LENGTH as u32)?),
@@ -134,15 +129,13 @@ impl AudioNode {
         let mut buf: [Sample; FRAMES_PER_BUFFER as usize] =
             [Default::default(); FRAMES_PER_BUFFER as usize];
 
-        // window the buffer
-        for i in 1..FRAMES_PER_BUFFER as usize {
-            buf[i] *= self.window[i];
-        }
-
         let n = FRAMES_PER_BUFFER as usize;
 
         let spectrum_lock = Arc::clone(&self.spectrum);
         thread::spawn(move || {
+            // Use the window from §1.8.6 of the Web Audio API specification
+            let window = blackman(FRAMES_PER_BUFFER as usize, 0.16);
+
             let mut plan: R2CPlan32 = {
                 R2CPlan::new(
                     &[n],
@@ -155,6 +148,11 @@ impl AudioNode {
             loop {
                 if let None = consumer.read_blocking(&mut buf) {
                     warn!("urun in reciever");
+                }
+
+                // window the buffer
+                for i in 1..FRAMES_PER_BUFFER as usize {
+                    buf[i] *= window[i];
                 }
 
                 {
