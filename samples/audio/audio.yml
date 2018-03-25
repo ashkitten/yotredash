@@ -13,12 +13,15 @@ nodes:
       -
         node: info
         output: time
+        name: time
       -
         node: info
         output: resolution
+        name: resolution
       -
         node: audio
         output: spectrum
+        name: spectrum
 
   audio:
     type: audio

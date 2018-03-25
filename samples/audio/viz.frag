@@ -1,8 +1,8 @@
 #version 140
 
-uniform float info_time;
-uniform vec2 info_resolution;
-uniform sampler1D audio_spectrum;
+uniform float time;
+uniform vec2 resolution;
+uniform sampler1D spectrum;
 
 out vec4 color;
 
@@ -44,6 +44,6 @@ vec4 viridis(float x) {
 }
 
 void main() {
-    vec2 uv = gl_FragCoord.xy / info_resolution.xy;
-    color = viridis(texture(audio_spectrum, uv.x).x);
+    vec2 uv = gl_FragCoord.xy / resolution.xy;
+    color = viridis(texture(spectrum, uv.x).x);
 }
