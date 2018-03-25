@@ -8,7 +8,6 @@ use fftw::types::{Flag, c32};
 use glium::backend::Facade;
 use glium::texture::Texture1d;
 use num_traits::Zero;
-use std::default::Default;
 use std::thread;
 use std::rc::Rc;
 use std::sync::{Arc, RwLock};
@@ -19,13 +18,13 @@ use super::{Node, NodeInputs, NodeOutput};
 // Only deal with a single channel, we don't want to mixdown (yet).
 // Also sidesteps phase cancellation.
 const CHANNELS: i32 = 1;
-const FRAMES_PER_BUFFER: u32 = 256; // how many sample frames to pass to each callback
-const SAMPLE_BUFFER_LENGTH: usize = FRAMES_PER_BUFFER as usize * 10;
-const FFT_SIZE: usize = 512;
+const FRAMES_PER_BUFFER: u32 = 1024; // how many sample frames to pass to each callback
+const SAMPLE_BUFFER_LENGTH: usize = FRAMES_PER_BUFFER as usize * 2;
+const FFT_SIZE: usize = 1024;
 const SPECTRUM_LENGTH: usize = FFT_SIZE / 2;
 const SMOOTHING: f32 = 0.8;
-const MIN_DB: f32 = -100.0;
-const MAX_DB: f32 = -30.0;
+const MIN_DB: f32 = -40.0;
+const MAX_DB: f32 = 60.0;
 
 /// The type of individual samples returned by PortAudio.
 type Sample = f32;
@@ -173,18 +172,18 @@ impl AudioNode {
 
 impl Node for AudioNode {
     fn render(&mut self, _inputs: &NodeInputs) -> Result<HashMap<String, NodeOutput>, Error> {
-        self.spectrum_smoothed = {
-            (&self.spectrum).read().unwrap()
-                .iter()
-                .zip(&self.spectrum_smoothed) // zip in old smoothed spectrum
-                .map(|(x, x_old)| SMOOTHING * x_old + (1.0-SMOOTHING) * c32::norm(x))
-                .collect()
-        };
+        self.spectrum_smoothed = (&self.spectrum).read().unwrap()
+            .iter()
+            .zip(&self.spectrum_smoothed) // zip in old smoothed spectrum
+            .map(|(x, x_old)| SMOOTHING * x_old + (1.0 - SMOOTHING) * x.norm())
+            .collect();
 
-        self.spectrum_texture = Rc::new(Texture1d::new(
-            &*self.facade,
-            self.spectrum_smoothed.clone(),
-        )?);
+        let spectrum_db: Vec<f32> = self.spectrum_smoothed
+            .iter()
+            .map(|x| (20.0 * x.log10() - MIN_DB) / (MAX_DB - MIN_DB))
+            .collect();
+
+        self.spectrum_texture = Rc::new(Texture1d::new(&*self.facade, spectrum_db)?);
 
         let mut outputs = HashMap::new();
         outputs.insert(
