@@ -18,13 +18,13 @@ use super::{Node, NodeInputs, NodeOutput};
 // Only deal with a single channel, we don't want to mixdown (yet).
 // Also sidesteps phase cancellation.
 const CHANNELS: i32 = 1;
-const FRAMES_PER_BUFFER: u32 = 1024; // how many sample frames to pass to each callback
-const SAMPLE_BUFFER_LENGTH: usize = FRAMES_PER_BUFFER as usize * 2;
-const FFT_SIZE: usize = 1024;
+const FRAMES_PER_BUFFER: u32 = 2048; // how many sample frames to pass to each callback
+const SAMPLE_BUFFER_LENGTH: usize = FRAMES_PER_BUFFER as usize * 8;
+const FFT_SIZE: usize = 2048;
 const SPECTRUM_LENGTH: usize = FFT_SIZE / 2;
 const SMOOTHING: f32 = 0.8;
-const MIN_DB: f32 = -40.0;
-const MAX_DB: f32 = 60.0;
+const MIN_DB: f32 = -30.0;
+const MAX_DB: f32 = 20.0;
 
 /// The type of individual samples returned by PortAudio.
 type Sample = f32;
@@ -101,7 +101,7 @@ impl AudioNode {
         let callback = move |InputStreamCallbackArgs { buffer, .. }| {
             // TODO: Handle overruns gracefully instead of panic!()ing.
             if let Err(_) = producer.write(&buffer) {
-                warn!("xrun in producer");
+                warn!("orun in producer");
             }
 
             portaudio::Continue
@@ -152,7 +152,7 @@ impl AudioNode {
                 }
 
                 // window the buffer
-                for i in 1..FRAMES_PER_BUFFER as usize {
+                for i in 0..FRAMES_PER_BUFFER as usize {
                     buf[i] *= window[i];
                 }
 
@@ -178,12 +178,12 @@ impl Node for AudioNode {
             .map(|(x, x_old)| SMOOTHING * x_old + (1.0 - SMOOTHING) * x.norm())
             .collect();
 
-        let spectrum_db: Vec<f32> = self.spectrum_smoothed
+        let spectrum_normalized: Vec<f32> = self.spectrum_smoothed
             .iter()
             .map(|x| (20.0 * x.log10() - MIN_DB) / (MAX_DB - MIN_DB))
             .collect();
 
-        self.spectrum_texture = Rc::new(Texture1d::new(&*self.facade, spectrum_db)?);
+        self.spectrum_texture = Rc::new(Texture1d::new(&*self.facade, spectrum_normalized)?);
 
         let mut outputs = HashMap::new();
         outputs.insert(
