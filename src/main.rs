@@ -79,6 +79,8 @@ extern crate image;
 #[cfg(feature = "audio")]
 extern crate fftw;
 #[cfg(feature = "audio")]
+extern crate libc;
+#[cfg(feature = "audio")]
 extern crate num_traits;
 #[cfg(feature = "audio")]
 extern crate portaudio;
@@ -178,7 +180,51 @@ fn setup_watches(
 }
 
 fn run() -> Result<(), Error> {
-    env_logger::try_init()?;
+    #[cfg(feature = "audio")]
+    {
+        use libc::c_char;
+        use std::ffi::CStr;
+
+        extern {
+            fn set_message_handler(log_cb: extern fn(u8, *const c_char, *const c_char));
+        }
+
+        extern fn log_cb(level: u8, lib: *const c_char, msg: *const c_char) {
+            let lib = unsafe { CStr::from_ptr(lib) }.to_string_lossy();
+            let msg = unsafe { CStr::from_ptr(msg) }.to_string_lossy();
+            match level {
+                0 => trace!(target: &lib, "{}", msg),
+                1 => debug!(target: &lib, "{}", msg),
+                2 => info!(target: &lib, "{}", msg),
+                3 => warn!(target: &lib, "{}", msg),
+                4 => error!(target: &lib, "{}", msg),
+                _ => panic!("Unsupported log level"),
+            }
+        }
+
+        unsafe {
+            set_message_handler(log_cb);
+        }
+    }
+
+    env_logger::Builder::from_default_env()
+        .format(|buf, record| {
+            use std::io::Write;
+            use log::Level;
+            use env_logger::Color;
+
+            let level = record.level();
+            let mut level_style = buf.style();
+            match level {
+                Level::Trace => level_style.set_color(Color::White),
+                Level::Debug => level_style.set_color(Color::Blue),
+                Level::Info => level_style.set_color(Color::Green),
+                Level::Warn => level_style.set_color(Color::Yellow),
+                Level::Error => level_style.set_color(Color::Red).set_bold(true),
+            };
+            writeln!(buf, "{:>5} {}: {}", level_style.value(level), record.target(), record.args())
+        })
+        .init();
 
     // For catching and displaying errors
     let mut error = None;

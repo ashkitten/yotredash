@@ -5,7 +5,7 @@ authors = ["Ash Levy <ashy.of.ren@gmail.com>"]
 
 [dependencies]
 clap = "2.29.0"
-env_logger = "0.5.3"
+env_logger = "0.5.6"
 failure = "0.1.1"
 font-loader = "0.5.0"
 freetype-rs = "0.16.0"
@@ -30,10 +30,11 @@ gif-dispose = { version = "2.1.0", optional = true }
 image = { version = "0.18.0", optional = true }
 
 # Needed by audio feature
+fftw = { version = "0.4.0", optional = true }
+libc = { version = "0.2.36", optional = true }
+num-traits = { version = "0.2.0", optional = true }
 portaudio = { version = "0.7.0", optional = true }
 rb = { version = "0.3.1", optional = true }
-fftw = { version = "0.4.0", optional = true }
-num-traits = { version = "0.2.0", optional = true }
 
 [target.'cfg(unix)'.dependencies]
 signal = "0.4.0"
@@ -41,11 +42,14 @@ signal = "0.4.0"
 [dev-dependencies]
 glob = "0.2.11"
 
+[build-dependencies]
+gcc = "0.3.54"
+
 [features]
 default = ["opengl", "image-src", "audio"]
 opengl = ["glium"]
 image-src = ["gif", "gif-dispose", "image"]
-audio = ["opengl", "portaudio", "rb", "fftw", "num-traits"]
+audio = ["fftw", "libc", "num-traits", "portaudio", "rb"]
 
 [replace]
 "servo-fontconfig-sys:4.0.4" = { git = "https://github.com/ashkitten/libfontconfig" }
