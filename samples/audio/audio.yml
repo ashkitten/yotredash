@@ -22,6 +22,10 @@ nodes:
         node: audio
         output: spectrum
         name: spectrum
+      -
+        node: audio
+        output: waveform
+        name: waveform
 
   audio:
     type: audio

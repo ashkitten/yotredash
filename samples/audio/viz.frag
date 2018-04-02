@@ -3,6 +3,7 @@
 uniform float time;
 uniform vec2 resolution;
 uniform sampler1D spectrum;
+uniform sampler1D waveform;
 
 out vec4 color;
 
@@ -46,4 +47,5 @@ vec4 viridis(float x) {
 void main() {
     vec2 uv = gl_FragCoord.xy / resolution.xy;
     color = viridis(texture(spectrum, uv.x).x);
+    color += 1.0 - smoothstep(0.0, 0.01, abs(texture(waveform, uv.x).x - uv.y));
 }
