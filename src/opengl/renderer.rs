@@ -22,7 +22,7 @@ use super::nodes::*;
 use super::text::TextRenderer;
 use {DebugRenderer, Renderer};
 
-type NodeMap = HashMap<String, Box<Node>>;
+type NodeMap = HashMap<String, NodeType>;
 type NodeConfigMap = HashMap<String, NodeConfig>;
 
 /// An implementation of a `Renderer` which uses OpenGL
@@ -61,12 +61,12 @@ fn init_nodes(
 
                 nodes.insert(
                     name.to_string(),
-                    Box::new(InfoNode::new(receiver, [width as f32, height as f32])),
+                    NodeType::Info(InfoNode::new(receiver, [width as f32, height as f32])),
                 );
             }
 
             NodeConfig::Output(ref output_config) => {
-                nodes.insert(name.to_string(), Box::new(OutputNode::new(facade)?));
+                nodes.insert(name.to_string(), NodeType::Output(OutputNode::new(facade)?));
 
                 dep_graph.register_dependency(name, &output_config.texture.node);
 
@@ -80,7 +80,7 @@ fn init_nodes(
 
                 nodes.insert(
                     name.to_string(),
-                    Box::new(ImageNode::new(facade, image_config)?),
+                    NodeType::Image(ImageNode::new(facade, image_config)?),
                 );
             }
 
@@ -91,12 +91,9 @@ fn init_nodes(
                     shader_config.vertex = config.path_to(&shader_config.vertex);
                     shader_config.fragment = config.path_to(&shader_config.fragment);
 
-                    let (sender, receiver) = mpsc::channel();
-                    senders.push(sender);
-
                     nodes.insert(
                         name.to_string(),
-                        Box::new(ShaderNode::new(facade, shader_config, receiver)?),
+                        NodeType::Shader(ShaderNode::new(facade, shader_config)?),
                     );
                 }
 
@@ -116,7 +113,7 @@ fn init_nodes(
 
                 nodes.insert(
                     name.to_string(),
-                    Box::new(BlendNode::new(facade, blend_config, receiver)?),
+                    NodeType::Blend(BlendNode::new(facade, blend_config, receiver)?),
                 );
 
                 dep_graph.register_dependencies(
@@ -136,7 +133,7 @@ fn init_nodes(
 
                 nodes.insert(
                     name.to_string(),
-                    Box::new(TextNode::new(facade, text_config.clone(), receiver)?),
+                    NodeType::Text(TextNode::new(facade, text_config.clone(), receiver)?),
                 );
             }
 
@@ -146,12 +143,19 @@ fn init_nodes(
 
                 nodes.insert(
                     name.to_string(),
-                    Box::new(FpsNode::new(facade, fps_config.clone(), receiver)?),
+                    NodeType::Fps(FpsNode::new(facade, fps_config.clone(), receiver)?),
                 );
             }
 
             NodeConfig::Audio => {
-                nodes.insert(name.to_string(), Box::new(AudioNode::new(facade)?));
+                nodes.insert(name.to_string(), NodeType::Audio(AudioNode::new(facade)?));
+            }
+
+            NodeConfig::Feedback(ref feedback_config) => {
+                nodes.insert(
+                    name.to_string(),
+                    NodeType::Feedback(FeedbackNode::new(facade, feedback_config.clone())?),
+                );
             }
         }
     }
@@ -287,6 +291,8 @@ fn map_node_io(
         }
 
         NodeConfig::Audio => NodeInputs::Audio,
+
+        NodeConfig::Feedback(_) => NodeInputs::Feedback,
     })
 }
 
@@ -364,6 +370,8 @@ impl Renderer for OpenGLRenderer {
     fn render(&mut self) -> Result<(), Error> {
         let mut outputs: HashMap<String, HashMap<String, NodeOutput>> = HashMap::new();
 
+        let mut feedback_nodes = Vec::new();
+
         for name in &self.order {
             ensure!(
                 self.node_configs.contains_key(name),
@@ -378,6 +386,33 @@ impl Renderer for OpenGLRenderer {
                 name.to_string(),
                 self.nodes.get_mut(name).unwrap().render(&inputs)?,
             );
+
+            if let NodeType::Feedback(_) = self.nodes[name] {
+                feedback_nodes.push(name);
+            }
+        }
+
+        for name in feedback_nodes {
+            if let &mut NodeType::Feedback(ref mut node) = self.nodes.get_mut(name).unwrap() {
+                let mut inputs = HashMap::new();
+                if let &NodeConfig::Feedback(ref feedback_config) = &self.node_configs[name] {
+                    for connection in &feedback_config.inputs {
+                        inputs.insert(connection.clone(), outputs
+                            .get(&connection.node)
+                            .ok_or_else(|| format_err!("No such node: `{}`", connection.node))?
+                            .get(&connection.output)
+                            .ok_or_else(|| {
+                                format_err!(
+                                    "No such output on node `{}`: `{}`",
+                                    connection.node,
+                                    connection.output
+                                )
+                            })?.clone()
+                        );
+                    }
+                }
+                node.update(&inputs);
+            }
         }
 
         Ok(())

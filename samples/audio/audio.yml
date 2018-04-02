@@ -12,8 +12,31 @@ nodes:
     uniforms:
       -
         node: info
-        output: time
-        name: time
+        output: resolution
+        name: resolution
+      -
+        node: audio
+        output: waveform
+        name: waveform
+      -
+        node: spectrogram
+        output: texture
+        name: spectrogram
+
+  feedback:
+    type: feedback
+    inputs:
+      -
+        node: spectrogram
+        output: texture
+        name: last_frame
+        type: texture2d
+
+  spectrogram:
+    type: shader
+    vertex: ../default.vert
+    fragment: spectrogram.frag
+    uniforms:
       -
         node: info
         output: resolution
@@ -23,9 +46,9 @@ nodes:
         output: spectrum
         name: spectrum
       -
-        node: audio
-        output: waveform
-        name: waveform
+        node: feedback
+        output: last_frame
+        name: last_frame
 
   audio:
     type: audio

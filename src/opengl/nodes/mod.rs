@@ -8,6 +8,7 @@ pub mod image;
 pub mod audio;
 
 pub mod blend;
+pub mod feedback;
 pub mod fps;
 pub mod info;
 pub mod output;
@@ -27,6 +28,7 @@ pub use self::audio::AudioNode;
 
 use config::nodes::NodeConnection;
 pub use self::blend::BlendNode;
+pub use self::feedback::FeedbackNode;
 pub use self::fps::FpsNode;
 pub use self::output::OutputNode;
 pub use self::shader::ShaderNode;
@@ -79,6 +81,9 @@ pub enum NodeInputs {
 
     /// Inputs for audio node
     Audio,
+
+    /// Inputs for feedback node (unused because we have to special-case it somewhere else)
+    Feedback,
 }
 
 /// Enum of possible output types for nodes
@@ -98,6 +103,45 @@ pub enum NodeOutput {
     Texture2d(Rc<Texture2d>),
     /// A 1D texture
     Texture1d(Rc<Texture1d>),
+}
+
+/// An enum of all node types
+pub enum NodeType {
+    /// Info node
+    Info(InfoNode),
+    /// Output node
+    Output(OutputNode),
+    /// Image node
+    Image(ImageNode),
+    /// Shader node
+    Shader(ShaderNode),
+    /// Blend node
+    Blend(BlendNode),
+    /// Text node
+    Text(TextNode),
+    /// Fps node
+    Fps(FpsNode),
+    /// Audio node
+    Audio(AudioNode),
+    /// Feedback node
+    Feedback(FeedbackNode),
+}
+
+impl Node for NodeType {
+    fn render(&mut self, inputs: &NodeInputs) -> Result<HashMap<String, NodeOutput>, Error> {
+        use self::NodeType::*;
+        match self {
+            &mut Info(ref mut node) => node.render(inputs),
+            &mut Output(ref mut node) => node.render(inputs),
+            &mut Image(ref mut node) => node.render(inputs),
+            &mut Shader(ref mut node) => node.render(inputs),
+            &mut Blend(ref mut node) => node.render(inputs),
+            &mut Text(ref mut node) => node.render(inputs),
+            &mut Fps(ref mut node) => node.render(inputs),
+            &mut Audio(ref mut node) => node.render(inputs),
+            &mut Feedback(ref mut node) => node.render(inputs),
+        }
+    }
 }
 
 /// A `Node` is something that takes input and returns an output

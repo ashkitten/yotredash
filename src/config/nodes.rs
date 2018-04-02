@@ -3,6 +3,35 @@
 use std::default::Default;
 use std::path::PathBuf;
 
+/// Input types for deserialization
+#[derive(Debug, Deserialize, Clone, PartialEq, Eq, Hash)]
+#[serde(rename_all = "snake_case")]
+pub enum InputType {
+    /// Unspecified
+    #[serde(skip_deserializing)]
+    Any,
+    /// Color input
+    Color,
+    /// Float input
+    Float,
+    /// Float vec2 input
+    Float2,
+    /// Float vec4 input
+    Float4,
+    /// Text input
+    Text,
+    /// Texture2d input
+    Texture2d,
+    /// Texture1d input
+    Texture1d,
+}
+
+impl Default for InputType {
+    fn default() -> Self {
+        InputType::Any
+    }
+}
+
 /// A connection to a `Node` and one of its outputs
 #[derive(Debug, Deserialize, Clone, PartialEq, Eq, Hash)]
 pub struct NodeConnection {
@@ -13,6 +42,9 @@ pub struct NodeConnection {
     /// The name of the connection
     #[serde(default)]
     pub name: String,
+    /// The type of output
+    #[serde(rename = "type", default)]
+    pub type_: InputType,
 }
 
 /// Represents a parameter to a node which can either be a static value
@@ -135,6 +167,13 @@ pub struct FpsConfig {
     pub interval: f32,
 }
 
+/// Config for FeedbackNode
+#[derive(Debug, Deserialize, Clone)]
+pub struct FeedbackConfig {
+    /// Input connections
+    pub inputs: Vec<NodeConnection>,
+}
+
 /// Blend node operations
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "snake_case")]
@@ -171,6 +210,8 @@ pub enum NodeConfig {
     Fps(FpsConfig),
     /// Configuration for the audio node
     Audio,
+    /// Configuration for the feedback node
+    Feedback(FeedbackConfig),
 }
 
 fn text_default_color() -> NodeParameter<[f32; 4]> {

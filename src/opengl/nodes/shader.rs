@@ -13,10 +13,8 @@ use std::fs::File;
 use std::io::BufReader;
 use std::io::prelude::*;
 use std::rc::Rc;
-use std::sync::mpsc::Receiver;
 
 use config::nodes::ShaderConfig;
-use event::RendererEvent;
 use opengl::UniformsStorageVec;
 use super::{Node, NodeInputs, NodeOutput};
 
@@ -42,25 +40,17 @@ const VERTICES: [Vertex; 6] = [
 pub struct ShaderNode {
     /// The Facade it uses to work with the OpenGL context
     facade: Rc<Facade>,
-    /// The inner texture which it renders to
-    texture: Rc<Texture2d>,
     /// A shader program which it uses for rendering
     program: Program,
     /// Vertex buffer
     vertex_buffer: VertexBuffer<Vertex>,
     /// Index buffer
     index_buffer: NoIndices,
-    /// Receiver for events
-    receiver: Receiver<RendererEvent>,
 }
 
 impl ShaderNode {
     /// Create a new instance
-    pub fn new(
-        facade: &Rc<Facade>,
-        config: ShaderConfig,
-        receiver: Receiver<RendererEvent>,
-    ) -> Result<Self, Error> {
+    pub fn new(facade: &Rc<Facade>, config: ShaderConfig) -> Result<Self, Error> {
         let file = File::open(config.vertex).context("Could not open vertex shader file")?;
         let mut buf_reader = BufReader::new(file);
         let mut vertex_source = String::new();
@@ -88,31 +78,17 @@ impl ShaderNode {
 
         let program = Program::new(&**facade, input)?;
 
-        let (width, height) = facade.get_context().get_framebuffer_dimensions();
-        let texture = Rc::new(Texture2d::empty(&**facade, width, height)?);
-
         Ok(Self {
             facade: Rc::clone(facade),
-            texture,
             program,
             vertex_buffer: VertexBuffer::new(&**facade, &VERTICES)?,
             index_buffer: NoIndices(PrimitiveType::TrianglesList),
-            receiver,
         })
     }
 }
 
 impl Node for ShaderNode {
     fn render(&mut self, inputs: &NodeInputs) -> Result<HashMap<String, NodeOutput>, Error> {
-        if let Ok(event) = self.receiver.try_recv() {
-            match event {
-                RendererEvent::Resize(width, height) => {
-                    self.texture = Rc::new(Texture2d::empty(&*self.facade, width, height)?);
-                }
-                _ => (),
-            }
-        }
-
         if let NodeInputs::Shader { ref uniforms } = *inputs {
             let uniforms = {
                 let mut storage = UniformsStorageVec::new();
@@ -136,7 +112,10 @@ impl Node for ShaderNode {
                 storage
             };
 
-            let mut surface = self.texture.as_surface();
+            let (width, height) = self.facade.get_context().get_framebuffer_dimensions();
+            let texture = Rc::new(Texture2d::empty(&*self.facade, width, height)?);
+
+            let mut surface = texture.as_surface();
             surface.clear_color(0.0, 0.0, 0.0, 1.0);
             surface.draw(
                 &self.vertex_buffer,
@@ -149,7 +128,7 @@ impl Node for ShaderNode {
             let mut outputs = HashMap::new();
             outputs.insert(
                 "texture".to_string(),
-                NodeOutput::Texture2d(Rc::clone(&self.texture)),
+                NodeOutput::Texture2d(Rc::clone(&texture)),
             );
             Ok(outputs)
         } else {
