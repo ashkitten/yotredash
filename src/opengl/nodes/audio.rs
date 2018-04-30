@@ -143,9 +143,7 @@ impl AudioNode {
                 { R2CPlan::new(&[n], &mut buf, &mut spectrum, Flag::Estimate).unwrap() };
 
             loop {
-                if let None = consumer.read_blocking(&mut buf) {
-                    warn!("urun in reciever");
-                }
+                consumer.read_blocking(&mut buf).unwrap();
 
                 (*waveform_lock.write().unwrap()) = buf.iter()
                     .map(|x| x * WAVEFORM_SCALE / 2.0 + 0.5)
