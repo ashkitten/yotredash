@@ -5,4 +5,5 @@ fn main() {
         .file("library_messages.c")
         .compile("library_messages");
     println!("cargo:rustc-link-lib=jack");
+    println!("cargo:rustc-link-lib=asound");
 }
