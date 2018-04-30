@@ -185,11 +185,11 @@ fn run() -> Result<(), Error> {
         use libc::c_char;
         use std::ffi::CStr;
 
-        extern {
-            fn set_message_handler(log_cb: extern fn(u8, *const c_char, *const c_char));
+        extern "C" {
+            fn set_message_handler(log_cb: extern "C" fn(u8, *const c_char, *const c_char));
         }
 
-        extern fn log_cb(level: u8, lib: *const c_char, msg: *const c_char) {
+        extern "C" fn log_cb(level: u8, lib: *const c_char, msg: *const c_char) {
             let lib = unsafe { CStr::from_ptr(lib) }.to_string_lossy();
             let msg = unsafe { CStr::from_ptr(msg) }.to_string_lossy();
             match level {
@@ -222,7 +222,13 @@ fn run() -> Result<(), Error> {
                 Level::Warn => level_style.set_color(Color::Yellow),
                 Level::Error => level_style.set_color(Color::Red).set_bold(true),
             };
-            writeln!(buf, "{:>5} {}: {}", level_style.value(level), record.target(), record.args())
+            writeln!(
+                buf,
+                "{:>5} {}: {}",
+                level_style.value(level),
+                record.target(),
+                record.args()
+            )
         })
         .init();
 

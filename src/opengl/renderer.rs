@@ -397,17 +397,20 @@ impl Renderer for OpenGLRenderer {
                 let mut inputs = HashMap::new();
                 if let &NodeConfig::Feedback(ref feedback_config) = &self.node_configs[name] {
                     for connection in &feedback_config.inputs {
-                        inputs.insert(connection.clone(), outputs
-                            .get(&connection.node)
-                            .ok_or_else(|| format_err!("No such node: `{}`", connection.node))?
-                            .get(&connection.output)
-                            .ok_or_else(|| {
-                                format_err!(
-                                    "No such output on node `{}`: `{}`",
-                                    connection.node,
-                                    connection.output
-                                )
-                            })?.clone()
+                        inputs.insert(
+                            connection.clone(),
+                            outputs
+                                .get(&connection.node)
+                                .ok_or_else(|| format_err!("No such node: `{}`", connection.node))?
+                                .get(&connection.output)
+                                .ok_or_else(|| {
+                                    format_err!(
+                                        "No such output on node `{}`: `{}`",
+                                        connection.node,
+                                        connection.output
+                                    )
+                                })?
+                                .clone(),
                         );
                     }
                 }
