@@ -188,7 +188,6 @@ float softshadow(inout Ray ray, float softness) {
         if(mapInfo.hit < EPSILON) return 0.0;
 
         #ifdef SOFT_SHADOWS
-            //TODO: fix soft shadows
             penumbra = min(penumbra, softness * mapInfo.hit / distance(ray.position, ray.target));
         #endif
 
@@ -231,7 +230,7 @@ void main() {
 
     // Background color
     float reflectivity = 1.0;
-    for(int i = 0; i < MAX_REFLECTIONS + 1; i++) {
+    for(int i = 0; i <= MAX_REFLECTIONS; i++) {
         // Trace the ray's path
         MapInfo mapInfo = trace(cameraRay);
 
@@ -287,9 +286,9 @@ void main() {
         }
     }
 
-    color = vec4(reflections[MAX_REFLECTIONS - 1].rgb, 1.0);
+    color = vec4(reflections[MAX_REFLECTIONS].rgb, 1.0);
 
-    for(int i = MAX_REFLECTIONS - 2; i >= 0; i--) {
+    for(int i = MAX_REFLECTIONS - 1; i >= 0; i--) {
         color = mix(vec4(reflections[i].rgb, 1.0), color, reflections[i].a);
     }
 
