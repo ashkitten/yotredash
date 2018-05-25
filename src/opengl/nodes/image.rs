@@ -15,8 +15,8 @@ use std::io::{BufReader, SeekFrom};
 use std::rc::Rc;
 use time::{self, Duration, Tm};
 
-use config::nodes::ImageConfig;
 use super::{Node, NodeInputs, NodeOutput};
+use config::nodes::ImageConfig;
 
 /// A `Node` that reads an image from file and returns frames from that image
 pub struct ImageNode {

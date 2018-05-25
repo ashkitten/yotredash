@@ -209,9 +209,9 @@ fn run() -> Result<(), Error> {
 
     env_logger::Builder::from_default_env()
         .format(|buf, record| {
-            use std::io::Write;
-            use log::Level;
             use env_logger::Color;
+            use log::Level;
+            use std::io::Write;
 
             let level = record.level();
             let mut level_style = buf.style();

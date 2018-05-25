@@ -7,8 +7,8 @@ use glium::texture::{Texture1d, Texture2d};
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use config::nodes::{FeedbackConfig, InputType, NodeConnection};
 use super::{Node, NodeInputs, NodeOutput};
+use config::nodes::{FeedbackConfig, InputType, NodeConnection};
 
 /// A `Node` that reads an image from file and returns frames from that image
 pub struct FeedbackNode {

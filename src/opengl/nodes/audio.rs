@@ -1,5 +1,6 @@
 //! The audio node recieves audio input from PortAudio and analyzes it, outputting
 //! the power spectrum of the audio as a Texture1d.
+use super::{Node, NodeInputs, NodeOutput};
 use failure::Error;
 use fftw::plan::{R2CPlan, R2CPlan32};
 use fftw::types::{Flag, c32};
@@ -13,7 +14,6 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::{Arc, RwLock};
 use std::thread;
-use super::{Node, NodeInputs, NodeOutput};
 
 // Only deal with a single channel, we don't want to mixdown (yet).
 // Also sidesteps phase cancellation.

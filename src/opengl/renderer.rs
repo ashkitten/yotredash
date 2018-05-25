@@ -15,11 +15,11 @@ use std::rc::Rc;
 use std::sync::mpsc::{self, Receiver, Sender};
 use winit::EventsLoop;
 
+use super::nodes::*;
+use super::text::TextRenderer;
 use config::Config;
 use config::nodes::{NodeConfig, NodeConnection, NodeParameter};
 use event::RendererEvent;
-use super::nodes::*;
-use super::text::TextRenderer;
 use {DebugRenderer, Renderer};
 
 type NodeMap = HashMap<String, NodeType>;

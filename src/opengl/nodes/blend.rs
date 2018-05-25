@@ -10,10 +10,10 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::mpsc::Receiver;
 
+use super::{Node, NodeInputs, NodeOutput};
 use config::nodes::{BlendConfig, BlendOp};
 use event::RendererEvent;
 use opengl::UniformsStorageVec;
-use super::{Node, NodeInputs, NodeOutput};
 
 /// Implementation of the vertex attributes for the vertex buffer
 #[derive(Copy, Clone)]

@@ -14,9 +14,9 @@ use std::io::BufReader;
 use std::io::prelude::*;
 use std::rc::Rc;
 
+use super::{Node, NodeInputs, NodeOutput};
 use config::nodes::ShaderConfig;
 use opengl::UniformsStorageVec;
-use super::{Node, NodeInputs, NodeOutput};
 
 /// Implementation of the vertex attributes for the vertex buffer
 #[derive(Copy, Clone)]

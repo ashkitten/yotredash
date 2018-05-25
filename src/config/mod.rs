@@ -4,17 +4,17 @@
 pub mod nodes;
 
 use clap::{App, Arg, ArgMatches};
+use failure::Error;
+use failure::ResultExt;
 use nfd::{self, Response};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::BufReader;
 use std::io::prelude::*;
 use std::path::{Path, PathBuf};
-use failure::Error;
-use failure::ResultExt;
 
-use platform::config::PlatformSpecificConfig;
 use self::nodes::NodeConfig;
+use platform::config::PlatformSpecificConfig;
 
 /// The main configuration contains all the information necessary to build a renderer
 #[derive(Debug, Deserialize, Clone)]

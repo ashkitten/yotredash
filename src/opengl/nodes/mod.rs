@@ -26,14 +26,14 @@ pub use self::image::ImageNode;
 #[cfg(feature = "audio")]
 pub use self::audio::AudioNode;
 
-use config::nodes::NodeConnection;
 pub use self::blend::BlendNode;
 pub use self::feedback::FeedbackNode;
 pub use self::fps::FpsNode;
+pub use self::info::InfoNode;
 pub use self::output::OutputNode;
 pub use self::shader::ShaderNode;
 pub use self::text::TextNode;
-pub use self::info::InfoNode;
+use config::nodes::NodeConnection;
 
 /// Inputs for each node
 pub enum NodeInputs {

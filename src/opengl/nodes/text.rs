@@ -8,10 +8,10 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::mpsc::Receiver;
 
+use super::{Node, NodeInputs, NodeOutput};
 use config::nodes::TextConfig;
 use event::RendererEvent;
 use opengl::text::TextRenderer;
-use super::{Node, NodeInputs, NodeOutput};
 
 /// A node that draws text
 pub struct TextNode {

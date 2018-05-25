@@ -1,16 +1,16 @@
 //! A `Node` that takes a texture and draws it to the screen
 
 use failure::Error;
+use glium::Surface;
 use glium::backend::Facade;
+use glium::index::{NoIndices, PrimitiveType};
 use glium::program::{Program, ProgramCreationInput};
 use glium::vertex::VertexBuffer;
-use glium::index::{NoIndices, PrimitiveType};
-use glium::Surface;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use opengl::UniformsStorageVec;
 use super::{Node, NodeInputs, NodeOutput};
+use opengl::UniformsStorageVec;
 
 /// Implementation of the vertex attributes for the vertex buffer
 #[derive(Copy, Clone)]

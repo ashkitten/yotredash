@@ -6,9 +6,9 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::mpsc::Receiver;
 
+use super::{Node, NodeInputs, NodeOutput, TextNode};
 use config::nodes::{FpsConfig, NodeParameter, TextConfig};
 use event::RendererEvent;
-use super::{Node, NodeInputs, NodeOutput, TextNode};
 use util::FpsCounter;
 
 /// A node that draws text

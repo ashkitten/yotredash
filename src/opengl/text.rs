@@ -1,19 +1,19 @@
 //! Contains a GPU cache implementation and methods for rendering strings on the screen using
 //! OpenGL
 
-use glium::{Blend, DrawParameters, Program, Surface, Texture2d, VertexBuffer};
+use failure::Error;
 use glium::backend::Facade;
 use glium::index::{NoIndices, PrimitiveType};
 use glium::program::ProgramCreationInput;
 use glium::texture::{MipmapsOption, PixelValue, RawImage2d, Texture2dDataSource,
                      UncompressedFloatFormat};
 use glium::uniforms::MagnifySamplerFilter;
+use glium::{Blend, DrawParameters, Program, Surface, Texture2d, VertexBuffer};
 use rect_packer::{self, DensePacker};
 use std::borrow::Cow;
 use std::cmp::max;
 use std::collections::HashMap;
 use std::rc::Rc;
-use failure::Error;
 
 use super::UniformsStorageVec;
 use font::{FreeTypeRasterizer, GlyphLoader, RenderedGlyph};

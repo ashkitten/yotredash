@@ -1,9 +1,9 @@
 //! Provides methods and structs for loading fonts.
 
+use failure::Error;
 use freetype::Library;
 use freetype::face::Face;
 use owning_ref::OwningHandle;
-use failure::Error;
 
 /// Convert from pixels to 26.6 fractional points
 #[inline]

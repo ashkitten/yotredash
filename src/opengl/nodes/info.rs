@@ -5,8 +5,8 @@ use std::collections::HashMap;
 use std::sync::mpsc::Receiver;
 use time::{self, Tm};
 
-use event::{PointerEvent, RendererEvent};
 use super::{Node, NodeInputs, NodeOutput};
+use event::{PointerEvent, RendererEvent};
 
 /// A `Node` that produces values based on information about the renderer and window
 pub struct InfoNode {
