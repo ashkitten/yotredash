@@ -58,7 +58,6 @@ extern crate font_loader;
 extern crate freetype;
 extern crate nfd;
 extern crate notify;
-extern crate owning_ref;
 extern crate rect_packer;
 extern crate serde_yaml;
 extern crate solvent;
@@ -332,11 +331,12 @@ fn run() -> Result<(), Error> {
                 use winit::WindowEvent;
 
                 match event {
-                    WindowEvent::Resized(width, height) => {
-                        events.push(Event::Resize(width, height))
+                    WindowEvent::Resized(size) => {
+                        let size: (u32, u32) = size.into();
+                        events.push(Event::Resize(size.0, size.1))
                     }
 
-                    WindowEvent::Closed => events.push(Event::Close),
+                    WindowEvent::CloseRequested => events.push(Event::Close),
 
                     WindowEvent::KeyboardInput {
                         input:
@@ -356,8 +356,8 @@ fn run() -> Result<(), Error> {
 
                     WindowEvent::CursorMoved { position, .. } => {
                         events.push(Event::Pointer(PointerEvent::Move(
-                            position.0 as f32,
-                            position.1 as f32,
+                            position.x as f32,
+                            position.y as f32,
                         )));
                     }
 

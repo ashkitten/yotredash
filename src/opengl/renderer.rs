@@ -465,7 +465,7 @@ impl DebugRenderer for OpenGLDebugRenderer {
 pub fn new_facade(config: &Config, events_loop: &EventsLoop) -> Result<Rc<Facade>, Error> {
     if !config.headless {
         let window_builder = WindowBuilder::new()
-            .with_dimensions(config.width, config.height)
+            .with_dimensions((config.width, config.height).into())
             .with_title("yotredash")
             .with_maximized(config.maximize)
             .with_fullscreen(if config.fullscreen {

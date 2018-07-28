@@ -3,7 +3,6 @@
 use failure::Error;
 use freetype::Library;
 use freetype::face::Face;
-use owning_ref::OwningHandle;
 
 /// Convert from pixels to 26.6 fractional points
 #[inline]
@@ -49,7 +48,7 @@ pub trait GlyphLoader {
 
 /// A `GlyphLoader` implementation that uses the `FreeType` library to load and render glyphs
 pub struct FreeTypeRasterizer {
-    face: OwningHandle<Vec<u8>, Box<Face<'static>>>,
+    face: Face,
 }
 
 impl GlyphLoader for FreeTypeRasterizer {
@@ -60,15 +59,13 @@ impl GlyphLoader for FreeTypeRasterizer {
             .family(font)
             .build();
         if let Some((font_buf, _)) = ::font_loader::system_fonts::get(&property) {
-            let face = OwningHandle::try_new(font_buf, |fb| unsafe {
-                library.new_memory_face(&*fb, 0).map(Box::new)
-            })?;
+            let face = library.new_memory_face(font_buf, 0)?;
 
             if let (Some(name), Some(style)) = (face.family_name(), face.style_name()) {
                 debug!("Using font: {}, style: {}", name, style);
             }
 
-            (*face).set_char_size(to_freetype_26_6(size), 0, 0, 0)?;
+            face.set_char_size(to_freetype_26_6(size), 0, 0, 0)?;
 
             Ok(Self { face: face })
         } else {
