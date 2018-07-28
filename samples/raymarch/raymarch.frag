@@ -164,11 +164,11 @@ vec3 calcNormal(vec3 position) {
 }
 
 MapInfo trace(inout Ray ray) {
-    while(distance(ray.position, ray.origin) < MAX_DIST) {
+    while (distance(ray.position, ray.origin) < MAX_DIST) {
         // Get info about our position in relation to the map
         MapInfo mapInfo = map(ray.position);
         // If we hit something, return the info about our position on the map
-        if(mapInfo.hit < EPSILON) return mapInfo;
+        if (mapInfo.hit < EPSILON) return mapInfo;
 
         // Step forward along the ray, as far as our distance to the map
         ray.position += ray.direction * mapInfo.hit;
@@ -181,17 +181,17 @@ float softshadow(inout Ray ray, float softness) {
     // While we're not past the target, do the stuff
     // Subtract EPSILON * 2 so we don't get close enough to the original object to trigger the shadow
     float penumbra = 1.0;
-    while(distance(ray.origin, ray.position) < distance(ray.origin, ray.target) - EPSILON * 2.0) {
+    while (distance(ray.origin, ray.position) < distance(ray.origin, ray.target) - EPSILON * 2.0) {
         // Get info about our position in relation to the map
         MapInfo mapInfo = map(ray.position);
         // If we hit something, make the color black (shadow)
-        if(mapInfo.hit < EPSILON) return 0.0;
+        if (mapInfo.hit < EPSILON) return 0.0;
 
         #ifdef SOFT_SHADOWS
             penumbra = min(penumbra, softness * mapInfo.hit / distance(ray.position, ray.target));
         #endif
 
-        if(mapInfo.hit > SHADOW_THRESHOLD) ray.position += ray.direction * mapInfo.hit;
+        if (mapInfo.hit > SHADOW_THRESHOLD) ray.position += ray.direction * mapInfo.hit;
         // Move a bit closer to the target
         else ray.position += ray.direction * SHADOW_THRESHOLD;
     }
@@ -228,14 +228,19 @@ void main() {
 
     vec4 reflections[MAX_REFLECTIONS + 1];
 
+    // Initialize the fucking array to zero because AAAAAAAAAAAAAAAAAAAAAAAAAAA
+    for (int i = 0; i <= MAX_REFLECTIONS; i++) {
+        reflections[i] = vec4(0.0);
+    }
+
     // Background color
     float reflectivity = 1.0;
-    for(int i = 0; i <= MAX_REFLECTIONS; i++) {
+    for (int i = 0; i <= MAX_REFLECTIONS; i++) {
         // Trace the ray's path
         MapInfo mapInfo = trace(cameraRay);
 
         // If the camera ray hit something
-        if(mapInfo.hit < EPSILON) {
+        if (mapInfo.hit < EPSILON) {
             //// Lighting
 
             // Setup the light source
@@ -254,10 +259,9 @@ void main() {
             // Calculate the normal of the position on the map
             vec3 normal = calcNormal(cameraRay.position);
             // Light fades by the inverse square of distance
-            float distanceFade =  LIGHT_INTENSITY / pow(distance(lightRay.origin, lightRay.target), 2.0);
+            float distanceFade = LIGHT_INTENSITY / pow(distance(lightRay.origin, lightRay.target), 2.0);
             // Multiply diffuse by shadow and distance fade
-            float diffuse = max(0.0, dot(-lightRay.direction, normal))
-                * mapInfo.material.diffuse * shadow * distanceFade;
+            float diffuse = max(0.0, dot(-lightRay.direction, normal)) * mapInfo.material.diffuse * shadow * distanceFade;
             // Specular lighting factor
             float specular = pow(diffuse, mapInfo.material.specular);
 
@@ -288,10 +292,10 @@ void main() {
 
     color = vec4(reflections[MAX_REFLECTIONS].rgb, 1.0);
 
-    for(int i = MAX_REFLECTIONS - 1; i >= 0; i--) {
-        color = mix(vec4(reflections[i].rgb, 1.0), color, reflections[i].a);
+    for (int i = MAX_REFLECTIONS - 1; i >= 0; i--) {
+        color = mix(reflections[i], color, reflections[i].a);
     }
 
     // Gamma correction
-    color = vec4(pow(clamp(color.xyz, 0.0, 1.0), vec3(0.4545)), 1.0);
+    color = vec4(pow(clamp(color.rgb, 0.0, 1.0), vec3(0.4545)), 1.0);
 }
