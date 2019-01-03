@@ -1,24 +1,19 @@
 //! Provides methods and structs for loading fonts.
 
+use euclid::{Point2D, Size2D};
 use failure::Error;
-use freetype::Library;
-use freetype::face::Face;
-
-/// Convert from pixels to 26.6 fractional points
-#[inline]
-pub fn to_freetype_26_6(f: f32) -> isize {
-    ((1i32 << 6) as f32 * f) as isize
-}
-
-/// Convert from 26.6 fractional points to pixels
-#[inline]
-pub fn from_freetype_26_6(i: isize) -> f32 {
-    (i >> 6) as f32
-}
+use font_kit::{
+    canvas::{Canvas, Format, RasterizationOptions},
+    family_name::FamilyName,
+    font::Font,
+    hinting::HintingOptions,
+    properties::Properties,
+    source::SystemSource,
+};
 
 /// Contains information about a rendered glyph, including a buffer of pixel data to load into a
 /// texture
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct RenderedGlyph {
     /// Bitmap buffer (format: U8)
     pub buffer: Vec<u8>,
@@ -43,52 +38,107 @@ pub trait GlyphLoader {
     where
         Self: Sized;
     /// Loads a glyph and renders it
-    fn load(&self, key: usize) -> Result<RenderedGlyph, Error>;
+    fn load(&self, character: char) -> Result<RenderedGlyph, Error>;
 }
 
 /// A `GlyphLoader` implementation that uses the `FreeType` library to load and render glyphs
 pub struct FreeTypeRasterizer {
-    face: Face,
+    font: Font,
+    size: f32,
 }
 
 impl GlyphLoader for FreeTypeRasterizer {
-    fn new(font: &str, size: f32) -> Result<Self, Error> {
-        let library = Library::init()?;
+    fn new(font_name: &str, size: f32) -> Result<Self, Error> {
+        let font = SystemSource::new()
+            .select_best_match(
+                &[
+                    FamilyName::Title(font_name.to_string()),
+                    FamilyName::Monospace,
+                ],
+                &Properties::new(),
+            )
+            .unwrap()
+            .load()?;
 
-        let property = ::font_loader::system_fonts::FontPropertyBuilder::new()
-            .family(font)
-            .build();
-        if let Some((font_buf, _)) = ::font_loader::system_fonts::get(&property) {
-            let face = library.new_memory_face(font_buf, 0)?;
-
-            if let (Some(name), Some(style)) = (face.family_name(), face.style_name()) {
-                debug!("Using font: {}, style: {}", name, style);
-            }
-
-            face.set_char_size(to_freetype_26_6(size), 0, 0, 0)?;
-
-            Ok(Self { face: face })
-        } else {
-            bail!("Failed to load font");
-        }
+        Ok(Self { font, size })
     }
 
-    fn load(&self, key: usize) -> Result<RenderedGlyph, Error> {
-        self.face
-            .load_char(key, ::freetype::face::LoadFlag::RENDER)?;
-        let slot = self.face.glyph();
+    fn load(&self, key: char) -> Result<RenderedGlyph, Error> {
+        let glyph_id = self.font.glyph_for_char(key).unwrap();
+
+        let raster_bounds = self.font.raster_bounds(
+            glyph_id,
+            self.size,
+            &Point2D::zero(),
+            HintingOptions::None,
+            RasterizationOptions::GrayscaleAa,
+        )?;
+
+        let typographic_bounds = self.font.typographic_bounds(glyph_id)?;
+
+        let mut canvas = Canvas::new(
+            &Size2D::new(
+                raster_bounds.size.width as u32,
+                raster_bounds.size.height as u32,
+            ),
+            Format::A8,
+        );
+
+        self.font.rasterize_glyph(
+            &mut canvas,
+            glyph_id,
+            self.size,
+            &Point2D::zero(),
+            HintingOptions::None,
+            RasterizationOptions::GrayscaleAa,
+        )?;
+
+        let metrics = self.font.metrics();
+
+        let scale = metrics.units_per_em as f32 / self.size;
 
         Ok(RenderedGlyph {
-            buffer: slot.bitmap().buffer().into(),
-            width: slot.bitmap().width() as u32,
-            height: slot.bitmap().rows() as u32,
-            bearing_x: slot.bitmap_left(),
-            bearing_y: slot.bitmap_top(),
-            advance: from_freetype_26_6(slot.advance().x as isize) as u32,
-            line_height: from_freetype_26_6(match self.face.size_metrics() {
-                Some(size_metrics) => size_metrics.height as isize,
-                None => self.face.height() as isize,
-            }) as u32,
+            buffer: canvas.pixels,
+            width: canvas.size.width as u32,
+            height: canvas.size.height as u32,
+            bearing_x: (typographic_bounds.origin.x / scale) as i32,
+            bearing_y: (typographic_bounds.origin.y / scale) as i32,
+            advance: (self.font.advance(glyph_id)?.x / scale) as u32,
+            line_height: self.size as u32,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::font::{FreeTypeRasterizer, GlyphLoader};
+
+    #[test]
+    fn renders_glyphs() {
+        let rasterizer = FreeTypeRasterizer::new("", 20.0).unwrap();
+
+        for c in ['F', 'U', 'C', 'K'].iter() {
+            let glyph = rasterizer.load(*c).unwrap();
+            let (w, h) = (glyph.width as usize, glyph.height as usize);
+            println!("{:?}", glyph);
+            for y in 0..h {
+                for x in 0..w {
+                    let _val = glyph.buffer[(y * w) + x];
+                    #[rustfmt::skip]
+                    print!(
+                        "{0}{0}",
+                        match glyph.buffer[(y * w) + x] {
+                              0..=51  => ' ',
+                             52..=102 => '░',
+                            103..=153 => '▒',
+                            154..=204 => '▓',
+                            205..=255 => '█',
+                            _ => unreachable!(),
+                        }
+                    );
+                }
+                println!();
+            }
+        }
     }
 }

@@ -1,7 +1,7 @@
-extern crate gcc;
+use cc;
 
 fn main() {
-    gcc::Build::new()
+    cc::Build::new()
         .file("library_messages.c")
         .compile("library_messages");
     println!("cargo:rustc-link-lib=jack");

@@ -1,16 +1,18 @@
 //! A `Node` that takes a texture and draws it to the screen
 
-use failure::Error;
-use glium::Surface;
-use glium::backend::Facade;
-use glium::index::{NoIndices, PrimitiveType};
-use glium::program::{Program, ProgramCreationInput};
-use glium::vertex::VertexBuffer;
-use std::collections::HashMap;
-use std::rc::Rc;
+use failure::{bail, Error};
+use glium::{
+    backend::Facade,
+    implement_vertex,
+    index::{NoIndices, PrimitiveType},
+    program::{Program, ProgramCreationInput},
+    vertex::VertexBuffer,
+    Surface,
+};
+use std::{collections::HashMap, rc::Rc};
 
 use super::{Node, NodeInputs, NodeOutput};
-use opengl::UniformsStorageVec;
+use crate::opengl::UniformsStorageVec;
 
 /// Implementation of the vertex attributes for the vertex buffer
 #[derive(Copy, Clone)]
@@ -52,7 +54,7 @@ const FRAGMENT: &str = "
 /// A node that renders its input to the program output
 pub struct OutputNode {
     /// The `Facade` it uses to work with OpenGL
-    facade: Rc<Facade>,
+    facade: Rc<dyn Facade>,
     /// The shader program it uses to copy its input to the main output
     program: Program,
     /// Vertex buffer for the program
@@ -63,7 +65,7 @@ pub struct OutputNode {
 
 impl OutputNode {
     /// Create a new instance
-    pub fn new(facade: &Rc<Facade>) -> Result<Self, Error> {
+    pub fn new(facade: &Rc<dyn Facade>) -> Result<Self, Error> {
         let input = ProgramCreationInput::SourceCode {
             vertex_shader: VERTEX,
             tessellation_control_shader: None,

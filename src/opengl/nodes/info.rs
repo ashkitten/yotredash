@@ -1,12 +1,11 @@
 //! A `Node` that produces values based on information about the renderer and window
 
 use failure::Error;
-use std::collections::HashMap;
-use std::sync::mpsc::Receiver;
+use std::{collections::HashMap, sync::mpsc::Receiver};
 use time::{self, Tm};
 
 use super::{Node, NodeInputs, NodeOutput};
-use event::{PointerEvent, RendererEvent};
+use crate::event::{PointerEvent, RendererEvent};
 
 /// A `Node` that produces values based on information about the renderer and window
 pub struct InfoNode {

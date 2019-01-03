@@ -1,54 +1,37 @@
 [package]
 name = "yotredash"
-version = "0.2.0"
-authors = ["Ash Levy <ashy.of.ren@gmail.com>"]
+version = "0.3.0"
+authors = ["ash lea <ashlea@protonmail.com>"]
+edition = "2018"
 
 [dependencies]
 clap = "2.32.0"
-env_logger = "0.5.11"
+env_logger = "0.6.0"
+euclid = "0.19.4"
 failure = "0.1.1"
-font-loader = "0.7.0"
-freetype-rs = "0.19.0"
+font-kit = { git = "https://github.com/ashkitten/font-kit" }
 log = "0.4.3"
 nfd = "0.0.4"
 notify = "4.0.3"
 rect_packer = "0.2.1"
 serde = "1.0.70"
 serde_derive = "1.0.70"
-serde_yaml = "0.7.5"
+serde_yaml = "0.8.8"
 solvent = "0.8.1"
 time = "0.1.40"
-winit = "0.16.2"
-
-# Needed by opengl feature
-glium = { git = "https://github.com/ashkitten/glium", optional = true }
-
-# Needed by image feature
-gif = { version = "0.10.0", optional = true }
-gif-dispose = { version = "2.1.1", optional = true }
-image = { version = "0.19.0", optional = true }
-
-# Needed by audio feature
-fftw = { version = "0.4.0", optional = true }
-libc = { version = "0.2.42",optional = true }
-num-traits = {version = "0.2.5",optional = true}
-portaudio = { version = "0.7.0", optional = true }
-rb = { version = "0.3.2", optional = true }
+winit = "0.18.0"
+glium = { git = "https://github.com/ashkitten/glium" }
+gif = "0.10.0"
+gif-dispose = "2.1.1"
+image = "0.20.1"
+fftw = "0.5.1"
+libc = "0.2.42"
+num-traits = "0.2.5"
+portaudio = "0.7.0"
+rb = "0.3.2"
 
 [target.'cfg(unix)'.dependencies]
 signal = "0.6.0"
 
-[dev-dependencies]
-glob = "0.2.11"
-
 [build-dependencies]
-gcc = "0.3.54"
-
-[features]
-default = ["opengl", "image-src", "audio"]
-opengl = ["glium"]
-image-src = ["gif", "gif-dispose", "image"]
-audio = ["fftw", "libc", "num-traits", "portaudio", "rb"]
-
-[replace]
-"servo-fontconfig-sys:4.0.4" = { git = "https://github.com/ashkitten/libfontconfig" }
+cc = "1.0.28"

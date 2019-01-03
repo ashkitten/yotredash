@@ -1,7 +1,7 @@
 //! Configuration related to Nodes
 
-use std::default::Default;
-use std::path::PathBuf;
+use serde_derive::Deserialize;
+use std::{default::Default, path::PathBuf};
 
 /// Input types for deserialization
 #[derive(Debug, Deserialize, Clone, PartialEq, Eq, Hash)]

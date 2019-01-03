@@ -1,4 +1,5 @@
 use clap::{App, ArgMatches};
+use serde_derive::Deserialize;
 
 use config::Config;
 

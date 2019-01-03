@@ -1,15 +1,15 @@
 //! The FPS counter node draws an FPS counter, using a `TextNode`
 
-use failure::Error;
+use failure::{bail, Error};
 use glium::backend::Facade;
-use std::collections::HashMap;
-use std::rc::Rc;
-use std::sync::mpsc::Receiver;
+use std::{collections::HashMap, rc::Rc, sync::mpsc::Receiver};
 
 use super::{Node, NodeInputs, NodeOutput, TextNode};
-use config::nodes::{FpsConfig, NodeParameter, TextConfig};
-use event::RendererEvent;
-use util::FpsCounter;
+use crate::{
+    config::nodes::{FpsConfig, NodeParameter, TextConfig},
+    event::RendererEvent,
+    util::FpsCounter,
+};
 
 /// A node that draws text
 pub struct FpsNode {
@@ -22,7 +22,7 @@ pub struct FpsNode {
 impl FpsNode {
     /// Create a new instance
     pub fn new(
-        facade: &Rc<Facade>,
+        facade: &Rc<dyn Facade>,
         config: FpsConfig,
         receiver: Receiver<RendererEvent>,
     ) -> Result<Self, Error> {

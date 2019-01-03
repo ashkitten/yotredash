@@ -1,22 +1,16 @@
 //! The text node draws text at a specified position and in a specified color
 
-use failure::Error;
-use glium::Surface;
-use glium::backend::Facade;
-use glium::texture::Texture2d;
-use std::collections::HashMap;
-use std::rc::Rc;
-use std::sync::mpsc::Receiver;
+use failure::{bail, Error};
+use glium::{backend::Facade, texture::Texture2d, Surface};
+use std::{collections::HashMap, rc::Rc, sync::mpsc::Receiver};
 
 use super::{Node, NodeInputs, NodeOutput};
-use config::nodes::TextConfig;
-use event::RendererEvent;
-use opengl::text::TextRenderer;
+use crate::{config::nodes::TextConfig, event::RendererEvent, opengl::text::TextRenderer};
 
 /// A node that draws text
 pub struct TextNode {
     /// The Facade it uses to work with the OpenGL context
-    facade: Rc<Facade>,
+    facade: Rc<dyn Facade>,
     /// The inner texture it renders to
     texture: Rc<Texture2d>,
     /// The TextRenderer it uses to render text
@@ -34,7 +28,7 @@ pub struct TextNode {
 impl TextNode {
     /// Create a new instance
     pub fn new(
-        facade: &Rc<Facade>,
+        facade: &Rc<dyn Facade>,
         config: TextConfig,
         receiver: Receiver<RendererEvent>,
     ) -> Result<Self, Error> {

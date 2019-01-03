@@ -1,15 +1,11 @@
 //! Nodes are the basic building blocks for the renderer.
 // TODO: expand documentation and add examples
 
-#[cfg(feature = "image-src")]
-pub mod image;
-
-#[cfg(feature = "audio")]
 pub mod audio;
-
 pub mod blend;
 pub mod feedback;
 pub mod fps;
+pub mod image;
 pub mod info;
 pub mod output;
 pub mod shader;
@@ -17,23 +13,13 @@ pub mod text;
 
 use failure::Error;
 use glium::texture::{Texture1d, Texture2d};
-use std::collections::HashMap;
-use std::rc::Rc;
+use std::{collections::HashMap, rc::Rc};
 
-#[cfg(feature = "image-src")]
-pub use self::image::ImageNode;
-
-#[cfg(feature = "audio")]
-pub use self::audio::AudioNode;
-
-pub use self::blend::BlendNode;
-pub use self::feedback::FeedbackNode;
-pub use self::fps::FpsNode;
-pub use self::info::InfoNode;
-pub use self::output::OutputNode;
-pub use self::shader::ShaderNode;
-pub use self::text::TextNode;
-use config::nodes::NodeConnection;
+pub use self::{
+    audio::AudioNode, blend::BlendNode, feedback::FeedbackNode, fps::FpsNode, image::ImageNode,
+    info::InfoNode, output::OutputNode, shader::ShaderNode, text::TextNode,
+};
+use crate::config::nodes::NodeConnection;
 
 /// Inputs for each node
 pub enum NodeInputs {

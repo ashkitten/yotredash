@@ -1,13 +1,21 @@
 //! Contains functions to apply Unix-specific window attributes and properties
 
+use log::info;
 use std::sync::Arc;
-use winit::Window;
-use winit::os::unix::WindowExt;
-use winit::os::unix::x11::XConnection;
-use winit::os::unix::x11::ffi::{CWOverrideRedirect, Display, PropModeReplace,
-                                XSetWindowAttributes, XA_ATOM, XID};
+use winit::{
+    os::unix::{
+        x11::{
+            ffi::{
+                CWOverrideRedirect, Display, PropModeReplace, XSetWindowAttributes, XA_ATOM, XID,
+            },
+            XConnection,
+        },
+        WindowExt,
+    },
+    Window,
+};
 
-use config::Config;
+use crate::config::Config;
 
 /// Sets the override-redirect flag of a window
 unsafe fn override_redirect(

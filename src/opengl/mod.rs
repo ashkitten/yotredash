@@ -5,13 +5,12 @@ pub mod renderer;
 pub mod text;
 
 use glium::uniforms::{AsUniformValue, UniformValue, Uniforms};
-use std::borrow::Cow;
-use std::rc::Rc;
+use std::{borrow::Cow, rc::Rc};
 
 /// A `UniformsStorage` which has a `push` method for appending new uniforms
 #[derive(Clone, Default)]
 pub struct UniformsStorageVec<'name, 'uniform>(
-    Vec<(Cow<'name, str>, Rc<AsUniformValue + 'uniform>)>,
+    Vec<(Cow<'name, str>, Rc<dyn AsUniformValue + 'uniform>)>,
 );
 
 impl<'name, 'uniform> UniformsStorageVec<'name, 'uniform> {

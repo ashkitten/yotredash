@@ -1,19 +1,22 @@
 //! The blend node takes the output of other nodes and blends them to produce one output
 
-use failure::Error;
-use glium::backend::Facade;
-use glium::index::{NoIndices, PrimitiveType};
-use glium::program::ProgramCreationInput;
-use glium::texture::Texture2d;
-use glium::{Program, Surface, VertexBuffer};
-use std::collections::HashMap;
-use std::rc::Rc;
-use std::sync::mpsc::Receiver;
+use failure::{bail, Error};
+use glium::{
+    backend::Facade,
+    implement_vertex,
+    index::{NoIndices, PrimitiveType},
+    program::ProgramCreationInput,
+    texture::Texture2d,
+    Program, Surface, VertexBuffer,
+};
+use std::{collections::HashMap, rc::Rc, sync::mpsc::Receiver};
 
 use super::{Node, NodeInputs, NodeOutput};
-use config::nodes::{BlendConfig, BlendOp};
-use event::RendererEvent;
-use opengl::UniformsStorageVec;
+use crate::{
+    config::nodes::{BlendConfig, BlendOp},
+    event::RendererEvent,
+    opengl::UniformsStorageVec,
+};
 
 /// Implementation of the vertex attributes for the vertex buffer
 #[derive(Copy, Clone)]
@@ -61,7 +64,7 @@ const FRAGMENT: &str = "
 /// A node that blends the output of other nodes
 pub struct BlendNode {
     /// The Facade it uses to work with the OpenGL context
-    facade: Rc<Facade>,
+    facade: Rc<dyn Facade>,
     /// The inner texture it renders to
     texture: Rc<Texture2d>,
     /// Shader program used to blend the inputs
@@ -77,7 +80,7 @@ pub struct BlendNode {
 impl BlendNode {
     /// Create a new instance
     pub fn new(
-        facade: &Rc<Facade>,
+        facade: &Rc<dyn Facade>,
         config: &BlendConfig,
         receiver: Receiver<RendererEvent>,
     ) -> Result<Self, Error> {

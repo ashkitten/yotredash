@@ -1,26 +1,35 @@
 //! An implementation of `Renderer` using OpenGL
 
-use failure::{Error, ResultExt, SyncFailure};
-use glium::backend::Facade;
-use glium::backend::glutin::Display;
-use glium::backend::glutin::headless::Headless;
-use glium::glutin::{ContextBuilder, GlProfile, HeadlessRendererBuilder, WindowBuilder};
-use glium::texture::{MipmapsOption, RawImage2d, Texture2d};
-use glium::uniforms::MagnifySamplerFilter;
-use glium::{BlitTarget, Rect, Surface};
+use failure::{bail, ensure, format_err, Error, ResultExt, SyncFailure};
+use glium::{
+    backend::{
+        glutin::{headless::Headless, Display},
+        Facade,
+    },
+    glutin::{Context, ContextBuilder, WindowBuilder},
+    texture::{MipmapsOption, RawImage2d, Texture2d},
+    uniforms::MagnifySamplerFilter,
+    BlitTarget, Rect, Surface,
+};
 use image;
+use log::{debug, warn};
 use solvent::DepGraph;
-use std::collections::HashMap;
-use std::rc::Rc;
-use std::sync::mpsc::{self, Receiver, Sender};
+use std::{
+    collections::HashMap,
+    rc::Rc,
+    sync::mpsc::{self, Receiver, Sender},
+};
 use winit::EventsLoop;
 
-use super::nodes::*;
-use super::text::TextRenderer;
-use config::Config;
-use config::nodes::{NodeConfig, NodeConnection, NodeParameter};
-use event::RendererEvent;
-use {DebugRenderer, Renderer};
+use super::{nodes::*, text::TextRenderer};
+use crate::{
+    config::{
+        nodes::{NodeConfig, NodeConnection, NodeParameter},
+        Config,
+    },
+    event::RendererEvent,
+    DebugRenderer, Renderer,
+};
 
 type NodeMap = HashMap<String, NodeType>;
 type NodeConfigMap = HashMap<String, NodeConfig>;
@@ -28,7 +37,7 @@ type NodeConfigMap = HashMap<String, NodeConfig>;
 /// An implementation of a `Renderer` which uses OpenGL
 pub struct OpenGLRenderer {
     /// The facade it uses to render
-    facade: Rc<Facade>,
+    facade: Rc<dyn Facade>,
     /// Maps names to nodes
     nodes: NodeMap,
     /// Node configurations for mapping outputs to inputs
@@ -43,7 +52,7 @@ pub struct OpenGLRenderer {
 
 fn init_nodes(
     config: &Config,
-    facade: &Rc<Facade>,
+    facade: &Rc<dyn Facade>,
 ) -> Result<(NodeMap, Vec<String>, Vec<Sender<RendererEvent>>), Error> {
     let mut senders = Vec::new();
 
@@ -300,7 +309,7 @@ impl OpenGLRenderer {
     /// Create a new instance on an existing Facade
     pub fn new(
         config: &Config,
-        facade: &Rc<Facade>,
+        facade: &Rc<dyn Facade>,
         receiver: Receiver<RendererEvent>,
     ) -> Result<Self, Error> {
         debug!(
@@ -354,13 +363,15 @@ impl Renderer for OpenGLRenderer {
                         MagnifySamplerFilter::Nearest,
                     );
 
-                    let raw: RawImage2d<u8> = texture.read();
+                    let raw: RawImage2d<'_, u8> = texture.read();
                     image::save_buffer(path, &raw.data, raw.width, raw.height, image::RGBA(8))?;
                 }
 
-                event => for sender in &self.senders {
-                    sender.send(event.clone())?;
-                },
+                event => {
+                    for sender in &self.senders {
+                        sender.send(event.clone())?;
+                    }
+                }
             }
         }
 
@@ -430,14 +441,14 @@ impl Renderer for OpenGLRenderer {
 /// Renders errors
 pub struct OpenGLDebugRenderer {
     /// Facade for interacting with OpenGL
-    facade: Rc<Facade>,
+    facade: Rc<dyn Facade>,
     /// `TextRenderer` for displaying errors
     error_renderer: TextRenderer,
 }
 
 impl OpenGLDebugRenderer {
     /// Create a new instance
-    pub fn new(facade: &Rc<Facade>) -> Result<Self, Error> {
+    pub fn new(facade: &Rc<dyn Facade>) -> Result<Self, Error> {
         Ok(Self {
             facade: Rc::clone(facade),
             error_renderer: TextRenderer::new(facade, "", 20.0)?,
@@ -451,7 +462,7 @@ impl DebugRenderer for OpenGLDebugRenderer {
         target.clear_color(0.0, 0.0, 0.0, 1.0);
         self.error_renderer.draw_text(
             &mut target,
-            &::format_error(error),
+            &crate::format_error(error),
             [0.0, 0.0],
             [1.0, 0.3, 0.3, 1.0],
         )?;
@@ -462,7 +473,7 @@ impl DebugRenderer for OpenGLDebugRenderer {
 }
 
 /// Create an appropriate Facade
-pub fn new_facade(config: &Config, events_loop: &EventsLoop) -> Result<Rc<Facade>, Error> {
+pub fn new_facade(config: &Config, events_loop: &EventsLoop) -> Result<Rc<dyn Facade>, Error> {
     if !config.headless {
         let window_builder = WindowBuilder::new()
             .with_dimensions((config.width, config.height).into())
@@ -478,14 +489,12 @@ pub fn new_facade(config: &Config, events_loop: &EventsLoop) -> Result<Rc<Facade
             .with_srgb(false);
         let display =
             Display::new(window_builder, context_builder, events_loop).map_err(SyncFailure::new)?;
-        ::platform::window::init(display.gl_window().window(), &config);
+        crate::platform::window::init(display.gl_window().window(), &config);
 
         Ok(Rc::new(display))
     } else {
-        let context = HeadlessRendererBuilder::new(config.width, config.height)
-            .with_gl_profile(GlProfile::Core)
-            .build()
-            .map_err(SyncFailure::new)?;
+        let context_builder = ContextBuilder::new();
+        let context = Context::new(&events_loop, context_builder, false).unwrap();
         Ok(Rc::new(Headless::new(context)?))
     }
 }

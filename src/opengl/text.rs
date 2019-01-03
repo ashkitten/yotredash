@@ -1,22 +1,23 @@
 //! Contains a GPU cache implementation and methods for rendering strings on the screen using
 //! OpenGL
 
-use failure::Error;
-use glium::backend::Facade;
-use glium::index::{NoIndices, PrimitiveType};
-use glium::program::ProgramCreationInput;
-use glium::texture::{MipmapsOption, PixelValue, RawImage2d, Texture2dDataSource,
-                     UncompressedFloatFormat};
-use glium::uniforms::MagnifySamplerFilter;
-use glium::{Blend, DrawParameters, Program, Surface, Texture2d, VertexBuffer};
+use failure::{bail, Error};
+use glium::{
+    backend::Facade,
+    implement_vertex,
+    index::{NoIndices, PrimitiveType},
+    program::ProgramCreationInput,
+    texture::{
+        MipmapsOption, PixelValue, RawImage2d, Texture2dDataSource, UncompressedFloatFormat,
+    },
+    uniforms::MagnifySamplerFilter,
+    Blend, DrawParameters, Program, Surface, Texture2d, VertexBuffer,
+};
 use rect_packer::{self, DensePacker};
-use std::borrow::Cow;
-use std::cmp::max;
-use std::collections::HashMap;
-use std::rc::Rc;
+use std::{borrow::Cow, cmp::max, collections::HashMap, rc::Rc};
 
 use super::UniformsStorageVec;
-use font::{FreeTypeRasterizer, GlyphLoader, RenderedGlyph};
+use crate::font::{FreeTypeRasterizer, GlyphLoader, RenderedGlyph};
 
 const VERTEX: &str = "
     #version 140
@@ -50,6 +51,7 @@ const FRAGMENT: &str = "
 
 impl<'a> Texture2dDataSource<'a> for &'a RenderedGlyph {
     type Data = u8;
+
     fn into_raw(self) -> RawImage2d<'a, u8> {
         RawImage2d {
             data: Cow::Borrowed(&self.buffer),
@@ -61,7 +63,7 @@ impl<'a> Texture2dDataSource<'a> for &'a RenderedGlyph {
 }
 
 /// Data about a glyph stored in the texture cache
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct GlyphData {
     /// Rectangle containing the glyph within the cache texture
     pub rect: rect_packer::Rect,
@@ -80,25 +82,22 @@ pub struct GlyphData {
 }
 
 /// A cache of glyphs on the GPU
-pub struct GlyphCache {
+pub struct GlyphCache<L: GlyphLoader> {
     /// The `Facade` it uses to access the OpenGL context
-    facade: Rc<Facade>,
+    facade: Rc<dyn Facade>,
     /// The cache in which rendered glyphs are stored
-    cache: HashMap<usize, GlyphData>,
+    cache: HashMap<char, GlyphData>,
     /// The texture on which the rendered glyphs are stored
     texture: Texture2d,
     /// A reference to the loader this GlyphCache uses to load new glyphs
-    loader: Rc<GlyphLoader>,
+    loader: L,
     /// The packer used to pack glyphs into the texture
     packer: DensePacker,
 }
 
-impl GlyphCache {
+impl<L: GlyphLoader> GlyphCache<L> {
     /// Create a new instance
-    pub fn new<L>(facade: &Rc<Facade>, loader: Rc<L>) -> Result<Self, Error>
-    where
-        L: GlyphLoader + 'static,
-    {
+    pub fn new(facade: &Rc<dyn Facade>, loader: L) -> Result<Self, Error> {
         let mut cache = Self {
             facade: Rc::clone(facade),
             cache: HashMap::new(),
@@ -114,15 +113,15 @@ impl GlyphCache {
         };
 
         // Prerender all visible ascii characters
-        for i in 32..128 {
-            cache.insert(i)?;
+        for i in 32u8..127u8 {
+            cache.insert(i as char)?;
         }
 
         Ok(cache)
     }
 
     /// Get a `&GlyphData` corresponding to the char code
-    pub fn get(&mut self, key: usize) -> Result<&GlyphData, Error> {
+    pub fn get(&mut self, key: char) -> Result<&GlyphData, Error> {
         if self.cache.contains_key(&key) {
             Ok(&self.cache[&key])
         } else {
@@ -131,7 +130,7 @@ impl GlyphCache {
     }
 
     /// Insert a new glyph into the cache texture from the loader, and return a reference to it
-    pub fn insert(&mut self, key: usize) -> Result<&GlyphData, Error> {
+    pub fn insert(&mut self, key: char) -> Result<&GlyphData, Error> {
         let rendered = self.loader.load(key)?;
 
         if rendered.width == 0 || rendered.height == 0 {
@@ -155,7 +154,8 @@ impl GlyphCache {
             return Ok(&self.cache[&key]);
         }
 
-        if !self.packer
+        if !self
+            .packer
             .can_pack(rendered.width as i32, rendered.height as i32, false)
         {
             let old_size = (self.packer.size().0 as u32, self.packer.size().1 as u32);
@@ -197,7 +197,8 @@ impl GlyphCache {
             };
         }
 
-        if let Some(rect) = self.packer
+        if let Some(rect) = self
+            .packer
             .pack(rendered.width as i32, rendered.height as i32, false)
         {
             let blit_source = Texture2d::with_format(
@@ -256,19 +257,19 @@ implement_vertex!(Vertex, position, tex_coords);
 /// given surface
 pub struct TextRenderer {
     /// The `Facade` it uses to access the OpenGL context
-    facade: Rc<Facade>,
+    facade: Rc<dyn Facade>,
     /// The `GlyphCache` which it uses to store rendered glyphs
-    glyph_cache: GlyphCache,
+    glyph_cache: GlyphCache<FreeTypeRasterizer>,
     /// The shader program it uses for drawing
     program: Program,
 }
 
 impl TextRenderer {
     /// Create a new instance using a specified font and size
-    pub fn new(facade: &Rc<Facade>, font: &str, font_size: f32) -> Result<Self, Error> {
+    pub fn new(facade: &Rc<dyn Facade>, font: &str, font_size: f32) -> Result<Self, Error> {
         let glyph_cache = GlyphCache::new(
             &Rc::clone(&facade),
-            Rc::new(FreeTypeRasterizer::new(font, font_size)?),
+            FreeTypeRasterizer::new(font, font_size)?,
         )?;
 
         let program = {
@@ -307,7 +308,7 @@ impl TextRenderer {
         let mut advance_x = 0;
         let mut advance_y = 0;
         for c in text.chars() {
-            let glyph = self.glyph_cache.get(c as usize)?.clone();
+            let glyph = self.glyph_cache.get(c)?.clone();
 
             // Special case for carriage return
             if c == '\n' {
@@ -336,8 +337,8 @@ impl TextRenderer {
                 uniforms.push("projection", projection);
 
                 let x = x + (glyph.bearing_x + advance_x) as f32;
-                let y = y - glyph.height as f32 + glyph.bearing_y as f32 - advance_y as f32
-                    - glyph.line_height as f32 + win_height as f32;
+                let y = y + glyph.bearing_y as f32 - advance_y as f32 - glyph.line_height as f32
+                    + win_height as f32;
                 let w = glyph.width as f32;
                 let h = glyph.height as f32;
 

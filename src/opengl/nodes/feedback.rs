@@ -1,14 +1,15 @@
 //! A `Node` that takes an initial input and a node connection and loops it back into a node to
 //! avoid dependency cycles
 
-use failure::Error;
-use glium::backend::Facade;
-use glium::texture::{Texture1d, Texture2d};
-use std::collections::HashMap;
-use std::rc::Rc;
+use failure::{bail, Error};
+use glium::{
+    backend::Facade,
+    texture::{Texture1d, Texture2d},
+};
+use std::{collections::HashMap, rc::Rc};
 
 use super::{Node, NodeInputs, NodeOutput};
-use config::nodes::{FeedbackConfig, InputType, NodeConnection};
+use crate::config::nodes::{FeedbackConfig, InputType, NodeConnection};
 
 /// A `Node` that reads an image from file and returns frames from that image
 pub struct FeedbackNode {
@@ -17,7 +18,7 @@ pub struct FeedbackNode {
 
 impl FeedbackNode {
     /// Create a new instance
-    pub fn new(facade: &Rc<Facade>, config: FeedbackConfig) -> Result<Self, Error> {
+    pub fn new(facade: &Rc<dyn Facade>, config: FeedbackConfig) -> Result<Self, Error> {
         let mut values = HashMap::new();
 
         for input in config.inputs {

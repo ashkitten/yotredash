@@ -4,17 +4,19 @@
 pub mod nodes;
 
 use clap::{App, Arg, ArgMatches};
-use failure::Error;
-use failure::ResultExt;
+use failure::{bail, Error, ResultExt};
+use log::debug;
 use nfd::{self, Response};
-use std::collections::HashMap;
-use std::fs::File;
-use std::io::BufReader;
-use std::io::prelude::*;
-use std::path::{Path, PathBuf};
+use serde_derive::Deserialize;
+use std::{
+    collections::HashMap,
+    fs::File,
+    io::{prelude::*, BufReader},
+    path::{Path, PathBuf},
+};
 
 use self::nodes::NodeConfig;
-use platform::config::PlatformSpecificConfig;
+use crate::platform::config::PlatformSpecificConfig;
 
 /// The main configuration contains all the information necessary to build a renderer
 #[derive(Debug, Deserialize, Clone)]
@@ -111,13 +113,7 @@ fn default_vsync() -> bool {
 
 /// A function that returns the default value of the `renderer` field
 fn default_renderer() -> String {
-    // If opengl is built in, use it as default
-    #[cfg(feature = "opengl")]
     return "opengl".to_string();
-
-    // If no renderers are built in, panic
-    #[cfg(not(any(feature = "opengl")))]
-    panic!("No renderers built in");
 }
 
 /// A function that returns the default value of the `headless` field
@@ -182,7 +178,7 @@ impl Config {
     }
 
     /// Parses the configuration from command-line arguments
-    fn merge_args(&mut self, args: &ArgMatches) -> Result<(), Error> {
+    fn merge_args(&mut self, args: &ArgMatches<'_>) -> Result<(), Error> {
         self.platform_config = PlatformSpecificConfig::from_args(args);
 
         if let Some(value) = args.value_of("width") {

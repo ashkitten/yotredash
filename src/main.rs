@@ -42,75 +42,33 @@
 // Warn if things are missing documentation
 #![warn(missing_docs)]
 
-#[cfg(unix)]
-extern crate signal;
-
-#[macro_use]
-extern crate failure;
-#[macro_use]
-extern crate log;
-#[macro_use]
-extern crate serde_derive;
-
-extern crate clap;
-extern crate env_logger;
-extern crate font_loader;
-extern crate freetype;
-extern crate nfd;
-extern crate notify;
-extern crate rect_packer;
-extern crate serde_yaml;
-extern crate solvent;
-extern crate time;
-extern crate winit;
-
-#[cfg(feature = "opengl")]
-#[macro_use]
-extern crate glium;
-
-#[cfg(feature = "image-src")]
-extern crate gif;
-#[cfg(feature = "image-src")]
-extern crate gif_dispose;
-#[cfg(feature = "image-src")]
-extern crate image;
-
-#[cfg(feature = "audio")]
-extern crate fftw;
-#[cfg(feature = "audio")]
-extern crate libc;
-#[cfg(feature = "audio")]
-extern crate num_traits;
-#[cfg(feature = "audio")]
-extern crate portaudio;
-#[cfg(feature = "audio")]
-extern crate rb;
+use env_logger;
+use failure::{format_err, Error};
+use log::{debug, error, info, trace, warn};
+use nfd;
+use notify::{self, Watcher};
+use rect_packer;
+use std::{path::Path, sync::mpsc};
+use time;
+use winit;
 
 pub mod config;
 pub mod event;
 pub mod font;
+pub mod opengl;
 pub mod platform;
 pub mod util;
 
-#[cfg(feature = "opengl")]
-pub mod opengl;
-
-use failure::Error;
-use notify::Watcher;
-use std::path::Path;
-use std::sync::mpsc;
-
-#[cfg(unix)]
-use signal::Signal;
 #[cfg(unix)]
 use signal::trap::Trap;
+#[cfg(unix)]
+use signal::Signal;
 
-#[cfg(feature = "opengl")]
-use opengl::renderer::{OpenGLDebugRenderer, OpenGLRenderer};
-
-use config::Config;
-use config::nodes::NodeConfig;
-use event::*;
+use crate::{
+    config::{nodes::NodeConfig, Config},
+    event::*,
+    opengl::renderer::{OpenGLDebugRenderer, OpenGLRenderer},
+};
 
 /// Renders a configured shader
 pub trait Renderer {
@@ -129,7 +87,7 @@ pub trait DebugRenderer {
 }
 
 fn format_error(error: &Error) -> String {
-    let mut causes = error.causes();
+    let mut causes = error.iter_chain();
     format!(
         "{}{}",
         causes.next().unwrap(),
@@ -179,36 +137,33 @@ fn setup_watches(
 }
 
 fn run() -> Result<(), Error> {
-    #[cfg(feature = "audio")]
-    {
-        use libc::c_char;
-        use std::ffi::CStr;
+    use libc::c_char;
+    use std::ffi::CStr;
 
-        extern "C" {
-            fn set_message_handler(log_cb: extern "C" fn(u8, *const c_char, *const c_char));
-        }
+    extern "C" {
+        fn set_message_handler(log_cb: extern "C" fn(u8, *const c_char, *const c_char));
+    }
 
-        extern "C" fn log_cb(level: u8, lib: *const c_char, msg: *const c_char) {
-            let lib = unsafe { CStr::from_ptr(lib) }.to_string_lossy();
-            let msg = unsafe { CStr::from_ptr(msg) }.to_string_lossy();
-            match level {
-                0 => trace!(target: &lib, "{}", msg),
-                1 => debug!(target: &lib, "{}", msg),
-                2 => info!(target: &lib, "{}", msg),
-                3 => warn!(target: &lib, "{}", msg),
-                4 => error!(target: &lib, "{}", msg),
-                _ => panic!("Unsupported log level"),
-            }
+    extern "C" fn log_cb(level: u8, lib: *const c_char, msg: *const c_char) {
+        let lib = unsafe { CStr::from_ptr(lib) }.to_string_lossy();
+        let msg = unsafe { CStr::from_ptr(msg) }.to_string_lossy();
+        match level {
+            0 => trace!(target: &lib, "{}", msg),
+            1 => debug!(target: &lib, "{}", msg),
+            2 => info!(target: &lib, "{}", msg),
+            3 => warn!(target: &lib, "{}", msg),
+            4 => error!(target: &lib, "{}", msg),
+            _ => panic!("Unsupported log level"),
         }
+    }
 
-        unsafe {
-            set_message_handler(log_cb);
-        }
+    unsafe {
+        set_message_handler(log_cb);
     }
 
     env_logger::Builder::from_default_env()
         .format(|buf, record| {
-            use env_logger::Color;
+            use env_logger::fmt::Color;
             use log::Level;
             use std::io::Write;
 
@@ -257,8 +212,7 @@ fn run() -> Result<(), Error> {
 
     let (mut event_sender, event_receiver) = mpsc::channel();
     // TODO: return something renderer-independent instead of Facade
-    let (mut renderer, mut debug_renderer, facade) = match config.renderer.as_ref() as &str {
-        #[cfg(feature = "opengl")]
+    let (mut renderer, mut debug_renderer, _facade) = match config.renderer.as_ref() as &str {
         "opengl" => {
             let facade = opengl::renderer::new_facade(&config, &events_loop)?;
             let renderer = match OpenGLRenderer::new(&config, &facade, event_receiver) {
@@ -432,7 +386,7 @@ fn run() -> Result<(), Error> {
                             watcher = watcher_;
                             receiver = receiver_;
 
-                            let (event_sender_, event_receiver) = mpsc::channel();
+                            let (event_sender_, _event_receiver) = mpsc::channel();
                             event_sender = event_sender_;
 
                             renderer = match config.renderer.as_ref() as &str {
@@ -478,7 +432,7 @@ fn main() {
     std::process::exit(match run() {
         Ok(()) => 0,
         Err(ref error) => {
-            let mut causes = error.causes();
+            let mut causes = error.iter_chain();
 
             error!(
                 "{}",
@@ -495,7 +449,8 @@ fn main() {
                 writeln!(
                     ::std::io::stderr(),
                     "Set RUST_BACKTRACE=1 to see a backtrace"
-                ).expect("Could not write to stderr");
+                )
+                .expect("Could not write to stderr");
             } else {
                 writeln!(::std::io::stderr(), "{}", error.backtrace())
                     .expect("Could not write to stderr");

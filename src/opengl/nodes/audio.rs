@@ -2,18 +2,24 @@
 //! the power spectrum of the audio as a Texture1d.
 use super::{Node, NodeInputs, NodeOutput};
 use failure::Error;
-use fftw::plan::{R2CPlan, R2CPlan32};
-use fftw::types::{Flag, c32};
-use glium::backend::Facade;
-use glium::texture::Texture1d;
+use fftw::{
+    plan::{R2CPlan, R2CPlan32},
+    types::{c32, Flag},
+};
+use glium::{backend::Facade, texture::Texture1d};
+use log::{debug, error, warn};
 use num_traits::Zero;
-use portaudio::{self, Input, InputStreamCallbackArgs, InputStreamSettings, NonBlocking, PortAudio,
-                Stream, StreamParameters};
+use portaudio::{
+    self, Input, InputStreamCallbackArgs, InputStreamSettings, NonBlocking, PortAudio, Stream,
+    StreamParameters,
+};
 use rb::{RbConsumer, RbProducer, SpscRb, RB};
-use std::collections::HashMap;
-use std::rc::Rc;
-use std::sync::{Arc, RwLock};
-use std::thread;
+use std::{
+    collections::HashMap,
+    rc::Rc,
+    sync::{Arc, RwLock},
+    thread,
+};
 
 // Only deal with a single channel, we don't want to mixdown (yet).
 // Also sidesteps phase cancellation.
@@ -56,7 +62,7 @@ pub struct AudioNode {
     pa: PortAudio,
 
     /// Our OpenGL context.
-    facade: Rc<Facade>,
+    facade: Rc<dyn Facade>,
 
     /// The input stream we recieve samples from.
     stream: Stream<NonBlocking, Input<Sample>>,
@@ -74,7 +80,7 @@ pub struct AudioNode {
 
 impl AudioNode {
     /// Set up our connection to PortAudio
-    pub fn new(facade: &Rc<Facade>) -> Result<AudioNode, Error> {
+    pub fn new(facade: &Rc<dyn Facade>) -> Result<AudioNode, Error> {
         let pa = PortAudio::new()?;
 
         debug!("PortAudio version: {} {}", pa.version(), pa.version_text()?);
@@ -145,7 +151,8 @@ impl AudioNode {
             loop {
                 consumer.read_blocking(&mut buf).unwrap();
 
-                (*waveform_lock.write().unwrap()) = buf.iter()
+                (*waveform_lock.write().unwrap()) = buf
+                    .iter()
                     .map(|x| x * WAVEFORM_SCALE / 2.0 + 0.5)
                     .take(SPECTRUM_LENGTH)
                     .collect();

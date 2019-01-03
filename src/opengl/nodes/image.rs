@@ -1,22 +1,24 @@
 //! A `Node` that reads an image from file and returns frames from that image
 
-use failure::Error;
-use failure::ResultExt;
+use failure::{bail, Error, ResultExt};
 use gif::{self, SetParameter};
 use gif_dispose;
-use glium::backend::Facade;
-use glium::texture::{MipmapsOption, RawImage2d, Texture2d};
-use image::ImageFormat::*;
-use image::{self, ImageDecoder};
-use std::collections::HashMap;
-use std::fs::File;
-use std::io::prelude::*;
-use std::io::{BufReader, SeekFrom};
-use std::rc::Rc;
+use glium::{
+    backend::Facade,
+    texture::{MipmapsOption, RawImage2d, Texture2d},
+};
+use image::{self, ImageDecoder, ImageFormat::*};
+use log::debug;
+use std::{
+    collections::HashMap,
+    fs::File,
+    io::{prelude::*, BufReader, SeekFrom},
+    rc::Rc,
+};
 use time::{self, Duration, Tm};
 
 use super::{Node, NodeInputs, NodeOutput};
-use config::nodes::ImageConfig;
+use crate::config::nodes::ImageConfig;
 
 /// A `Node` that reads an image from file and returns frames from that image
 pub struct ImageNode {
@@ -33,7 +35,7 @@ pub struct ImageNode {
 
 impl ImageNode {
     /// Create a new instance
-    pub fn new(facade: &Rc<Facade>, config: ImageConfig) -> Result<Self, Error> {
+    pub fn new(facade: &Rc<dyn Facade>, config: ImageConfig) -> Result<Self, Error> {
         debug!("New image node: {}", config.path.to_string_lossy());
 
         let file = File::open(config.path).context("Could not open image file")?;
@@ -42,7 +44,7 @@ impl ImageNode {
         buf_reader.read_to_end(&mut buf)?;
         buf_reader.seek(SeekFrom::Start(0))?;
 
-        fn decode_single<D>(facade: &Rc<Facade>, decoder: D) -> Result<ImageNode, Error>
+        fn decode_single<D>(facade: &Rc<dyn Facade>, decoder: D) -> Result<ImageNode, Error>
         where
             D: ImageDecoder,
         {
@@ -50,13 +52,11 @@ impl ImageNode {
             let (width, height) = buffer.dimensions();
             let buffer = buffer.into_raw();
             let raw = RawImage2d::from_raw_rgba_reversed(&buffer, (width, height));
-            let textures = vec![
-                Rc::new(Texture2d::with_mipmaps(
-                    &**facade,
-                    raw,
-                    MipmapsOption::NoMipmap,
-                )?),
-            ];
+            let textures = vec![Rc::new(Texture2d::with_mipmaps(
+                &**facade,
+                raw,
+                MipmapsOption::NoMipmap,
+            )?)];
 
             Ok(ImageNode {
                 textures,
@@ -102,7 +102,8 @@ impl ImageNode {
                     durations.push(Duration::milliseconds(i64::from(frame.delay) * 10));
                 }
 
-                let textures = raws.into_iter()
+                let textures = raws
+                    .into_iter()
                     .map(|raw| {
                         Rc::new(
                             Texture2d::with_mipmaps(&**facade, raw, MipmapsOption::NoMipmap)

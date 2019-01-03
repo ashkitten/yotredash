@@ -1,8 +1,9 @@
 //! Contains extra Unix-specific configurations
 
 use clap::{App, Arg, ArgMatches};
+use serde_derive::Deserialize;
 
-use Config;
+use crate::Config;
 
 /// Platform-specific configuration
 /// Be careful with this, because specifying an unknown field will not cause an error
@@ -69,7 +70,7 @@ impl PlatformSpecificConfig {
     }
 
     /// Parses the configuration from command-line arguments
-    pub fn from_args(args: &ArgMatches) -> Self {
+    pub fn from_args(args: &ArgMatches<'_>) -> Self {
         Self {
             root: args.is_present("root"),
             override_redirect: args.is_present("override_redirect"),

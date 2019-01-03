@@ -2,7 +2,7 @@
 
 use std::path::PathBuf;
 
-use config::Config;
+use crate::config::Config;
 
 /// Events related to the mouse pointer
 #[derive(Clone)]

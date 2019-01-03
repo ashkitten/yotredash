@@ -1,22 +1,24 @@
 //! A `Shader` contains a `Program` and renders it to an inner texture with inputs from
 //! `Source`s and other `Shader` dependencies
 
-use failure::Error;
-use failure::ResultExt;
-use glium::backend::Facade;
-use glium::index::{NoIndices, PrimitiveType};
-use glium::program::ProgramCreationInput;
-use glium::texture::Texture2d;
-use glium::{Program, Surface, VertexBuffer};
-use std::collections::HashMap;
-use std::fs::File;
-use std::io::BufReader;
-use std::io::prelude::*;
-use std::rc::Rc;
+use failure::{bail, ensure, Error, ResultExt};
+use glium::{
+    backend::Facade,
+    implement_vertex,
+    index::{NoIndices, PrimitiveType},
+    program::ProgramCreationInput,
+    texture::Texture2d,
+    Program, Surface, VertexBuffer,
+};
+use std::{
+    collections::HashMap,
+    fs::File,
+    io::{prelude::*, BufReader},
+    rc::Rc,
+};
 
 use super::{Node, NodeInputs, NodeOutput};
-use config::nodes::ShaderConfig;
-use opengl::UniformsStorageVec;
+use crate::{config::nodes::ShaderConfig, opengl::UniformsStorageVec};
 
 /// Implementation of the vertex attributes for the vertex buffer
 #[derive(Copy, Clone)]
@@ -39,7 +41,7 @@ const VERTICES: [Vertex; 6] = [
 /// A node that renders a shader program
 pub struct ShaderNode {
     /// The Facade it uses to work with the OpenGL context
-    facade: Rc<Facade>,
+    facade: Rc<dyn Facade>,
     /// A shader program which it uses for rendering
     program: Program,
     /// Vertex buffer
@@ -50,7 +52,7 @@ pub struct ShaderNode {
 
 impl ShaderNode {
     /// Create a new instance
-    pub fn new(facade: &Rc<Facade>, config: ShaderConfig) -> Result<Self, Error> {
+    pub fn new(facade: &Rc<dyn Facade>, config: ShaderConfig) -> Result<Self, Error> {
         let file = File::open(config.vertex).context("Could not open vertex shader file")?;
         let mut buf_reader = BufReader::new(file);
         let mut vertex_source = String::new();
