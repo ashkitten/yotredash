@@ -4,15 +4,18 @@ branches:
 
 language: rust
 
+rust:
+  - nightly
+
 cache: cargo
 
 before_script:
-  - rustup component add rustfmt-preview
+  - rustup component add rustfmt
 
 script:
-  - cargo fmt -- --write-mode=diff
+  - cargo fmt -- --check
   - cargo build
-  - cargo test
+  - cargo test -- --nocapture
 
 addons:
   apt:
