@@ -74,8 +74,6 @@ impl GlyphLoader for FreeTypeRasterizer {
             RasterizationOptions::GrayscaleAa,
         )?;
 
-        let typographic_bounds = self.font.typographic_bounds(glyph_id)?;
-
         let mut canvas = Canvas::new(
             &Size2D::new(
                 raster_bounds.size.width as u32,
@@ -94,17 +92,16 @@ impl GlyphLoader for FreeTypeRasterizer {
         )?;
 
         let metrics = self.font.metrics();
-
         let scale = metrics.units_per_em as f32 / self.size;
 
         Ok(RenderedGlyph {
             buffer: canvas.pixels,
             width: canvas.size.width as u32,
             height: canvas.size.height as u32,
-            bearing_x: (typographic_bounds.origin.x / scale) as i32,
-            bearing_y: (typographic_bounds.origin.y / scale) as i32,
+            bearing_x: raster_bounds.origin.x as i32,
+            bearing_y: raster_bounds.origin.y as i32,
             advance: (self.font.advance(glyph_id)?.x / scale) as u32,
-            line_height: self.size as u32,
+            line_height: ((self.size / (metrics.ascent + metrics.descent)) * metrics.ascent) as u32,
         })
     }
 }
