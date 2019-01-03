@@ -1,25 +1,22 @@
 branches:
   only:
-    - master
-
+  - master
 language: rust
-
 rust:
-  - nightly
-
+- nightly
 cache: cargo
-
 before_script:
-  - rustup component add rustfmt
-
+- rustup component add rustfmt
 script:
-  - cargo fmt -- --check
-  - cargo build
-  - cargo test -- --nocapture
-
+- cargo fmt -- --check
+- cargo build
+- cargo test -- --nocapture
 addons:
   apt:
     packages:
-      - libgtk-3-dev
-      - libasound2-dev
-      - libjack-dev
+    - libgtk-3-dev
+    - libasound2-dev
+    - libjack-dev
+notifications:
+  webhooks:
+    - secure: "Tk7rfMxDQQLZ5axL63zzlMwD2jKHiu4zXRCXkUVFviP4mWg+g87xkes1rkQA39VJhG5ektFegscGODp5uMAlCs7KwkV40V1Q59v+ZZEagcUbo3LOZWmONEPuicjbWBYxD5jsTWWsuwMDpPKMCVCbkeFHdFM1ak4Wq0IvL97jUrMtQV7oXOk1QhjQ5p4TJJ8a7ICgjZwg0QdLCQaL7l0/TtleiJusPgeh2S8LJjQQpBicx06qkNunfGVcDqXMOKHFEIKMjnk5QP7IjeAmsshguHk2cBJZfs3oUuiSVtK2o4FRAt+NiiFGcUkcFCyrBU2Uuv6vqy604N0Z7YtiJqC9imEKzRSQE2mCFFv1Cj5g92P7/8yTjemHZeBcijgWeU5Ak67wvHVPiPyZK6AUq6LOF3yGvU5q+nOAkbUdlCssuTUE2P4lcKNC56/Pc07zfCIkgZJsmHkzY135JTkSb9ORDQryfDNGNGC2muU/FZEhfVqNiE6s9bcFRsMeNU14kSmK200whs6xq5Dt+ZCrkuysJKEaMW35nS2D5zzh0dkt72075EnOps4tGVVZ+Tl5P2gtV3VgZGV1RkER/zKsPt7To4t3hDznKWm2wnz3nHDIAsW6hyWvJh9jujbSKc/6DVdmRmZg8O1p4ftHOCQk66nmcEo21sV3d9sOuMyJG6MWdmw="
