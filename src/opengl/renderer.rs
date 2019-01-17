@@ -11,7 +11,7 @@ use glium::{
     uniforms::MagnifySamplerFilter,
     BlitTarget, Rect, Surface,
 };
-use image;
+use ::image;
 use log::{debug, warn};
 use solvent::DepGraph;
 use std::{
@@ -28,7 +28,7 @@ use crate::{
         Config,
     },
     event::RendererEvent,
-    DebugRenderer, Renderer,
+    renderer::{DebugRenderer, Renderer},
 };
 
 type NodeMap = HashMap<String, NodeType>;

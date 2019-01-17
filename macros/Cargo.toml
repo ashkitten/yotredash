@@ -1,0 +1,15 @@
+[package]
+name = "macros"
+version = "0.1.0"
+authors = ["ash lea <ashlea@protonmail.com>"]
+edition = "2018"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+failure = "0.1.5"
+log = "0.4.3"
+proc-macro2 = "0.4.25"
+quote = "0.6.10"
+syn = { version = "0.15.26", features = [ "full" ] }

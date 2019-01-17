@@ -45,9 +45,8 @@
 use env_logger;
 use failure::{format_err, Error};
 use log::{debug, error, info, trace, warn};
-use nfd;
+use macros::wrap_result;
 use notify::{self, Watcher};
-use rect_packer;
 use std::{path::Path, sync::mpsc};
 use time;
 use winit;
@@ -57,6 +56,7 @@ pub mod event;
 pub mod font;
 pub mod opengl;
 pub mod platform;
+pub mod renderer;
 pub mod util;
 
 #[cfg(unix)]
@@ -68,35 +68,9 @@ use crate::{
     config::{nodes::NodeConfig, Config},
     event::*,
     opengl::renderer::{OpenGLDebugRenderer, OpenGLRenderer},
+    renderer::{DebugRenderer, Renderer},
+    util::format_error,
 };
-
-/// Renders a configured shader
-pub trait Renderer {
-    /// Do stuff like handle event queue, reload, etc
-    fn update(&mut self) -> Result<(), Error>;
-    /// Render the current frame
-    fn render(&mut self) -> Result<(), Error>;
-    /// Tells the renderer to swap buffers (only applicable to buffered renderers)
-    fn swap_buffers(&self) -> Result<(), Error>;
-}
-
-/// Renders errors
-pub trait DebugRenderer {
-    /// Draw an error on the window
-    fn draw_error(&mut self, error: &Error) -> Result<(), Error>;
-}
-
-fn format_error(error: &Error) -> String {
-    let mut causes = error.iter_chain();
-    format!(
-        "{}{}",
-        causes.next().unwrap(),
-        causes
-            .map(|cause| format!("\nCaused by: {}", cause))
-            .collect::<Vec<String>>()
-            .join("")
-    )
-}
 
 fn setup_watches(
     config_path: &Path,
@@ -136,7 +110,8 @@ fn setup_watches(
     Ok((watcher, receiver))
 }
 
-fn run() -> Result<(), Error> {
+#[wrap_result("std::process::exit(0)")]
+fn main() -> Result<(), Error> {
     use libc::c_char;
     use std::ffi::CStr;
 
@@ -212,7 +187,7 @@ fn run() -> Result<(), Error> {
 
     let (mut event_sender, event_receiver) = mpsc::channel();
     // TODO: return something renderer-independent instead of Facade
-    let (mut renderer, mut debug_renderer, _facade) = match config.renderer.as_ref() as &str {
+    let (mut renderer, mut debug_renderer, facade) = match config.renderer.as_ref() as &str {
         "opengl" => {
             let facade = opengl::renderer::new_facade(&config, &events_loop)?;
             let renderer = match OpenGLRenderer::new(&config, &facade, event_receiver) {
@@ -386,11 +361,10 @@ fn run() -> Result<(), Error> {
                             watcher = watcher_;
                             receiver = receiver_;
 
-                            let (event_sender_, _event_receiver) = mpsc::channel();
+                            let (event_sender_, event_receiver) = mpsc::channel();
                             event_sender = event_sender_;
 
                             renderer = match config.renderer.as_ref() as &str {
-                                #[cfg(feature = "opengl")]
                                 "opengl" => {
                                     match OpenGLRenderer::new(&config, &facade, event_receiver) {
                                         Ok(r) => {
@@ -424,39 +398,4 @@ fn run() -> Result<(), Error> {
             }
         }
     }
-}
-
-fn main() {
-    use std::io::Write;
-
-    std::process::exit(match run() {
-        Ok(()) => 0,
-        Err(ref error) => {
-            let mut causes = error.iter_chain();
-
-            error!(
-                "{}",
-                causes
-                    .next()
-                    .expect("`causes` should contain at least one error")
-            );
-            for cause in causes {
-                error!("Caused by: {}", cause);
-            }
-
-            let backtrace = format!("{}", error.backtrace());
-            if backtrace.is_empty() {
-                writeln!(
-                    ::std::io::stderr(),
-                    "Set RUST_BACKTRACE=1 to see a backtrace"
-                )
-                .expect("Could not write to stderr");
-            } else {
-                writeln!(::std::io::stderr(), "{}", error.backtrace())
-                    .expect("Could not write to stderr");
-            }
-
-            1
-        }
-    });
 }

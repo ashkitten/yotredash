@@ -48,10 +48,9 @@ impl ImageNode {
         where
             D: ImageDecoder,
         {
-            let buffer = decoder.into_frames()?.nth(0).unwrap().into_buffer();
-            let (width, height) = buffer.dimensions();
-            let buffer = buffer.into_raw();
-            let raw = RawImage2d::from_raw_rgba_reversed(&buffer, (width, height));
+            let (width, height) = decoder.dimensions();
+            let buffer = decoder.read_image()?;
+            let raw = RawImage2d::from_raw_rgba_reversed(&buffer, (width as u32, height as u32));
             let textures = vec![Rc::new(Texture2d::with_mipmaps(
                 &**facade,
                 raw,
@@ -68,14 +67,14 @@ impl ImageNode {
 
         let format = image::guess_format(&buf)?;
         Ok(match format {
-            BMP => decode_single(facade, image::bmp::BMPDecoder::new(buf_reader))?,
+            BMP => decode_single(facade, image::bmp::BMPDecoder::new(buf_reader)?)?,
             ICO => decode_single(facade, image::ico::ICODecoder::new(buf_reader)?)?,
-            JPEG => decode_single(facade, image::jpeg::JPEGDecoder::new(buf_reader))?,
-            PNG => decode_single(facade, image::png::PNGDecoder::new(buf_reader))?,
+            JPEG => decode_single(facade, image::jpeg::JPEGDecoder::new(buf_reader)?)?,
+            PNG => decode_single(facade, image::png::PNGDecoder::new(buf_reader)?)?,
             PNM => decode_single(facade, image::pnm::PNMDecoder::new(buf_reader)?)?,
-            TGA => decode_single(facade, image::tga::TGADecoder::new(buf_reader))?,
+            TGA => decode_single(facade, image::tga::TGADecoder::new(buf_reader)?)?,
             TIFF => decode_single(facade, image::tiff::TIFFDecoder::new(buf_reader)?)?,
-            WEBP => decode_single(facade, image::webp::WebpDecoder::new(buf_reader))?,
+            WEBP => decode_single(facade, image::webp::WebpDecoder::new(buf_reader)?)?,
             GIF => {
                 let mut decoder = gif::Decoder::new(buf_reader);
                 decoder.set(gif::ColorOutput::Indexed);

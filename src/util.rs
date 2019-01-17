@@ -1,5 +1,6 @@
 //! Various utilities that don't really have a place elsewhere
 
+use failure::Error;
 use time::{self, Duration, Tm};
 
 /// A simple struct to count frames per second and update at a set interval
@@ -41,4 +42,16 @@ impl FpsCounter {
     pub fn fps(&self) -> f32 {
         self.fps
     }
+}
+
+pub fn format_error(error: &Error) -> String {
+    let mut causes = error.iter_chain();
+    format!(
+        "{}{}",
+        causes.next().unwrap(),
+        causes
+            .map(|cause| format!("\nCaused by: {}", cause))
+            .collect::<Vec<String>>()
+            .join("")
+    )
 }
