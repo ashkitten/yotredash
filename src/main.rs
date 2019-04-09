@@ -41,17 +41,18 @@
 
 // Warn if things are missing documentation
 #![warn(missing_docs)]
+#![feature(c_variadic)]
 
 use env_logger;
 use failure::{format_err, Error};
-use log::{debug, error, info, trace, warn};
-use macros::wrap_result;
+use log::{error, info, warn};
 use notify::{self, Watcher};
 use std::{path::Path, sync::mpsc};
 use time;
 use winit;
 
 pub mod config;
+pub mod clog;
 pub mod event;
 pub mod font;
 pub mod opengl;
@@ -110,31 +111,8 @@ fn setup_watches(
     Ok((watcher, receiver))
 }
 
-#[wrap_result("std::process::exit(0)")]
 fn main() -> Result<(), Error> {
-    use libc::c_char;
-    use std::ffi::CStr;
-
-    extern "C" {
-        fn set_message_handler(log_cb: extern "C" fn(u8, *const c_char, *const c_char));
-    }
-
-    extern "C" fn log_cb(level: u8, lib: *const c_char, msg: *const c_char) {
-        let lib = unsafe { CStr::from_ptr(lib) }.to_string_lossy();
-        let msg = unsafe { CStr::from_ptr(msg) }.to_string_lossy();
-        match level {
-            0 => trace!(target: &lib, "{}", msg),
-            1 => debug!(target: &lib, "{}", msg),
-            2 => info!(target: &lib, "{}", msg),
-            3 => warn!(target: &lib, "{}", msg),
-            4 => error!(target: &lib, "{}", msg),
-            _ => panic!("Unsupported log level"),
-        }
-    }
-
-    unsafe {
-        set_message_handler(log_cb);
-    }
+    crate::clog::setup_c_logging();
 
     env_logger::Builder::from_default_env()
         .format(|buf, record| {
@@ -348,8 +326,9 @@ fn main() -> Result<(), Error> {
                         event_sender.send(RendererEvent::Pointer(pointer_event))?;
                     }
                 }
-                Event::Resize(width, height) => {
+                Event::Resize(..) => {
                     if renderer.is_some() {
+                        let (width, height) = facade.get_context().get_framebuffer_dimensions();
                         event_sender.send(RendererEvent::Resize(width, height))?;
                     }
                 }

@@ -1,5 +1,6 @@
 //! An implementation of `Renderer` using OpenGL
 
+use ::image;
 use failure::{bail, ensure, format_err, Error, ResultExt, SyncFailure};
 use glium::{
     backend::{
@@ -11,7 +12,6 @@ use glium::{
     uniforms::MagnifySamplerFilter,
     BlitTarget, Rect, Surface,
 };
-use ::image;
 use log::{debug, warn};
 use solvent::DepGraph;
 use std::{
