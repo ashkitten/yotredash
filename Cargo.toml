@@ -21,7 +21,7 @@ serde = "1.0.70"
 serde_derive = "1.0.70"
 serde_yaml = "0.8.8"
 solvent = "0.8.1"
-time = "0.1.42"
+time = "0.2.0"
 winit = "0.18.1"
 glium = { git = "https://github.com/ashkitten/glium" }
 gif = "0.10.0"
