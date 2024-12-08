@@ -26,7 +26,7 @@ winit = "0.18.1"
 glium = { git = "https://github.com/ashkitten/glium" }
 gif = "0.10.0"
 gif-dispose = "2.1.1"
-image = "0.21.0"
+image = "0.22.5"
 fftw = "0.5.1"
 libc = "0.2.47"
 num-traits = "0.2.5"
